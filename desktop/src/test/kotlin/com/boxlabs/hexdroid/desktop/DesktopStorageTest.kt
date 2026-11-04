@@ -62,6 +62,9 @@ class DesktopStorageTest {
             fun zip(name:String,body:String):ByteArray { val out=ByteArrayOutputStream();ZipOutputStream(out).use{z->z.putNextEntry(ZipEntry(name));z.write(body.toByteArray(Charsets.UTF_8));z.closeEntry()};return out.toByteArray() }
             val incoming=zip(path,before+"[04/11/2026 12:00:01] <DemoNick02> Importado 🙂\n")
             assertEquals(1,h.restore(incoming.inputStream()));assertEquals(0,h.restore(incoming.inputStream()));assertEquals(2,file.readLines().size);assertTrue(file.readText().startsWith(before))
+            val repeated="[04/11/2026 12:00:02] <DemoNick03> Mensaje repetido legítimamente\n"
+            val withRepeats=zip(path,file.readText()+repeated+repeated)
+            assertEquals(2,h.restore(withRepeats.inputStream()));assertEquals(0,h.restore(withRepeats.inputStream()));assertEquals(2,file.readLines().count { it.contains("Mensaje repetido legítimamente") })
             val bytes=file.readBytes();assertThrows(IllegalArgumentException::class.java){h.restore(zip("../escape.txt","invalid").inputStream())};assertArrayEquals(bytes,file.readBytes())
         } }finally{dir.deleteRecursively()}
     }

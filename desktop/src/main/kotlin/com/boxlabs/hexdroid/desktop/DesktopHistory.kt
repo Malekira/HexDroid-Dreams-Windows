@@ -97,14 +97,17 @@ class DesktopHistory(directory:File):Closeable {
             var added=0
             for(path in paths) {
                 val dest=HistoryFiles.resolve(root,path);dest.parentFile.mkdirs()
-                // On-disk temporary dedup table keeps a large import out of memory.
-                db.createStatement().use { it.execute("CREATE TEMP TABLE IF NOT EXISTS import_lines (line TEXT PRIMARY KEY)");it.execute("DELETE FROM import_lines") }
-                db.prepareStatement("INSERT OR IGNORE INTO import_lines(line) VALUES(?)").use { insert->
+                // Count occurrences on disk: merging must preserve two legitimate identical
+                // messages in the same second, while restoring the same backup stays idempotent.
+                db.createStatement().use { it.execute("DROP TABLE IF EXISTS temp.import_lines");it.execute("CREATE TEMP TABLE import_lines (line TEXT PRIMARY KEY, existing INTEGER NOT NULL DEFAULT 0, seen INTEGER NOT NULL DEFAULT 0)") }
+                db.prepareStatement("INSERT INTO import_lines(line,existing) VALUES(?,1) ON CONFLICT(line) DO UPDATE SET existing=existing+1").use { insert->
                     if(dest.exists())dest.useLines { lines->lines.forEach { insert.setString(1,it);insert.executeUpdate() } }
                 }
                 HistoryFiles.resolve(staging,path).useLines { lines->
                     FileOutputStream(dest,true).bufferedWriter(Charsets.UTF_8).use { out->
-                        db.prepareStatement("INSERT OR IGNORE INTO import_lines(line) VALUES(?)").use { insert->lines.forEach { line->insert.setString(1,line);if(insert.executeUpdate()>0){out.appendLine(line);added++} } }
+                        db.prepareStatement("INSERT INTO import_lines(line,seen) VALUES(?,1) ON CONFLICT(line) DO UPDATE SET seen=seen+1 RETURNING seen>existing").use { insert->
+                            lines.forEach { line->insert.setString(1,line);val append=insert.executeQuery().use { it.next() && it.getBoolean(1) };if(append){out.appendLine(line);added++} }
+                        }
                     }
                 }
             }
