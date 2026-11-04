@@ -1,0 +1,13 @@
+HexDroid Dreams for Windows
+
+Derived from HexDroidIRC, Copyright (C) 2026 boxlabs and contributors.
+This software is distributed under GNU GPL version 3 or any later version.
+The original credits and GPL license are preserved in the source repository.
+
+Complete corresponding source and build instructions:
+https://github.com/Malekira/HexDroidVip/tree/feat/dreams-desktop-windows
+
+This distribution includes the Java runtime and libraries from Kotlin,
+Compose Multiplatform, kotlinx.coroutines, Bouncy Castle, Xerial SQLite JDBC,
+JNA and TwelveMonkeys ImageIO. Their own licenses apply to those components;
+license notices are retained in the bundled JARs and Java runtime legal folder.

@@ -99,7 +99,7 @@ object SocksProxy {
         soTimeoutMs: Int,
         tcpNoDelay: Boolean,
         keepAlive: Boolean,
-        pinnedNetwork: android.net.Network? = null,
+        pinnedNetwork: com.boxlabs.hexdroid.IrcNetwork? = null,
     ): Socket {
         require(cfg.enabled) { "SocksProxy.connect called with a disabled proxy config" }
 

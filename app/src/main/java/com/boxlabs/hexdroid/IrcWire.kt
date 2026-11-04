@@ -410,7 +410,7 @@ internal fun parseZncListNetworksLine(line: String): IrcEvent.BouncerNetwork? {
  */
 internal fun resolveAllWithTimeout(
     host: String,
-    network: android.net.Network?,
+    network: com.boxlabs.hexdroid.IrcNetwork?,
     timeoutMs: Int,
 ): Array<InetAddress> {
     val task = java.util.concurrent.FutureTask<Array<InetAddress>> {

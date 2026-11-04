@@ -21,3 +21,6 @@ local.properties
 *.pfx
 DREAMS_RELEASE_KEYSTORE_B64*
 __pycache__/
+
+# Standalone Windows desktop build products.
+/desktop/build/

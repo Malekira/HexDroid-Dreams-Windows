@@ -18,7 +18,6 @@
 
 package com.boxlabs.hexdroid
 
-import android.annotation.SuppressLint
 import com.boxlabs.hexdroid.connection.ConnectionConstants
 import com.boxlabs.hexdroid.connection.SocksProxy
 import java.io.ByteArrayInputStream
@@ -172,10 +171,11 @@ internal fun IrcClient.openSocket(): Socket {
                         // runs on the connect thread, since Keystore generation is slow. If the
                         // Keystore can't make or read it, connect without one rather than not at all.
                         try {
-                            if (NetworkCertificates.ensure(alias)) netCertCreated = true
-                            arrayOf<KeyManager>(KeystoreKeyManager(alias))
+                            val certificate = ircPlatformCertificate(alias)
+                            if (certificate.first) netCertCreated = true
+                            certificate.second
                         } catch (t: Throwable) {
-                            android.util.Log.w("IrcCore", "network certificate unavailable", t)
+                            ircPlatformWarning("network certificate unavailable", t)
                             netCertUnavailable = true
                             cacheable = false
                             null
@@ -497,7 +497,7 @@ internal fun IrcClient.friendlyErrorMessage(t: Throwable): String {
     }
 }
 
-@SuppressLint("TrustAllX509TrustManager")
+@IrcSuppressLint("TrustAllX509TrustManager")
 private class InsecureTrustManager : X509TrustManager {
     override fun getAcceptedIssuers() = arrayOf<java.security.cert.X509Certificate>()
     override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}

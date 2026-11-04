@@ -1,6 +1,6 @@
 package com.boxlabs.hexdroid.crypto
 
-import android.util.Base64
+import java.util.Base64
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -46,7 +46,7 @@ internal class BlowfishCipher(private val key: ByteArray) : E2eCipher {
         System.arraycopy(iv, 0, payload, 0, iv.size)
         System.arraycopy(ct, 0, payload, iv.size, ct.size)
 
-        val b64 = Base64.encodeToString(payload, Base64.NO_WRAP)
+        val b64 = Base64.getEncoder().encodeToString(payload)
         return "${scheme.wirePrefix} *$b64"
     }
 
@@ -63,7 +63,7 @@ internal class BlowfishCipher(private val key: ByteArray) : E2eCipher {
 
     private fun decryptCbc(b64: String): String? {
         val raw = try {
-            Base64.decode(b64, Base64.DEFAULT)
+            Base64.getMimeDecoder().decode(b64)
         } catch (_: IllegalArgumentException) {
             return null
         }

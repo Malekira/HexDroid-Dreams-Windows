@@ -190,3 +190,7 @@ Full license text in [LICENSE](LICENSE).
 *Built with [Kotlin](https://kotlinlang.org/) · [Jetpack Compose](https://developer.android.com/jetpack/compose) · [Material Design 3](https://m3.material.io/)*
 
 </div>
+
+## HexDroid Dreams para Windows x64
+
+La rama `feat/dreams-desktop-windows` incorpora una aplicación de escritorio con Java incluido. [Funciones, pruebas, instalación y límites de la primera versión](docs/DREAMS_DESKTOP_WINDOWS.md).

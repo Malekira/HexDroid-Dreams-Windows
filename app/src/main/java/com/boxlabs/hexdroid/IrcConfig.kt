@@ -236,7 +236,7 @@ data class IrcConfig(
      * default routing. Pinning makes a Wi-Fi/cellular handoff drop the socket promptly, and lets
      * the ViewModel match its onLost callback to this connection.
      */
-    val pinnedNetwork: android.net.Network? = null
+    val pinnedNetwork: com.boxlabs.hexdroid.IrcNetwork? = null
 ) {
     /**
      * The authentication identity for this connection, with the bouncer network name and client id

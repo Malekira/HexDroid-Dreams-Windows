@@ -331,7 +331,7 @@ internal suspend fun IrcClient.handleMessageCommand(
                 // diagnosis.
                 // Playback repeats ciphertexts already seen; append() deduplicates those.
                 val replayedLine = playbackHistory || isHeuristicHistory(buf, serverTimeMs, nowMs) ||
-                    (serverTimeMs != null && serverTimeMs < nowMs - BufferLog.REPLAY_SUSPICION_MS)
+                    (serverTimeMs != null && serverTimeMs < nowMs - ircPlatformReplaySuspicionMs)
                 val codecResult = e2eCodec?.decryptIncoming(buf, rawText, currentNick, replay = replayedLine)
                 val text = codecResult?.text ?: rawText
                 val encryption: com.boxlabs.hexdroid.crypto.E2eScheme? = codecResult?.let { r ->
@@ -475,7 +475,7 @@ internal suspend fun IrcClient.handleMessageCommand(
                 val rawNoticeText = text
                 val noticeLookupTarget = if (isChannel) target else from
                 val noticeReplayed = playbackHistory || isHeuristicHistory(histBuf, serverTimeMs, nowMs) ||
-                    (serverTimeMs != null && serverTimeMs < nowMs - BufferLog.REPLAY_SUSPICION_MS)
+                    (serverTimeMs != null && serverTimeMs < nowMs - ircPlatformReplaySuspicionMs)
                 val noticeCodecResult = e2eCodec?.decryptIncoming(noticeLookupTarget, rawNoticeText, currentNick, replay = noticeReplayed)
                 val noticeText = noticeCodecResult?.text ?: rawNoticeText
                 val noticeEncryption: com.boxlabs.hexdroid.crypto.E2eScheme? = noticeCodecResult?.let { r ->

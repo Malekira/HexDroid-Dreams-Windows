@@ -1444,9 +1444,6 @@ class SettingsRepository(private val ctx: Context) {
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, MATRIX, TERMINAL }
 
-data class AutoJoinChannel(val channel: String, val key: String? = null) {
-    fun toLine(): String = if (key.isNullOrBlank()) channel else "$channel $key"
-}
 
 data class NetworkProfile(
     val id: String,

@@ -2450,7 +2450,7 @@ class IrcClient(val config: IrcConfig) {
                 // ([BACKGROUND_PING_INTERVAL_MS]) but kept under the read timeout. Recomputed every
                 // cycle, so foreground changes apply on the next ping.
                 val pingIntervalMs = when {
-                    !AppVisibility.isForeground -> ConnectionConstants.BACKGROUND_PING_INTERVAL_MS
+                    !ircPlatformIsForeground() -> ConnectionConstants.BACKGROUND_PING_INTERVAL_MS
                     config.isBouncer            -> 90_000L
                     else                        -> 60_000L
                 }
@@ -2753,7 +2753,7 @@ class IrcClient(val config: IrcConfig) {
 				} catch (e: java.io.IOException) {
 					throw e
 				} catch (t: Throwable) {
-					android.util.Log.w("IrcCore", "skipped a line that failed to process: ${msg.command}", t)
+					ircPlatformWarning("skipped a line that failed to process: ${msg.command}", t)
 				}
 			}
 

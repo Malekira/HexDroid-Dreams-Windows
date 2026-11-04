@@ -1,0 +1,150 @@
+name: HexDroid Dreams - Windows x64
+
+on:
+  push:
+    branches: [feat/dreams-desktop-windows]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dreams-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-regression:
+    name: Preserve Android build and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Android and run existing unit tests
+        run: bash ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --no-configuration-cache
+      - name: Require real Android regression results
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as E
+          totals = dict.fromkeys(('tests','failures','errors','skipped'),0)
+          for path in Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'):
+              root = E.parse(path).getroot()
+              for name in totals: totals[name] += int(root.get(name,0))
+          print(totals)
+          assert totals['tests'] >= 121 and not any(totals[k] for k in ('failures','errors','skipped'))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-port-Android-regression
+          path: app/build/reports/tests/
+          retention-days: 14
+
+  windows:
+    name: Test and package Windows 11 x64
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          architecture: x64
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run desktop protocol, persistence, UI and native Windows tests
+        shell: pwsh
+        run: ./gradlew.bat -p desktop test uiTest windowsTest --no-daemon --max-workers=2
+      - name: Require every desktop-specific test to pass
+        run: python tools/verify_desktop_reports.py
+      - name: Ensure WiX 3 for Java installer packaging
+        shell: pwsh
+        run: |
+          $wix = Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'WiX Toolset v3*' | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $wix) {
+            choco install wixtoolset --version=3.14.1 --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed' }
+            $wix = Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'WiX Toolset v3*' | Sort-Object Name -Descending | Select-Object -First 1
+          }
+          if (-not $wix -or -not (Test-Path "$($wix.FullName)\bin\light.exe")) { throw 'WiX 3 not available' }
+          "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Create the MSI with the bundled Java runtime
+        shell: pwsh
+        run: ./gradlew.bat -p desktop packageMsi --no-daemon --max-workers=2
+      - name: Install, launch and uninstall the actual MSI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = Get-ChildItem 'desktop/build/compose/binaries/main/msi' -Filter '*.msi' | Select-Object -First 1
+          if (-not $msi) { throw 'MSI was not produced' }
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $database = $installer.OpenDatabase($msi.FullName, 0)
+          $view = $database.OpenView("SELECT Value FROM Property WHERE Property='ProductCode'")
+          $view.Execute()
+          $product = $view.Fetch().StringData(1)
+          $view.Close()
+          $installed = $false
+          $data = Join-Path $env:RUNNER_TEMP ('dreams-data-' + [guid]::NewGuid().ToString())
+          $cert = Join-Path $env:RUNNER_TEMP ('dreams-test-' + [guid]::NewGuid().ToString() + '.p12')
+          try {
+            $install = Start-Process msiexec.exe -ArgumentList @('/i', "`"$($msi.FullName)`"", '/qn', '/norestart', '/l*v', "`"$env:RUNNER_TEMP/dreams-install.log`"") -Wait -PassThru
+            if ($install.ExitCode -notin @(0,3010)) { throw "MSI installation failed: $($install.ExitCode)" }
+            $installed = $true
+            $location = $installer.ProductInfo($product, 'InstallLocation')
+            $roots = @($location, (Join-Path $env:LOCALAPPDATA 'HexDroid Dreams'), (Join-Path $env:LOCALAPPDATA 'Programs/HexDroid Dreams')) | Where-Object { $_ -and (Test-Path $_) }
+            $exe = $roots | ForEach-Object { Get-ChildItem $_ -Filter 'HexDroid Dreams.exe' -Recurse } | Select-Object -First 1
+            if (-not $exe) { throw 'Installed launcher not found' }
+            & "$env:JAVA_HOME/bin/keytool.exe" -genkeypair -alias smoke -keyalg EC -groupname secp256r1 -dname 'CN=localhost' -ext 'SAN=dns:localhost,ip:127.0.0.1' -validity 1 -storetype PKCS12 -keystore $cert -storepass 'test-only-smoke' -keypass 'test-only-smoke' -noprompt
+            if ($LASTEXITCODE -ne 0) { throw 'Disposable TLS certificate creation failed' }
+            $smoke = Start-Process -FilePath $exe.FullName -ArgumentList @('--smoke-test','--data-dir',"`"$data`"",'--tls-certificate',"`"$cert`"") -Wait -PassThru
+            if ($smoke.ExitCode -ne 0 -or -not (Test-Path "$data/smoke-ok.txt")) { throw "Installed runtime smoke test failed: $($smoke.ExitCode)" }
+            Get-Content "$data/smoke-ok.txt" | Out-File -Encoding utf8 'desktop/build/reports/installed-runtime.txt'
+          } finally {
+            if ($installed) {
+              $remove = Start-Process msiexec.exe -ArgumentList @('/x', $product, '/qn', '/norestart') -Wait -PassThru
+              if ($remove.ExitCode -notin @(0,3010)) { throw "MSI uninstall failed: $($remove.ExitCode)" }
+              if (-not (Test-Path "$data/smoke-ok.txt")) { throw 'Uninstall removed the external data directory' }
+            }
+            Remove-Item $cert -Force -ErrorAction SilentlyContinue
+          }
+      - name: Prepare verified Windows downloads
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force windows-download | Out-Null
+          Get-ChildItem 'desktop/build/compose/binaries/main' -Recurse -File | Where-Object { $_.Extension -eq '.msi' -and $_.DirectoryName -match '\\msi$' } | Copy-Item -Destination windows-download
+          Copy-Item LICENSE windows-download/COPYING.txt
+          Copy-Item desktop/resources/common/LEGAL.txt windows-download/LEGAL.txt
+          $files = Get-ChildItem windows-download -File | Where-Object { $_.Extension -in @('.msi','.exe') }
+          if ($files.Count -ne 1) { throw 'One verified MSI installer is required' }
+          $files | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(); "$hash  $($_.Name)" } | Set-Content windows-download/SHA256SUMS.txt
+          Get-Content windows-download/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        id: installer
+        with:
+          name: HexDroid-Dreams-Windows-x64
+          path: windows-download/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Write installation instructions
+        shell: pwsh
+        env:
+          ARTIFACT_URL: ${{ steps.installer.outputs.artifact-url }}
+        run: |
+          "## HexDroid Dreams — Windows 11 x64`n`n[Descargar instaladores (ZIP)]($env:ARTIFACT_URL)`n`nExtraer el ZIP y abrir el MSI. Java está incluido; no requiere Android Studio ni un emulador. Instalador de prueba sin firma comercial. Los datos se guardan en LOCALAPPDATA/HexDroidDreamsData, fuera de la instalación.`n`nCódigo: $env:GITHUB_SHA`n`nMSI instalado, ejecutado con pruebas de TLS/IRC/DPAPI/historial y desinstalado correctamente en el runner Windows x64. La prueba en el equipo Windows 11 del usuario sigue siendo necesaria." | Out-File $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+      - name: Upload diagnostic reports and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-desktop-test-reports
+          path: |
+            desktop/build/reports/
+            desktop/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14

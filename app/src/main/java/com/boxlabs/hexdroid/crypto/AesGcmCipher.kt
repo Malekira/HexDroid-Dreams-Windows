@@ -18,7 +18,7 @@
 
 package com.boxlabs.hexdroid.crypto
 
-import android.util.Base64
+import java.util.Base64
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 
@@ -57,7 +57,7 @@ internal class AesGcmCipher(private val key: ByteArray) : E2eCipher {
         System.arraycopy(nonce, 0, out, 1, NONCE_LEN)
         System.arraycopy(ct, 0, out, 1 + NONCE_LEN, ct.size)
 
-        return "${scheme.wirePrefix} " + Base64.encodeToString(out, Base64.NO_WRAP or Base64.NO_PADDING)
+        return "${scheme.wirePrefix} " + Base64.getEncoder().withoutPadding().encodeToString(out)
     }
 
     override fun decrypt(wireText: String, aadContext: String, allowRepeat: Boolean): String? {
@@ -66,7 +66,7 @@ internal class AesGcmCipher(private val key: ByteArray) : E2eCipher {
             val b64 = wireText.substring(prefix.length).trim()
             // Tolerate both padded and unpadded base64. We emit unpadded (NO_PADDING)
             val raw = try {
-                Base64.decode(b64, Base64.DEFAULT)
+                Base64.getMimeDecoder().decode(b64)
             } catch (_: IllegalArgumentException) {
                 return null
             }
@@ -90,7 +90,7 @@ internal class AesGcmCipher(private val key: ByteArray) : E2eCipher {
 
                     // Replay guard
                     val replayKey = convLower + "\u0000" +
-                    Base64.encodeToString(nonce, Base64.NO_WRAP or Base64.NO_PADDING)
+                    Base64.getEncoder().withoutPadding().encodeToString(nonce)
                     synchronized(seenNonces) {
                         if (seenNonces.put(replayKey, PRESENT) != null && !allowRepeat) {
                             // Already seen for this conversation -> replayed/duplicate. Drop it.
