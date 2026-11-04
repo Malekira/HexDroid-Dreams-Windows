@@ -22,18 +22,18 @@ Aplicación nativa de escritorio con Compose Desktop y Java 21 incluido. No util
 - Perfiles de red: crear, editar, duplicar y eliminar; TLS con validación de certificados, SASL PLAIN/SCRAM/EXTERNAL, proxies y bouncers mediante el motor IRC existente. Importación de certificado cliente PKCS#12 cuando corresponda.
 - Árboles independientes y plegables de salas y privados por red; mensajes, acciones, lista real de miembros, cambios de nick y avisos de entrada/salida sin inflar los no leídos.
 - Comandos IRC, `/j sala`, consultas y WHOIS agrupado con idle 317 y tiempo conectado cuando el servidor los suministra. WHOIS interno movible, minimizable, recuperable y copiable, con destinos simultáneos configurables. NOTICE respeta su red y no crea PV de servidor.
-- Notificaciones del sistema para privados y menciones, opción para la sala visible y apertura del mensaje concreto. Requieren que Windows permita notificaciones del programa.
+- Notificaciones nativas de bandeja para privados y menciones, opción para la sala visible y apertura del último mensaje notificado. Requieren que Windows permita notificaciones del programa. Windows puede reemplazar o agrupar avisos; esta primera versión mantiene un único destino de apertura en el icono, correspondiente al aviso más reciente.
 - Editor con formato IRC persistente, colores de texto/fondo, Tab manual para nicks y selección/ciclo entre coincidencias. Retroceso borra normalmente; flechas de teclado recorren hasta diez mensajes enviados por conversación durante la sesión. Editor de topic con formato y envío TOPIC real, sujeto a permisos del servidor.
 - Temas claro/oscuro y temas personalizados con nombre, vista previa, colores hexadecimales/selector, duplicación y eliminación. Los colores IRC del remitente se conservan.
 - Historial TXT UTF-8 permanente, sin vencimiento ni límite artificial de líneas; índice SQLite y detección persistente de mensajes repetidos. Búsqueda por palabras/nick/fecha, exportación TXT/ZIP, restauración que agrega y conserva lo existente, eliminación explícita con confirmación. Copias organizadas por día/conversación o combinadas y carpeta elegible. Las 1.500 líneas de memoria y las páginas de búsqueda solo limitan la presentación.
-- Importación de respaldo Android JSON o ZIP compatible. La exportación permite incluir historial y cifrar credenciales con frase de paso usando el formato criptográfico existente. Se conservan opciones importadas desconocidas sin fingir que la interfaz de escritorio las implementa.
+- Importación de respaldo Android JSON o ZIP compatible. La exportación permite incluir historial y cifrar credenciales de red con frase de paso usando el formato criptográfico existente. Se conservan campos desconocidos de los perfiles y ajustes sin fingir que la interfaz de escritorio los implementa; otros apartados del respaldo Android, como preferencias particulares por canal, no se trasladan en esta versión.
 - Motor `.hex` real: importar, habilitar, editar, recargar y eliminar scripts; comandos, eventos, miembros, temporizadores y paneles básicos con acciones. Los scripts se importan desactivados y las solicitudes HTTPS requieren habilitación explícita. No hay saludos integrados nuevos.
 - Avatares por URL de perfil/metadatos y resolución ChatZona existente; caché, carga acotada y ampliación. Con un proxy configurado no se descargan avatares externos; los scripts HTTPS también se deshabilitan para evitar conexiones directas inesperadas.
 - Cifrado compatible AGM/FiSH del motor compartido, mediante `/setkey` y `/delkey`. Registrar texto descifrado es una opción independiente y permanece desactivada inicialmente.
 
 ### Datos y privacidad
 
-Los datos normales viven en `%LOCALAPPDATA%\HexDroidDreamsData`, fuera de la carpeta instalada. `settings.json` guarda perfiles y preferencias; `credentials.dpapi` protege contraseñas, claves de conversación y certificados importados con Windows DPAPI, vinculado al usuario de Windows. Copiar ese archivo a otra cuenta no es un respaldo portable: utilizar exportación cifrada.
+Los datos normales viven en `%LOCALAPPDATA%\HexDroidDreamsData`, fuera de la carpeta instalada. `settings.json` guarda perfiles y preferencias; `credentials.dpapi` protege contraseñas, claves de conversación y certificados importados con Windows DPAPI, vinculado al usuario de Windows. Copiar ese archivo a otra cuenta no es un respaldo portable: utilizar exportación cifrada para las credenciales de red. Las claves AGM/FiSH no se incluyen en la copia portable de esta versión; conservarlas por separado de forma segura.
 
 `logs` conserva los TXT canónicos por red y conversación; `history.db` es su índice. La carpeta seleccionada para registros organizados recibe una copia adicional: no mueve ni elimina archivos previos. Cambiar opciones, desconectar o desinstalar no ordena borrar historiales. Un borrado manual desde la app requiere confirmación y no borra copias que se hayan exportado a otras carpetas. Los registros son texto legible; no compartirlos sin revisar su contenido. Los comandos de autenticación y patrones conocidos de secretos se excluyen o redactan; evitar escribir secretos en conversaciones.
 
@@ -61,16 +61,48 @@ Para desarrollo Linux, las pruebas unitarias usan `test`; las pruebas gráficas 
 
 El workflow `.github/workflows/dreams-windows.yml` ejecuta pruebas JVM, gráficas y DPAPI en Windows Server 2025 x64, genera el MSI, lo instala, ejecuta el programa instalado y lo desinstala. La prueba del runtime instalado valida perfiles, DPAPI, SQLite/TXT y conexión TLS/IRC real contra un servidor efímero local. El certificado de esa prueba se genera en el runner y no se distribuye. Un segundo job compila Android y ejecuta sus pruebas unitarias. Los resultados se comprueban desde XML: no se aceptan suites omitidas ni tests fallidos.
 
+## Instalación desde GitHub
+
+1. Abrir la ejecución de entrega enlazada al final de este documento e iniciar sesión en GitHub.
+2. En **Artifacts**, descargar **HexDroid-Dreams-Windows-x64**.
+3. En Windows 11 de 64 bits, extraer el ZIP en una carpeta normal.
+4. Abrir el archivo con extensión `.msi` y completar el asistente.
+5. Abrir **HexDroid Dreams** desde Inicio o el acceso directo del escritorio. El instalador incluye Java.
+6. En **Redes**, crear una red o usar **Importar respaldo** para un JSON/ZIP exportado desde Android. Los scripts `.hex` se importan aparte desde **Scripts** y se habilitan después de revisarlos.
+
+El MSI es de prueba y no tiene firma comercial Authenticode: Windows puede mostrar «Editor desconocido». Los artifacts de esta ejecución se conservan 30 días; guardar el ZIP descargado para conservar el instalador.
+
 ## Comprobaciones manuales en Windows 11
 
 1. Instalar y abrir desde Inicio sin Java instalado; revisar escalado de pantalla y ventanas.
 2. Importar una copia Android, revisar red/credenciales y conectar. Comprobar salas/PV, reconexión y desconexión.
 3. Enviar mensajes con acentos, emojis y formato; Tab con varios nicks; edición de topic con permisos.
 4. WHOIS sobre una sala: mover, minimizar, restaurar y cerrar; verificar destinos múltiples y datos reales de idle.
-5. Conceder notificaciones de Windows, probar mención visible y en segundo plano y abrir el mensaje pulsando el aviso.
+5. Conceder notificaciones de Windows, probar mención visible y en segundo plano y abrir el último mensaje pulsando el aviso. Comprobar también varios avisos seguidos.
 6. Cerrar/reabrir: verificar temas, formato, perfiles, secretos e historial; exportar/restaurar una copia de prueba.
 7. Importar los scripts propios y revisar permisos/acciones que usan; comprobar avatares y ampliación.
 
-## Estado de entrega
+## Entrega verificada — 4 de noviembre de 2026
 
-Validación en curso. Los enlaces y resultados definitivos se añaden después de verificar el artifact real de GitHub Actions. No se ha fusionado ninguna rama.
+Primera versión de escritorio **0.1.0**, lista para instalar y probar. Rama `feat/dreams-desktop-windows`, sin merge. Código compilado: [`7a49ee4c5acd1dab1736ee8fa94ffc2cbab034c5`](https://github.com/Malekira/HexDroidVip/commit/7a49ee4c5acd1dab1736ee8fa94ffc2cbab034c5).
+
+- [Ejecución final de GitHub Actions, completada correctamente](https://github.com/Malekira/HexDroidVip/actions/runs/41894953363).
+- [Descargar HexDroid-Dreams-Windows-x64 — ZIP de 94,3 MB](https://github.com/Malekira/HexDroidVip/actions/runs/41894953363/artifacts/13357010052). Incluye MSI, licencia, créditos y `SHA256SUMS.txt` del instalador.
+- [Informes de pruebas de escritorio y captura real de interfaz](https://github.com/Malekira/HexDroidVip/actions/runs/41894953363/artifacts/13356925047).
+- [Informe de regresión Android](https://github.com/Malekira/HexDroidVip/actions/runs/41894953363/artifacts/13355153959).
+
+SHA-256 del ZIP publicado por GitHub: `58f80ee3e92085a1d443532d4bb4368a53ff4cc3b66b8759599bee045258fa4c`.
+
+Resultados realmente ejecutados:
+
+| Verificación | Resultado |
+| --- | --- |
+| Escritorio local Linux: 62 pruebas JVM y 4 gráficas bajo Xvfb | 66 aprobadas; ninguna fallida u omitida |
+| Windows x64: 62 pruebas JVM, 4 gráficas y 2 de DPAPI nativo | 68 aprobadas; la barrera de entrega exige las 20 pruebas específicas nuevas y todos los informes sin fallos ni omisiones |
+| Android: compilación debug, pruebas unitarias y compilación del APK de pruebas instrumentadas | Correctas; 121 pruebas JVM aprobadas, sin fallos ni omisiones, tanto localmente como en Actions |
+| Instalador MSI final con Java incluido | Generado y publicado como artifact |
+| Instalación, ejecución y desinstalación del MSI en Windows x64 | Correctas; runtime incluido, DPAPI tras reapertura, perfiles, historial UTF-8/SQLite y conexión TLS/IRC local real verificados; datos de prueba conservados tras desinstalar |
+
+La prueba gráfica local produjo `desktop/build/reports/desktop-chat.png`; la ejecución Windows conserva su propia captura en los informes descargables. Las pruebas instrumentadas Android se compilaron y **no se ejecutaron en emulador** en este workflow. La comprobación del MSI se ejecutó en **Windows Server 2025 x64** de GitHub; las comprobaciones manuales anteriores en un equipo **Windows 11 real**, incluidos escalado, avisos nativos y redes/scripts personales, siguen pendientes del usuario.
+
+Los límites de esta primera versión se detallan arriba. No se considera una migración completa de todas las funciones Android a escritorio.
