@@ -101,7 +101,7 @@ class IrcClient extends EventEmitter {
   join(channel) { token(channel, 'Sala'); if (!/^[#&+!]/.test(channel)) throw new Error('La sala debe empezar por #.'); this.sendRaw(`JOIN ${channel}`); }
   userList(channel) {
     const group = this.members.get(fold(channel));
-    this.emit('users', { target: channel, users: group ? [...group.values()].sort((a,b) => a.localeCompare(b)) : [] });
+    this.emit('users', { target: channel, users: group ? [...group.values()].sort((a,b) => a.localeCompare(b)) : [], prefixes:this.prefixes, prefixModes:this.prefixModes });
   }
   handle(m) {
     const { command: c, params: p, nick } = m;
@@ -131,6 +131,7 @@ class IrcClient extends EventEmitter {
       if (!this.members.has(key)) this.members.set(key, new Map());
       this.members.get(key).set(fold(nick), nick); this.userList(channel);
       this.emit('channel', { target: channel, nick, action: 'join', own });
+      if (own) this.sendRaw(`MODE ${channel}`);
     } else if (c === '353') {
       const channel = p[2]; if (!channel) return;
       const key = fold(channel); if (!this.members.has(key)) this.members.set(key, new Map());
@@ -159,6 +160,9 @@ class IrcClient extends EventEmitter {
     } else if (c === 'MODE' && this.members.has(fold(p[0]))) {
       // Refresh NAMES after privilege changes instead of guessing multi-mode arguments.
       this.sendRaw(`NAMES ${p[0]}`);
+      this.sendRaw(`MODE ${p[0]}`);
+    } else if (c === '324') {
+      this.emit('modes', { target:p[1], text:p.slice(2).join(' ') });
     } else if (c === 'TOPIC' || c === '332') {
       this.emit('topic', { target: c === '332' ? p[1] : p[0], text: p.at(-1) || '' });
     } else if (c === 'ERROR') {

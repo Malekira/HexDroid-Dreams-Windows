@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'feat/**'
 permissions:
   contents: read
 jobs:
@@ -20,12 +21,18 @@ jobs:
       - run: npx install-electron --no
       - run: npm test
       - run: npm run test:desktop
+      - name: Test desktop interface
+        shell: pwsh
+        run: |
+          $env:CHROMIUM_PATH = "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+          npm run test:ui
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run build:win
       - run: node scripts/package-artifacts.js
       - uses: actions/upload-artifact@v4
         with:
           name: HexDroid-Dreams-Windows-x64
-          path: dist/HexDroid-Dreams-0.1.0-Windows-x64.zip
+          path: dist/HexDroid-Dreams-*-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
   release:

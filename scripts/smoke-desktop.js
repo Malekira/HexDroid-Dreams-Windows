@@ -18,12 +18,15 @@ async function run() {
         const line = buffer.slice(0, i); buffer = buffer.slice(i + 2); received.push(line);
         if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\nPING :desktop-test\r\n');
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 353 Dreamer = #dreams :Dreamer @Alice\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
+        if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
+        if (line === 'WHOIS Alice') socket.write(':local 311 Dreamer Alice user host * :Alice Test\r\n:local 318 Dreamer Alice :End of WHOIS\r\n');
         if (line.startsWith('PART #dreams')) socket.write(':Dreamer!u@local PART #dreams :bye\r\n');
       }
     });
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  const args = process.platform === 'linux' ? ['--no-sandbox','--ozone-platform=headless','--disable-gpu','.'] : ['.'];
+  const profileDirectory = path.join(root,'profile');
+  const args = [...(process.platform === 'linux' ? ['--no-sandbox','--ozone-platform=headless','--disable-gpu'] : []), '--user-data-dir=' + profileDirectory, '.'];
   const env = { ...process.env, XDG_CONFIG_HOME: root, XDG_CACHE_HOME: path.join(root, 'cache') };
   // On Windows, isolate userData too, without modifying the production application.
   if (process.platform === 'win32') env.APPDATA = root;
@@ -39,9 +42,27 @@ async function run() {
     await page.getByRole('button', { name: 'Guardar y conectar', exact: true }).click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
+    await expect(page.locator('#channel-modes')).toHaveText('+nt');
     await page.locator('#message-input').fill('Desktop sent a message'); await page.locator('#message-input').press('Enter');
     await expect.poll(() => received.includes('PRIVMSG #dreams :Desktop sent a message')).toBe(true);
     await expect.poll(() => received.includes('PONG :desktop-test')).toBe(true);
+    await page.locator('#message-input').fill('draft in channel');
+    await page.getByRole('button',{name:'@Alice',exact:true}).dblclick();
+    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
+    await expect(page.getByRole('tab',{name:'Alice',exact:true})).toHaveCount(0);
+    await page.locator('#message-input').fill('draft in private');
+    await page.getByRole('tab',{name:'#dreams',exact:true}).click();
+    await expect(page.locator('#message-input')).toHaveValue('draft in channel');
+    await page.getByRole('button',{name:'Privado Alice',exact:true}).click();
+    await expect(page.locator('#message-input')).toHaveValue('draft in private');
+    await page.getByRole('button',{name:'Privado Alice',exact:true}).click({button:'right'});
+    await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
+    await expect.poll(() => received.includes('WHOIS Alice')).toBe(true);
+    await expect(page.locator('#messages')).toContainText('Alice Test');
+    await page.getByRole('tab',{name:'#dreams',exact:true}).click();
+    await page.locator('#message-input').fill('first line\nsecond line'); await page.locator('#message-input').press('Enter');
+    await expect.poll(() => received.includes('PRIVMSG #dreams :first line') && received.includes('PRIVMSG #dreams :second line')).toBe(true);
+    await page.getByRole('separator',{name:'Ancho de usuarios'}).focus(); await page.keyboard.press('End');
     await page.getByRole('button', { name: 'Ocultar usuarios', exact: true }).click();
     await page.getByRole('separator', { name: 'Ancho de conversaciones' }).focus(); await page.keyboard.press('End');
     await page.getByRole('button', { name: 'Cerrar #dreams', exact: true }).click();
@@ -51,13 +72,18 @@ async function run() {
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     const dataPath = await app.evaluate(({ app }) => app.getPath('userData'));
+    expect(path.resolve(dataPath)).toBe(path.resolve(profileDirectory));
     // Ensure all queued preference writes have reached the actual main process.
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.sidebarWidth).toBe(420);
+    await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.usersWidth).toBe(360);
     await app.close(); app = null;
 
     app = await electron.launch({ args, env }); page = await app.firstWindow();
-    await expect(page.locator('.sidebar')).toHaveCSS('width', '420px');
+    const restoredLeft = await page.evaluate(() => Math.min(420,innerWidth - 365));
+    await expect(page.locator('.sidebar')).toHaveCSS('width', restoredLeft + 'px');
     await expect(page.locator('#users-panel')).toBeHidden();
+    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
+    expect(fs.existsSync(path.join(dataPath,'window-state.json'))).toBe(true);
     await expect(page.locator('#connection-button')).toHaveText('Conectar');
     await page.locator('#connection-button').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
@@ -73,9 +99,9 @@ async function run() {
     await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a Dreams');
     await expect(page.locator('#toast')).toContainText('No se pudo leer la configuración');
     expect(fs.readdirSync(dataPath).some(name => name.startsWith('settings.json.recovery-'))).toBe(true);
-    expect(fs.readFileSync(path.join(dataPath, 'startup.log'), 'utf8')).toContain('Inicio 0.1.0');
+    expect(fs.readFileSync(path.join(dataPath, 'startup.log'), 'utf8')).toContain('Inicio ' + require('../package.json').version);
     expect(rendererErrors).toEqual([]);
-    console.log('PASS: Electron startup, real IPC/IRC, messages, users, PART/rejoin, second launch, single instance, settings recovery and startup log.');
+    console.log('PASS: Electron startup, real IPC/IRC, private/channel isolation, drafts, multiline, WHOIS, channel modes, both panel widths, PART/rejoin, second launch, window geometry, single instance, settings recovery and startup log.');
   } finally {
     if (app) await app.close(); for (const socket of sockets) socket.destroy(); server.close(); fs.rmSync(root, { recursive: true, force: true });
   }
