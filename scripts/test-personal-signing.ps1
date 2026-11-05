@@ -23,36 +23,16 @@ try {
     try {
         if ($rsa -is [System.Security.Cryptography.RSACng] -and $rsa.Key.ExportPolicy -ne [System.Security.Cryptography.CngExportPolicies]::None) { throw 'CNG private key is exportable.' }
     } finally { $rsa.Dispose() }
-    # Approve only the native Root-store dialog for THIS ephemeral test certificate.
-    # Production users approve the Windows dialog themselves; no trust UI is suppressed.
-    $approval = Start-Job -ArgumentList $PID, $thumbprint -ScriptBlock {
-        param($ownerPid, $fingerprint)
-        Add-Type -AssemblyName UIAutomationClient
-        Add-Type -AssemblyName UIAutomationTypes
-        $deadline = (Get-Date).AddSeconds(45)
-        while ((Get-Date) -lt $deadline) {
-            $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-                [System.Windows.Automation.TreeScope]::Children,
-                [System.Windows.Automation.Condition]::TrueCondition)
-            foreach ($window in $windows) {
-                if ($window.Current.ProcessId -ne $ownerPid) { continue }
-                $elements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-                $text = ($elements | ForEach-Object { $_.Current.Name }) -join ' '
-                $hex = $text -replace '[^a-fA-F0-9]', ''
-                if ($text -notmatch 'HexDroid Dreams - uso personal' -or $hex -notmatch [regex]::Escape($fingerprint)) { continue }
-                foreach ($element in $elements) {
-                    if ($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $element.Current.Name -match '^&?Yes$') {
-                        $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-                        return
-                    }
-                }
-            }
-            Start-Sleep -Milliseconds 200
-        }
-    }
-    try { & $script -Action Trust -Confirm:$false }
-    finally { Stop-Job $approval; Receive-Job $approval; Remove-Job $approval }
-
+    # The isolated CI runner is an administrator. Seed this fixture's public
+    # trust in LocalMachine so Windows does not wait for an interactive root
+    # warning. Real users approve that warning themselves in CurrentUser.
+    $machine = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root', 'LocalMachine')
+    try {
+        $machine.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $machine.Add([System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$certificate.RawData))
+    } finally { $machine.Close() }
+    Write-Host 'TEST: user trust stores'
+    & $script -Action Trust -Confirm:$false
     foreach ($store in @('Root','TrustedPublisher')) {
         if ((Get-Item "Cert:\CurrentUser\$store\$thumbprint").HasPrivateKey) { throw 'A trust store contains a private key.' }
     }
@@ -76,8 +56,9 @@ try {
     Write-Host 'PASS: non-exportable identity, explicit user trust, Authenticode SHA256, reuse and tamper rejection.'
 } finally {
     if ($thumbprint) {
-        foreach ($store in @('Root','TrustedPublisher')) { Remove-Item "Cert:\CurrentUser\$store\$thumbprint" -ErrorAction SilentlyContinue }
-        Remove-Item "Cert:\CurrentUser\My\$thumbprint" -DeleteKey -ErrorAction SilentlyContinue
+        foreach ($store in @('Root','TrustedPublisher')) { Remove-Item "Cert:\CurrentUser\$store\$thumbprint" -Confirm:$false -ErrorAction SilentlyContinue }
+        Remove-Item "Cert:\LocalMachine\Root\$thumbprint" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-Item "Cert:\CurrentUser\My\$thumbprint" -DeleteKey -Confirm:$false -ErrorAction SilentlyContinue
     }
     $env:LOCALAPPDATA = $originalLocal
     Remove-Item -LiteralPath $directory -Recurse -Force -ErrorAction SilentlyContinue
