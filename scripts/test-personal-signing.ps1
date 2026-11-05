@@ -10,6 +10,9 @@ try {
     $tokens = $null; $errors = $null
     [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$errors) | Out-Null
     if ($errors.Count) { throw ($errors | Out-String) }
+    Write-Host 'TEST: standalone powershell.exe -File entry point'
+    & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script -Action Create -WhatIf
+    if ($LASTEXITCODE -ne 0) { throw 'Standalone -File entry point failed.' }
     Write-Host 'TEST: create/reuse certificate'
     & $script -Action Create -Confirm:$false
     $state = Get-Content (Join-Path $directory 'HexDroidDreams-Signing\certificate.json') -Raw | ConvertFrom-Json

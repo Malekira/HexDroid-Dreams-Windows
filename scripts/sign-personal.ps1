@@ -3,7 +3,7 @@
 param(
     [ValidateSet('Create', 'Trust', 'Sign', 'Verify')]
     [string]$Action = 'Sign',
-    [string]$FilePath = (Join-Path $PSScriptRoot '..\dist\HexDroidDreams-win32-x64\HexDroidDreams.exe'),
+    [string]$FilePath,
     [string]$TimestampServer
 )
 $ErrorActionPreference = 'Stop'
@@ -60,6 +60,12 @@ if ($Action -eq 'Trust') {
     return
 }
 
+# Resolve defaults in the script body, never during parameter binding (-File).
+if ([string]::IsNullOrWhiteSpace($FilePath)) {
+    $besideScript = Join-Path $PSScriptRoot 'HexDroidDreams.exe'
+    if (Test-Path -LiteralPath $besideScript) { $FilePath = $besideScript }
+    else { $FilePath = Join-Path $PSScriptRoot '..\dist\HexDroidDreams-win32-x64\HexDroidDreams.exe' }
+}
 $resolved = (Resolve-Path -LiteralPath $FilePath).Path
 if ([IO.Path]::GetFileName($resolved) -ine 'HexDroidDreams.exe') { throw 'Selecciona el archivo HexDroidDreams.exe de la carpeta extraida.' }
 if ($Action -eq 'Sign') {
