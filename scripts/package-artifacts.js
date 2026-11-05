@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { version } = require('../package.json');
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist');
 const appDir = path.join(dist, 'HexDroidDreams-win32-x64');
@@ -23,7 +24,7 @@ exit /b %DREAMS_EXIT%
 `;
 fs.writeFileSync(path.join(appDir, 'Iniciar-con-diagnostico.cmd'), launcher.replace(/\n/g, '\r\n'));
 fs.copyFileSync(path.join(root, 'README.md'), path.join(appDir, 'LEEME.md'));
-const zipPath = path.join(dist, 'HexDroid-Dreams-0.1.0-Windows-x64.zip');
+const zipPath = path.join(dist, `HexDroid-Dreams-${version}-Windows-x64.zip`);
 fs.rmSync(zipPath, { force: true });
 if (process.platform === 'win32') {
   // Arguments are delivered through the environment, not interpolated into PowerShell code.

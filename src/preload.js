@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('dreams', {
   send: data => ipcRenderer.invoke('irc:send', data),
   logs: () => ipcRenderer.invoke('app:logs'),
   quit: () => ipcRenderer.invoke('app:quit'),
+  copy: text => ipcRenderer.invoke('app:copy', text),
   onEvent: callback => { const listener = (_, data) => callback(data); ipcRenderer.on('irc:event', listener); return () => ipcRenderer.removeListener('irc:event', listener); }
 });

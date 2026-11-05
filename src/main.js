@@ -1,11 +1,14 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const { IrcClient, token, cleanText } = require('./irc');
+const { IrcClient } = require('./irc');
 const { Store } = require('./storage');
+const { WindowState } = require('./window-state');
+const { executeInput } = require('./commands');
 // A fixed, separate profile avoids inheriting data from older Dreams packages.
-const dataDirectory = path.join(app.getPath('appData'), 'HexDroidDreams-Desktop');
+const requestedProfile = app.commandLine.getSwitchValue('user-data-dir');
+const dataDirectory = requestedProfile ? path.resolve(requestedProfile) : path.join(app.getPath('appData'), 'HexDroidDreams-Desktop');
 try { fs.mkdirSync(dataDirectory, { recursive: true }); app.setPath('userData', dataDirectory); }
 catch (error) { dialog.showErrorBox('HexDroid Dreams', 'No se pudo crear la carpeta de datos: ' + error.message); app.exit(1); }
 let window, store, config, logFile;
@@ -33,7 +36,9 @@ function register(name, handler) {
   });
 }
 function createWindow() {
-  window = new BrowserWindow({ width: 1280, height: 820, minWidth: 820, minHeight: 560,
+  const stateStore = new WindowState(dataDirectory);
+  const bounds = stateStore.load(screen.getAllDisplays().map(d => d.workArea));
+  window = new BrowserWindow({ x:bounds.x, y:bounds.y, width:bounds.width, height:bounds.height, minWidth:760, minHeight:500,
     title: 'HexDroid Dreams', backgroundColor: '#0c1019', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   window.removeMenu();
@@ -41,6 +46,11 @@ function createWindow() {
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); dialog.showErrorBox('HexDroid Dreams', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
   window.loadFile(path.join(__dirname, 'index.html')).catch(fatal);
+  if (bounds.maximized) window.maximize();
+  let boundsTimer;
+  const saveBounds = () => { if (window && !window.isDestroyed() && !window.isMinimized()) try { stateStore.save(window.getNormalBounds(), window.isMaximized()); } catch (e) { log('No se pudo guardar la ventana: ' + e.message); } };
+  for (const event of ['resize','move','maximize','unmaximize']) window.on(event, () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(saveBounds,200); });
+  window.on('close', () => { clearTimeout(boundsTimer); saveBounds(); });
   window.on('closed', () => { window = null; });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -55,8 +65,9 @@ else {
       const profile = config.profiles.find(p => p.id === id); if (!profile) throw new Error('Guarda la red antes de conectar.');
       if (clients.has(id)) throw new Error('Esta red ya está conectada o conectando.');
       const client = new IrcClient(profile, password); clients.set(id, client);
-      for (const type of ['status','message','users','channel','nick','topic','server','problem']) client.on(type, data => {
-        emit(id, type, type === 'problem' ? { text: data } : data);
+      for (const type of ['status','message','users','channel','nick','topic','modes','server','problem']) client.on(type, data => {
+        const safeData = type === 'problem' ? { text:data } : type === 'status' ? { ...data, connection:{host:client.profile.host,port:client.profile.port,tls:client.profile.tls} } : data;
+        emit(id, type, safeData);
         if (type === 'status' && data.state === 'disconnected' && clients.get(id) === client) clients.delete(id);
       });
       try { client.connect(); } catch (e) { clients.delete(id); throw e; }
@@ -64,25 +75,10 @@ else {
     });
     register('irc:disconnect', id => { clients.get(id)?.disconnect(); return { ok: true }; });
     register('irc:send', ({ id, target, text } = {}) => {
-      const client = clients.get(id); if (!client?.ready) throw new Error('Conecta primero esta red.');
-      cleanText(text); if (text.length > 2000) throw new Error('Mensaje demasiado largo.');
-      if (!text.startsWith('/') || text.startsWith('//')) client.sendMessage(target, text.startsWith('//') ? text.slice(1) : text);
-      else {
-        const split = text.indexOf(' '), command = (split < 0 ? text.slice(1) : text.slice(1, split)).toLowerCase(), args = split < 0 ? '' : text.slice(split + 1).trim();
-        if (command === 'join') client.join(args);
-        else if (command === 'me') client.sendMessage(target, args, true);
-        else if (command === 'msg') {
-          const space = args.indexOf(' '); if (space < 1) throw new Error('Uso: /msg apodo mensaje');
-          client.sendMessage(args.slice(0, space), args.slice(space + 1));
-        } else if (command === 'part') { token(target, 'Sala'); client.sendRaw(`PART ${target} :${args || 'Hasta pronto'}`); }
-        else if (command === 'nick') { token(args, 'Apodo'); client.sendRaw(`NICK ${args}`); }
-        else if (command === 'whois') { token(args, 'Apodo'); client.sendRaw(`WHOIS ${args}`); }
-        else if (command === 'topic') { token(target, 'Sala'); client.sendRaw(`TOPIC ${target}${args ? ' :' + args : ''}`); }
-        else if (command === 'quit') client.disconnect();
-        else throw new Error('Comando desconocido. Usa /join, /part, /nick, /me, /msg, /whois, /topic o /quit.');
-      }
-      return { ok: true };
+      executeInput(clients.get(id), target, text, (type, data) => emit(id, type, data));
+      return { ok:true };
     });
+    register('app:copy', text => { if (typeof text !== 'string' || text.length > 1000000) throw new Error('Texto no válido.'); clipboard.writeText(text); return { ok:true }; });
     register('app:logs', async () => { const error = await shell.openPath(app.getPath('userData')); if (error) throw new Error(error); return { ok: true }; });
     register('app:quit', () => { app.quit(); });
     createWindow();
