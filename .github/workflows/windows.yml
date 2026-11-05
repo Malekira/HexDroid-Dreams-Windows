@@ -28,3 +28,26 @@ jobs:
           path: dist/HexDroid-Dreams-0.1.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
+  release:
+    if: contains(github.event.head_commit.message, '[release]')
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: HexDroid-Dreams-Windows-x64
+          path: release
+      - name: Publish tested Windows download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          file="HexDroid-Dreams-${version}-Windows-x64.zip"
+          (cd release && sha256sum "$file" > "${file%.zip}.sha256")
+          gh release create "dreams-windows-v${version}" "release/$file" "release/${file%.zip}.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "HexDroid Dreams ${version} para Windows — versión de prueba" \
+            --notes-file RELEASE-NOTES.md --prerelease --latest=false
