@@ -1,0 +1,30 @@
+name: Build Windows portable
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dreams-windows
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx install-electron --no
+      - run: npm test
+      - run: npm run test:desktop
+      - run: npm run build:win
+      - run: node scripts/package-artifacts.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexDroid-Dreams-Windows-x64
+          path: dist/HexDroid-Dreams-0.1.0-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>HexDroid Dreams</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="menubar">
+    <span class="mini-brand"><span class="brand-mark">H</span> HEXDROID <span>DREAMS</span></span>
+    <nav aria-label="Menú principal">
+      <details class="menu"><summary>Archivo</summary><div class="menu-popup"><button data-action="add-network">Nueva red <kbd>Ctrl+N</kbd></button><button data-action="logs">Abrir carpeta de diagnóstico</button><hr><button data-action="quit">Salir</button></div></details>
+      <details class="menu"><summary>Ver</summary><div class="menu-popup"><button data-action="toggle-users">Mostrar / ocultar usuarios <kbd>Ctrl+U</kbd></button><button data-action="settings">Apariencia y disposición</button></div></details>
+      <details class="menu"><summary>Red</summary><div class="menu-popup"><button data-action="connection">Conectar / desconectar</button><button data-action="join">Entrar en una sala <kbd>Ctrl+J</kbd></button><button data-action="networks">Administrar redes</button></div></details>
+      <details class="menu"><summary>Ayuda</summary><div class="menu-popup"><button data-action="help">Comandos y atajos</button><button data-action="about">Acerca de Dreams</button></div></details>
+    </nav>
+    <button class="settings-top" data-action="settings" aria-label="Abrir configuración" title="Configuración (Ctrl+,)"><span aria-hidden="true">⚙</span> Configuración</button>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Conversaciones">
+      <div class="sidebar-title"><div><span class="eyebrow">TU ESPACIO</span><h1>Conversaciones</h1></div><button class="icon-button" data-action="add-network" aria-label="Añadir red" title="Añadir red">+</button></div>
+      <label class="search"><span aria-hidden="true">⌕</span><input id="search" placeholder="Buscar conversación…" aria-label="Buscar conversación"></label>
+      <div id="network-list" class="network-list"></div>
+      <button class="add-network" data-action="add-network">＋ Añadir una red</button>
+      <div class="sidebar-footer"><span class="avatar">H</span><div><strong id="self-nick">Tu espacio IRC</strong><span id="connection-summary">Sin conexión</span></div><span id="global-status" class="status-dot"></span></div>
+    </aside>
+    <div id="sidebar-resizer" class="resizer" role="separator" aria-label="Ancho de conversaciones" aria-orientation="vertical" tabindex="0" aria-valuemin="160" aria-valuemax="420" aria-valuenow="240"></div>
+    <main class="chat">
+      <div class="chat-heading"><div class="conversation-heading"><span class="channel-symbol" id="channel-symbol">✦</span><div><h2 id="conversation-title">Bienvenido a Dreams</h2><p id="conversation-subtitle">Un lugar para todas tus conversaciones.</p></div></div><div class="chat-tools"><button id="connection-button" data-action="connection" class="small-button" disabled>Conectar</button><button id="join-button" data-action="join" class="icon-button" aria-label="Entrar en una sala" title="Entrar en una sala" disabled>＋</button><button id="users-toggle" data-action="toggle-users" class="icon-button" aria-label="Ocultar usuarios" aria-pressed="true" title="Mostrar u ocultar usuarios">♙</button></div></div>
+      <div id="room-tabs" class="room-tabs" role="tablist" aria-label="Salas y conversaciones"></div>
+      <div class="conversation-body">
+        <section class="timeline" aria-label="Conversación">
+          <div id="welcome" class="welcome"><div class="welcome-emblem">H<span>✦</span></div><div class="eyebrow">HEXDROID DREAMS · WINDOWS</div><h2>La conversación empieza aquí.</h2><p>Tus redes, tus salas, tu gente.<br>Un espacio tranquilo para conectar.</p><button class="primary" data-action="add-network">＋ Configurar mi primera red</button><div class="welcome-features"><span>◈ Conexiones TLS</span><span>▤ Varias redes</span><span>◌ Mensajes privados</span></div></div>
+          <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" hidden></div>
+          <button id="new-messages" class="new-messages" hidden>↓ Hay mensajes nuevos</button>
+          <form id="composer" class="composer"><div id="composer-context">Conecta una red para empezar a conversar</div><div class="composer-input"><input id="message-input" autocomplete="off" maxlength="2000" aria-label="Escribir mensaje" placeholder="Selecciona una conversación…" disabled><button id="send-button" type="submit" aria-label="Enviar mensaje" disabled>↑</button></div><div class="composer-hint"><span><kbd>Enter</kbd> para enviar · <kbd>/</kbd> para comandos</span><span id="transport-label">IRC · Tu próximo espacio</span></div></form>
+        </section>
+        <aside id="users-panel" class="users-panel" aria-label="Usuarios de la sala"><div class="users-heading"><span>USUARIOS</span><span id="user-count">0</span></div><div id="user-list" class="user-list"></div><p class="users-hint">Selecciona un usuario para abrir un mensaje privado.</p></aside>
+      </div>
+    </main>
+  </div>
+  <footer class="statusbar"><span><i id="footer-dot" class="status-dot"></i><span id="footer-status">Listo para conectar</span></span><span id="footer-info">HexDroid Dreams <span id="version">0.1.0</span></span></footer>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="settings-dialog" class="settings-dialog">
+    <header class="dialog-header"><div><span class="eyebrow">HAZLO TUYO</span><h2>Configuración</h2></div><button type="button" class="icon-button" data-close="settings-dialog" aria-label="Cerrar configuración">×</button></header>
+    <div class="settings-layout"><nav class="settings-nav" aria-label="Secciones de configuración"><button data-section="networks" class="selected">◈ Redes y conexión</button><button data-section="appearance">◐ Apariencia</button><button data-section="layout">▤ Conversaciones</button><button data-section="diagnostics">⌁ Diagnóstico</button></nav><div class="settings-content">
+      <section data-panel="networks"><h3>Redes y conexión</h3><p class="muted">Cada red tiene su propio apodo y salas de inicio.</p><div id="profile-list" class="profile-list"></div><button data-action="add-network" class="secondary">＋ Añadir red</button><p class="note">Los cambios de una red se aplican al volver a conectarla. Las contraseñas se usan solo en la sesión actual.</p></section>
+      <section data-panel="appearance" hidden><h3>Apariencia</h3><p class="muted">Tema Dreams oscuro, con acentos lavanda.</p><label class="setting-row">Tamaño del texto <select id="setting-font"><option value="11">11 px</option><option value="12">12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option></select></label><label class="setting-row">Mensajes compactos<input id="setting-compact" type="checkbox"></label><label class="setting-row">Mostrar la hora<input id="setting-timestamps" type="checkbox"></label></section>
+      <section data-panel="layout" hidden><h3>Conversaciones</h3><label class="setting-row">Mostrar panel de usuarios<input id="setting-showUsers" type="checkbox"></label><label class="setting-row">Mostrar entradas y salidas<input id="setting-showEvents" type="checkbox"></label><label class="setting-row">Seguir los mensajes nuevos<input id="setting-autoScroll" type="checkbox"></label><label class="setting-row">Ancho de la barra izquierda<input id="setting-sidebar" type="range" min="160" max="420" step="10"></label><p class="note">También puedes arrastrar el borde de la barra izquierda o usar las flechas al seleccionar su separador.</p></section>
+      <section data-panel="diagnostics" hidden><h3>Diagnóstico y datos</h3><p>La aplicación registra los errores de arranque en <code>startup.log</code> y conserva una copia si la configuración no se puede leer.</p><p class="note">Los mensajes no se guardan en disco. Las contraseñas tampoco. Las redes y preferencias se almacenan en el perfil de usuario de Windows.</p><button data-action="logs" class="secondary">Abrir carpeta de datos y registros</button><p class="note">No se conectará automáticamente al abrir. Así puedes corregir una red sin repetir un fallo de conexión.</p></section>
+    </div></div><footer class="dialog-footer"><span id="settings-feedback" class="muted">Los cambios se guardan al instante.</span><button class="primary" data-close="settings-dialog">Listo</button></footer>
+  </dialog>
+  <dialog id="network-dialog"><form id="network-form"><header class="dialog-header"><div><span class="eyebrow">CONECTA CON TU GENTE</span><h2 id="network-dialog-title">Añadir una red</h2></div><button type="button" class="icon-button" data-close="network-dialog" aria-label="Cerrar">×</button></header><div class="form-content"><input id="profile-id" type="hidden"><label>Nombre de la red<input id="profile-name" required maxlength="80" placeholder="Mi comunidad"></label><div class="form-grid"><label>Servidor<input id="profile-host" required placeholder="irc.libera.chat" autocomplete="off"></label><label>Puerto<input id="profile-port" type="number" min="1" max="65535" value="6697" required></label></div><label class="checkbox-label"><input id="profile-tls" type="checkbox" checked> Usar TLS · verificar certificado del servidor</label><label>Tu apodo<input id="profile-nick" required maxlength="30" placeholder="TuApodo" autocomplete="off"></label><label>Salas al conectar<input id="profile-channels" placeholder="#general, #amigos"><small>Opcional. Separa las salas con comas o espacios.</small></label><label>Contraseña del servidor<input id="profile-password" type="password" autocomplete="off" placeholder="Opcional · solo para esta sesión"><small>No es la contraseña de NickServ. No se guarda en disco.</small></label><p id="network-error" class="form-error" role="alert"></p></div><footer class="dialog-footer"><button type="button" class="secondary" data-close="network-dialog">Cancelar</button><div class="button-group"><button type="submit" name="intent" value="save" class="secondary">Guardar</button><button type="submit" name="intent" value="connect" class="primary">Guardar y conectar</button></div></footer></form></dialog>
+  <dialog id="join-dialog"><form id="join-form"><header class="dialog-header"><h2>Entrar en una sala</h2><button type="button" class="icon-button" data-close="join-dialog" aria-label="Cerrar">×</button></header><div class="form-content"><label>Sala<input id="join-channel" placeholder="#general" required autocomplete="off"></label><p id="join-error" class="form-error" role="alert"></p></div><footer class="dialog-footer"><button type="button" class="secondary" data-close="join-dialog">Cancelar</button><button class="primary" type="submit">Entrar</button></footer></form></dialog>
+  <dialog id="info-dialog"><header class="dialog-header"><h2 id="info-title"></h2><button class="icon-button" data-close="info-dialog" aria-label="Cerrar">×</button></header><div class="form-content" id="info-content"></div><footer class="dialog-footer"><button class="primary" data-close="info-dialog">Entendido</button></footer></dialog>
+  <script src="renderer.js"></script>
+</body>
+</html>

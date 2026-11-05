@@ -1,0 +1,20 @@
+{
+  "name": "hexdroid-dreams",
+  "productName": "HexDroid Dreams",
+  "version": "0.1.0",
+  "description": "Cliente IRC de escritorio para Windows",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "test:ui": "playwright test",
+    "test:desktop": "node scripts/smoke-desktop.js",
+    "build:win": "electron-packager . HexDroidDreams --platform=win32 --arch=x64 --out=dist --overwrite --asar --prune=true --ignore=^/test --ignore=^/scripts --ignore=^/playwright --ignore=^/test-results --ignore=^/dist --ignore=^/.github"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@playwright/test": "1.64.1",
+    "electron": "45.2.3"
+  }
+}
