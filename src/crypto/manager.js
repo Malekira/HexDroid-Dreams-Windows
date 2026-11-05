@@ -603,7 +603,15 @@ class CryptoManager extends EventEmitter {
     });
     return {
       receive: (message) => {
-        if (message.own) return message;
+        if (message.own) {
+          if (
+            !message.clientId &&
+            /^(?:AGE |\+AGM |\+OK )/.test(message.text)
+          ) {
+            if (!message.historical || message.text.startsWith("AGE "))
+              return null;
+          } else return message;
+        }
         const d = this.descriptor(network, message.target);
         try {
           if (message.text.startsWith("AGE ")) {

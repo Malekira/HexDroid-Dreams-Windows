@@ -144,3 +144,37 @@ test("AGM and FiSH decrypt independent Java JCE wire vectors used by the Android
   );
   assert.equal(new FishCipher(key).decrypt(vector.fish), vector.text);
 });
+test("Own crypto protocol echoes stay hidden while confirmed plaintext messages remain visible", (t) => {
+  const fs = require("node:fs"),
+    os = require("node:os"),
+    path = require("node:path"),
+    { EventEmitter } = require("node:events"),
+    { CryptoManager } = require("../src/crypto/manager");
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "dreams-crypto-echo-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const manager = new CryptoManager(directory, { available: () => false }),
+    client = new EventEmitter();
+  client.nick = "Alice";
+  const adapter = manager.attach("network", client);
+  for (const text of [
+    "AGE IDENT public keys",
+    "AGE FRAG id 1/2 chunk",
+    "+AGM ciphertext",
+    "+OK *ciphertext",
+  ])
+    assert.equal(
+      adapter.receive({ own: true, nick: "Alice", target: "Bob", text }),
+      null,
+    );
+  const confirmed = {
+    own: true,
+    clientId: "local",
+    nick: "Alice",
+    target: "Bob",
+    text: "readable",
+    pending: false,
+  };
+  assert.deepEqual(adapter.receive(confirmed), confirmed);
+});
