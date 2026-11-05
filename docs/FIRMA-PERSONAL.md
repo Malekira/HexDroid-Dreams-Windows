@@ -15,6 +15,8 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps
 
 `RemoteSigned` se aplica solo a ese proceso de PowerShell; no altera la configuración permanente. Una política impuesta por el sistema puede prevalecer.
 
+Al ejecutar `Trust`, Windows puede mostrar también su propia advertencia de instalación del certificado raíz. Comprueba la huella y acepta solo el certificado que acabas de crear.
+
 La primera vez, `Create` crea una clave privada **no exportable** en `Cert:\CurrentUser\My`. Su huella se guarda en `%LOCALAPPDATA%\HexDroidDreams-Signing\certificate.json`; no es una contraseña ni una clave. Al repetir `Create` se conserva el certificado existente.
 
 `Trust` instala exclusivamente el certificado público en `CurrentUser\Root` y `CurrentUser\TrustedPublisher`. Eso confía en **todos los archivos que firmes con esa clave**, no solo en HexDroid. La clave privada no sale de `My` y no se crea un PFX. No subas ni compartas la clave.

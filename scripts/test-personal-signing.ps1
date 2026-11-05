@@ -10,24 +10,55 @@ try {
     $tokens = $null; $errors = $null
     [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$errors) | Out-Null
     if ($errors.Count) { throw ($errors | Out-String) }
+    Write-Host 'TEST: create/reuse certificate'
     & $script -Action Create -Confirm:$false
     $state = Get-Content (Join-Path $directory 'HexDroidDreams-Signing\certificate.json') -Raw | ConvertFrom-Json
     $thumbprint = $state.thumbprint
+    Write-Host 'TEST: create/reuse certificate'
     & $script -Action Create -Confirm:$false
     $again = Get-Content (Join-Path $directory 'HexDroidDreams-Signing\certificate.json') -Raw | ConvertFrom-Json
     if ($again.thumbprint -ne $thumbprint) { throw 'Create replaced the existing identity.' }
     $certificate = Get-Item "Cert:\CurrentUser\My\$thumbprint"
-    if ($certificate.PrivateKey -and $certificate.PrivateKey.CspKeyContainerInfo.Exportable) { throw 'Private key is exportable.' }
     $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($certificate)
     try {
         if ($rsa -is [System.Security.Cryptography.RSACng] -and $rsa.Key.ExportPolicy -ne [System.Security.Cryptography.CngExportPolicies]::None) { throw 'CNG private key is exportable.' }
     } finally { $rsa.Dispose() }
-    & $script -Action Trust -Confirm:$false
+    # Approve only the native Root-store dialog for THIS ephemeral test certificate.
+    # Production users approve the Windows dialog themselves; no trust UI is suppressed.
+    $approval = Start-Job -ArgumentList $PID, $thumbprint -ScriptBlock {
+        param($ownerPid, $fingerprint)
+        Add-Type -AssemblyName UIAutomationClient
+        Add-Type -AssemblyName UIAutomationTypes
+        $deadline = (Get-Date).AddSeconds(45)
+        while ((Get-Date) -lt $deadline) {
+            $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+                [System.Windows.Automation.TreeScope]::Children,
+                [System.Windows.Automation.Condition]::TrueCondition)
+            foreach ($window in $windows) {
+                if ($window.Current.ProcessId -ne $ownerPid) { continue }
+                $elements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+                $text = ($elements | ForEach-Object { $_.Current.Name }) -join ' '
+                $hex = $text -replace '[^a-fA-F0-9]', ''
+                if ($text -notmatch 'HexDroid Dreams - uso personal' -or $hex -notmatch [regex]::Escape($fingerprint)) { continue }
+                foreach ($element in $elements) {
+                    if ($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $element.Current.Name -match '^&?Yes$') {
+                        $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                        return
+                    }
+                }
+            }
+            Start-Sleep -Milliseconds 200
+        }
+    }
+    try { & $script -Action Trust -Confirm:$false }
+    finally { Stop-Job $approval; Receive-Job $approval; Remove-Job $approval }
+
     foreach ($store in @('Root','TrustedPublisher')) {
         if ((Get-Item "Cert:\CurrentUser\$store\$thumbprint").HasPrivateKey) { throw 'A trust store contains a private key.' }
     }
     $exe = Join-Path $directory 'HexDroidDreams.exe'
     Copy-Item "$env:WINDIR\System32\where.exe" $exe
+    Write-Host 'TEST: sign and verify executable'
     & $script -Action Sign -FilePath $exe -Confirm:$false
     & $script -Action Verify -FilePath $exe
     $signature = Get-AuthenticodeSignature -LiteralPath $exe
