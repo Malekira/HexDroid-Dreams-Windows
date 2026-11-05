@@ -7,29 +7,6 @@ on:
 permissions:
   contents: read
 jobs:
-  relocate-release:
-    if: contains(github.event.head_commit.message, '[relocate-release]')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Preserve the original published Windows release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p release
-          file="HexDroid-Dreams-0.1.0-Windows-x64.zip"
-          tag="dreams-windows-v0.1.0"
-          base="https://github.com/Malekira/HexDroid-Dreams-Android/releases/download/$tag"
-          curl --fail --location --retry 3 "$base/$file" --output "release/$file"
-          curl --fail --location --retry 3 "$base/${file%.zip}.sha256" --output "release/${file%.zip}.sha256"
-          (cd release && sha256sum --check "${file%.zip}.sha256")
-          echo "c852a7824eba64347f58b4c22be92d7bf49b2aa998ed9d23c5a0cdeda2d52225  release/$file" | sha256sum --check -
-          gh release create "$tag" "release/$file" "release/${file%.zip}.sha256" \
-            --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "HexDroid Dreams 0.1.0 para Windows — versión de prueba" \
-            --notes-file RELEASE-NOTES.md --prerelease --latest=false
   windows:
     runs-on: windows-latest
     timeout-minutes: 15
