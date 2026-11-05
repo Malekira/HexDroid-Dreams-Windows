@@ -29,6 +29,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run build:win
       - name: Test packaged Windows executable
+        timeout-minutes: 3
         shell: pwsh
         run: |
           $env:DREAMS_BINARY = (Resolve-Path "dist/HexDroidDreams-win32-x64/HexDroidDreams.exe").Path
