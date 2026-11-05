@@ -8,7 +8,7 @@ test('Vault rejects plaintext fallback and stores only encrypted values with a s
   assert.throws(()=>new SecretVault(dir,{isEncryptionAvailable:()=>true,getSelectedStorageBackend:()=> 'basic_text'}).get('network'),/sin cifrar/);
 });
 test('History separates networks, deduplicates msgids and supports indexed search and redaction',t=>{
-  const h=new HistoryStore(temp(t));t.after(()=>h.close());const m={target:'#room',nick:'Alice',text:'a searchable phrase',messageId:'m1',time:new Date().toISOString()};
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'dreams-history-'));const h=new HistoryStore(directory);t.after(()=>{h.close();fs.rmSync(directory,{recursive:true,force:true});});const m={target:'#room',nick:'Alice',text:'a searchable phrase',messageId:'m1',time:new Date().toISOString()};
   assert.equal(h.append('one',m),true);assert.equal(h.append('one',m),false);assert.equal(h.append('two',m),true);
   assert.equal(h.query({network:'one',text:'searchable phrase'}).length,1);assert.equal(h.query({network:'two',nick:'alice'}).length,1);
   h.redact('one','m1');assert.equal(h.query({network:'one'}).length,0);assert.equal(h.query({network:'two'}).length,1);
