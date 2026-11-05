@@ -16,7 +16,7 @@ function Get-PersonalCertificate {
     if ($state.thumbprint -notmatch '^[A-Fa-f0-9]{40}$') { throw 'Identificador de certificado no valido.' }
     $certificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$($state.thumbprint)" -ErrorAction Stop
     if (-not $certificate.HasPrivateKey) { throw 'El certificado no tiene su clave privada en este equipo.' }
-    if ($certificate.NotAfter -le (Get-Date)) { throw 'El certificado ha caducado.' }
+    if ($Action -ne 'Verify' -and $certificate.NotAfter -le (Get-Date)) { throw 'El certificado ha caducado.' }
     if (-not ($certificate.EnhancedKeyUsageList | Where-Object { ([string]$_.ObjectId -eq '1.3.6.1.5.5.7.3.3' -or $_.ObjectId.Value -eq '1.3.6.1.5.5.7.3.3') })) {
         throw 'El certificado no es de firma de codigo.'
     }
