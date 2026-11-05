@@ -35,14 +35,7 @@ function cleanText(text) {
   if (typeof text !== 'string' || /[\0\r\n]/.test(text)) throw new Error('El mensaje debe ocupar una sola línea.');
   return text;
 }
-function validateProfile(p) {
-  if (!p || typeof p !== 'object') throw new Error('Red no válida.');
-  token(p.host, 'Servidor'); token(p.nick, 'Apodo');
-  if (!Number.isInteger(p.port) || p.port < 1 || p.port > 65535) throw new Error('Puerto no válido.');
-  if (!Array.isArray(p.channels) || p.channels.length > 30) throw new Error('Lista de salas no válida.');
-  for (const c of p.channels) { token(c, 'Sala'); if (!/^[#&+!]/.test(c)) throw new Error('Las salas deben empezar por #, &, + o !.'); }
-  return { host: p.host, port: p.port, nick: p.nick, tls: p.tls !== false, channels: [...new Set(p.channels)] };
-}
+const { validateProfile } = require('./services/profiles');
 
 class IrcClient extends EventEmitter {
   constructor(profile, password = '') {
@@ -181,4 +174,4 @@ class IrcClient extends EventEmitter {
     this.closeTimer = setTimeout(() => this.socket?.destroy(), 1500); this.closeTimer.unref();
   }
 }
-module.exports = { IrcClient, parseLine, fold, validateProfile, cleanText, token };
+module.exports = { IrcClient:require('./services/advanced-irc')(IrcClient,{parseLine,fold,token,cleanText}), parseLine, fold, validateProfile, cleanText, token };

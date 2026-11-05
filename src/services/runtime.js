@@ -1,0 +1,130 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path');
+const {IrcClient}=require('../irc');
+const {SessionManager}=require('./sessions');
+const {SecretVault}=require('./vault');
+const {HistoryStore}=require('./history');
+const {CryptoManager}=require('../crypto/manager');
+const {ScriptManager}=require('../scripts/manager');
+const {DccManager}=require('./dcc');
+const {ProtocolLog}=require('./protocol-log');
+const {ScriptMedia}=require('./script-media');
+const {WebClient,imageMime,titleOf}=require('./web');
+const {createBackup,readBackup}=require('./backups');
+const {executeInput}=require('../commands');
+class Runtime {
+  constructor({directory,electron,getWindow,getConfig,saveConfig,emit}){
+    Object.assign(this,{directory,electron,getWindow,getConfig,saveConfig,emit});this.memory=new Map();this.cryptoAdapters=new Map();this.queues=new Map();this.sts={};
+    try{this.sts=JSON.parse(fs.readFileSync(path.join(directory,'sts.json'),'utf8'));}catch{}
+    this.vault=new SecretVault(directory,electron.safeStorage);let historyDirectory=directory;try{historyDirectory=JSON.parse(fs.readFileSync(path.join(directory,'history-folder.json'),'utf8')).directory;}catch{}this.history=new HistoryStore(historyDirectory);this.protocolLog=new ProtocolLog(directory,electron.safeStorage);this.crypto=new CryptoManager(directory,this.vault);
+    this.sessions=new SessionManager({credentials:id=>this.credentials(id),policy:host=>this.sts[host],clientFactory:(profile,secrets)=>{const c=new IrcClient(profile,secrets);this.cryptoAdapters.set(profile.id,this.crypto.attach(profile.id,c));return c;}});
+    this.web=new WebClient({canConnect:()=>![...this.sessions.sessions.values()].some(s=>!s.stopped&&s.profile.proxy)});
+    this.scripts=new ScriptManager(directory,{web:this.web,host:(a,f)=>this.scriptAction(a,f),fields:f=>({me:this.sessions.get(f?.network)?.nick||'',settings:{applang:electron.app.getLocale().split('-')[0],lang:electron.app.getLocale().split('-')[0]},...f})});
+    this.scriptMedia=new ScriptMedia({web:this.web,pick:o=>this.pick(o),confirm:(m,d)=>this.confirm(m,d),allowed:(...args)=>this.scripts.allowed(...args),signal:(owner,name,fields,result,args)=>this.scripts.event('SIGNAL:'+name.toUpperCase(),{...fields,...result,__onlyScript:owner,__scriptCallers:[owner]},args).catch(e=>this.scripts.report(owner,e.message))});
+    this.dcc=new DccManager({directory,settings:()=>this.getConfig().settings,send:(id,nick,line)=>this.ctcp(id,nick,line),canConnect:id=>!this.sessions.sessions.get(id)?.profile.proxy||this.getConfig().settings.dccAllowDirect===true,trust:(network,nick)=>this.vault.available()?this.vault.get('dcc-trust:'+network+':'+nick.toLowerCase()):null,tlsMaterial:host=>this.dccCertificate(host)});
+    this.sessions.on('event',(id,type,data)=>{const previous=this.queues.get(id)||Promise.resolve();const next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);});
+    this.crypto.on('security',data=>this.emit(data.network,'security',data));
+    this.scripts.on('error-report',data=>this.emit(null,'script-error',data));
+    this.dcc.on('update',data=>this.emit(data.network,'dcc',data));this.dcc.on('chat',data=>this.emit(data.network,'dcc-chat',data));this.dcc.on('problem',text=>this.emit(null,'problem',{text}));
+    this.scripts.restart().catch(e=>this.emit(null,'problem',{text:e.message}));
+  }
+  credentials(id){return this.memory.get(id)||(this.vault.available()?this.vault.get('network:'+id):null)||{};}
+  connect({id,password,credentials,remember=false}={}){
+    const profile=this.getConfig().profiles.find(p=>p.id===id);if(!profile)throw new Error('Guarda la red antes de conectar.');
+    let secrets={...this.credentials(id)};
+    if(password!==undefined)secrets.serverPassword=String(password);
+    if(credentials){for(const key of ['serverPassword','saslPassword','proxyUser','proxyPassword'])if(typeof credentials[key]==='string'&&credentials[key].length<=4096)secrets[key]=credentials[key];}
+    this.memory.set(id,secrets);if(remember)this.vault.set('network:'+id,secrets);this.sessions.connect(profile,secrets);return{ok:true};
+  }
+  async receive(id,type,data){
+    if(type==='protocol'){if(this.getConfig().settings.protocolLogging)this.protocolLog.append(id,data.direction,data.line);return;}
+    if(type==='problem'){this.emit(id,type,{text:String(data)});return;}
+    if(type==='sts'&&data.expires>Date.now()){this.sts[this.sessions.get(id).profile.host]=data;fs.writeFileSync(path.join(this.directory,'sts.json'),JSON.stringify(this.sts));}
+    if(type==='message'){
+      if(data.own&&/^(?:nickserv|chanserv|hostserv|operserv|auth|q)$/i.test(data.target)&&/^(?:identify|register|recover|ghost|release|login|set\s+password)\b/i.test(data.text))data={...data,text:'[Credenciales omitidas]'};
+      data=this.cryptoAdapters.get(id).receive(data);if(!data)return;
+      const result=await this.scripts.event(data.action?'ACTION':'TEXT',{network:id,buffer:data.target,chan:data.target,nick:data.nick,text:data.text});if(result.halted)return;data={...data,text:result.text};
+      if(this.getConfig().settings.historyEnabled){this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);}
+      if(!data.own&&!data.historical)this.notify(id,data);
+    }
+    if(type==='server'){const r=await this.scripts.event('NUMERIC',{network:id,buffer:data.target||'*',text:data.text,code:data.code||'',whois:String(data.whois===true)});if(r.halted)return;data={...data,text:r.text};}
+    if(type==='certificate'&&data.trusted&&this.sessions.get(id)?.profile.tofu){const secrets=this.credentials(id);if(!secrets.tlsPin){secrets.tlsPin={fingerprint:data.fingerprint,pem:data.pem};this.vault.set('network:'+id,secrets);this.memory.set(id,secrets);}}
+    if(type==='redact'&&this.getConfig().settings.historyEnabled)this.history.redact(id,data.messageId);
+    if(type==='ctcp'&&data.command==='DCC'){try{this.dcc.offer(id,data.nick,data.args);}catch(e){this.emit(id,'problem',{text:e.message});}}
+    if(type==='status'&&['connected','disconnected'].includes(data.state))await this.scripts.event(data.state==='connected'?'CONNECT':'DISCONNECT',{network:id});
+    this.emit(id,type,data);
+  }
+  notify(id,data){
+    const settings=this.getConfig().settings,w=this.getWindow();const ws=this.getConfig().workspace;const record=ws?.networks?.find(n=>n.id===id);if(!settings.notifications||w?.isFocused()||record?.conversations?.some(c=>c.name.toLowerCase()===data.target.toLowerCase()&&c.muted))return;
+    const nick=this.sessions.get(id)?.nick||'',privateMessage=!/^[#&+!]/.test(data.target),mention=nick&&data.text.toLowerCase().includes(nick.toLowerCase())||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
+    if(!privateMessage&&!mention)return;
+    if(this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:`${data.nick} · ${data.target}`,body:settings.notificationPreview?data.text.slice(0,200):'Nuevo mensaje',silent:!settings.notificationSound});n.on('click',()=>{w?.show();w?.focus();this.emit(id,'navigate',{target:data.target});});n.show();}
+    if(settings.flashOnMention)w?.flashFrame(true);
+  }
+  async send({id,target,text}){
+    const input=await this.scripts.event('INPUT',{network:id,buffer:target,chan:target,text});if(input.halted)return{ok:true};text=input.text;
+    const fields={network:id,buffer:target,chan:target,text};const m=/^\/([^\s]+)\s*(.*)$/.exec(text);
+    if(m){const result=await this.scripts.alias(m[1],fields,m[2].split(/\s+/));if(result.handled)return{ok:true};}
+    executeInput(this.sessions.get(id),target,text,(type,data)=>this.emit(id,type,data));return{ok:true};
+  }
+  ctcp(id,nick,line){if(typeof nick!=='string'||/[\s\0\r\n]/.test(nick)||/[\0\r\n\x01]/.test(line))throw new Error('CTCP inválido.');const client=this.sessions.get(id);if(!client?.ready)throw new Error('La red no está conectada.');if(this.crypto.descriptor(id,nick))throw new Error('No se enviará CTCP directo en una conversación cifrada.');client.sendRaw(`PRIVMSG ${nick} :\x01${line}\x01`);}
+  async pick(options){const result=await this.electron.dialog.showOpenDialog(this.getWindow(),{properties:['openFile'],...options});return result.canceled?null:result.filePaths[0];}
+  async destination(options){const result=await this.electron.dialog.showSaveDialog(this.getWindow(),options);return result.canceled?null:result.filePath;}
+  async confirm(message,detail=''){const r=await this.electron.dialog.showMessageBox(this.getWindow(),{type:'question',message,detail,buttons:['Cancelar','Confirmar'],defaultId:0,cancelId:0});return r.response===1;}
+  async dccCertificate(host){let material=this.vault.get('dcc-certificate');if(!material){const {generate}=require('selfsigned');const result=await generate([{name:'commonName',value:host}],{keyType:'ec',curve:'P-256',algorithm:'sha256',extensions:[{name:'subjectAltName',altNames:[{type:7,ip:host}]}]});material={cert:result.cert,key:result.private};this.vault.set('dcc-certificate',material);}return material;}
+  async scriptAction(action,fields){
+    const id=fields.network,target=fields.buffer;
+    if(['media.pick','media.upload'].includes(action.type)){this.scriptMedia.run(action,fields).catch(e=>this.scripts.report(fields.script,e.message));return;}
+    if(action.type==='echo'){const [buffer,...rest]=action.args;this.emit(id,'message',{target:buffer||target,text:rest.join(' '),event:true,nick:'script'});return;}
+    if(['toast','sidebar','view'].includes(action.type)){this.emit(id,'script-ui',{...action,fields,script:fields.script});return;}
+    if(action.type==='raw'){this.sessions.get(id)?.sendRaw(action.text||action.args?.join(' ')||'');return;}
+    if(action.type==='state.set'){const [key,...rest]=action.args;if(!key||key.length>100)throw new Error('Clave de configuración inválida.');const state=this.vault.get('script-state:'+fields.script)||{};state[key]=rest.join(' ');if(JSON.stringify(state).length>65536)throw new Error('Configuración de script demasiado grande.');this.vault.set('script-state:'+fields.script,state);return;}
+    if(action.type==='state.delete'){const state=this.vault.get('script-state:'+fields.script)||{};delete state[action.args[0]];this.vault.set('script-state:'+fields.script,state);return;}
+    if(action.type.startsWith('age.'))throw new Error('Esta acción AGE requiere control explícito desde Cifrado.');
+    const args=action.args||[];executeInput(this.sessions.get(id),target,'/'+action.type+' '+(action.text??args.join(' ')),(type,data)=>this.emit(id,type,data));
+  }
+  async action(name,data={}){
+    const id=data.network,client=this.sessions.get(id),target=data.target;
+    switch(name){
+      case 'network.connect':return this.connect({id,credentials:data.credentials,remember:data.remember});
+      case 'status':return{secureStorage:this.vault.available(),scripts:this.scripts.list(),scriptRunning:!!this.scripts.worker,transfers:this.dcc.list(),crypto:this.crypto.targets,debug:this.scripts.debug};
+      case 'protocol.read':return this.protocolLog.read();
+      case 'history.folder':{const r=await this.electron.dialog.showOpenDialog(this.getWindow(),{properties:['openDirectory','createDirectory']});if(r.canceled)return{cancelled:true};this.history.close();this.history=new HistoryStore(r.filePaths[0]);fs.writeFileSync(path.join(this.directory,'history-folder.json'),JSON.stringify({directory:r.filePaths[0]}));return{ok:true};}
+      case 'history.search':return this.history.query(data);
+      case 'history.clear':if(await this.confirm('¿Eliminar todo el historial local?'))this.history.clear();return{ok:true};
+      case 'history.export':{const rows=this.history.query({...data,limit:500});const file=await this.destination({defaultPath:data.zip?'historial.zip':'historial.txt',filters:[{name:data.zip?'ZIP':'Texto',extensions:[data.zip?'zip':'txt']}]});if(file){if(data.zip){const groups={};for(const m of rows){const name=(m.network+'_'+m.target).replace(/[^a-zA-Z0-9_#-]/g,'_')+'.txt';groups[name]=(groups[name]||'')+`[${m.time}] <${m.nick}> ${m.text}\r\n`;}const {zipSync,strToU8}=require('fflate');fs.writeFileSync(file,zipSync(Object.fromEntries(Object.entries(groups).map(([k,v])=>[k,strToU8(v)]))));}else fs.writeFileSync(file,rows.map(m=>`[${m.time}] ${m.target} <${m.nick}> ${m.text}`).join('\r\n'),'utf8');}return{ok:!!file};}
+      case 'history.server':client.requestHistory(target,data.limit,data.before);return{ok:true};
+      case 'typing':client.sendTyping(target,data.state);return{ok:true};
+      case 'reply':client.sendMessage(target,data.text,false,{replyTo:data.messageId});return{ok:true};
+      case 'reaction':client.react(target,data.messageId,data.emoji);return{ok:true};
+      case 'redact':client.redact(target,data.messageId);return{ok:true};
+      case 'read':client.markRead(target);return{ok:true};
+      case 'crypto.export':{if(!await this.confirm('¿Copiar la clave de '+target+'?', 'El portapapeles podrá ser leído por otras aplicaciones. Comparte la clave por un medio seguro.'))return{cancelled:true};const key=this.vault.get('key:'+id+'\0'+target.toLowerCase());if(!key)throw new Error('No hay una clave compartida para este destino.');this.electron.clipboard.writeText(key);return{ok:true};}
+      case 'crypto.verify':{const age=this.cryptoAdapters.get(id).age(),pin=age.state.pins[data.fingerprint];if(!pin)throw new Error('Identidad no encontrada.');if(await this.confirm('¿Has verificado esta huella por otro medio?',data.fingerprint)){pin.verified=true;age.save();}return{ok:true};}
+      case 'crypto.status':return this.crypto.status(id,target);
+      case 'crypto.configure':{if(!await this.confirm('¿Cambiar el cifrado de '+target+'?',data.scheme==='none'?'Los próximos mensajes se enviarán sin cifrar.':'Comparte las claves por un canal seguro y verifica las huellas.'))return{cancelled:true};const result=this.crypto.configure(id,target,data.scheme,data.key);if(data.scheme==='AGE'&&client?.ready)this.cryptoAdapters.get(id).age().enable(target);return result;}
+      case 'crypto.confirm':if(await this.confirm('¿Aceptar la nueva identidad de '+data.nick+'?',data.fingerprint))this.cryptoAdapters.get(id).age().confirm(data.nick,data.fingerprint);return{ok:true};
+      case 'script.import':{const file=await this.pick({filters:[{name:'Hex scripts',extensions:['hex']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>262144)throw new Error('El script supera 256 KB.');return{id:this.scripts.install(path.basename(file),fs.readFileSync(file,'utf8'))};}
+      case 'script.configure':this.scriptMedia.clear();if(data.enabled&&!await this.confirm('¿Habilitar este script?',`Permisos: ${(data.permissions||[]).join(', ')}\nDominios: ${(data.domains||[]).join(', ')}`))return{cancelled:true};await this.scripts.configure(data.id,data);return{ok:true};
+      case 'script.remove':await this.scripts.remove(data.id);return{ok:true};
+      case 'script.signal':await this.scripts.event('SIGNAL:'+String(data.signal).toUpperCase(),{network:id,buffer:target},data.args||[]);return{ok:true};
+      case 'dcc.cancel':this.dcc.cancel(data.id);return{ok:true};
+      case 'dcc.reject':this.dcc.cancel(data.id,true);return{ok:true};
+      case 'dcc.accept':{const t=this.dcc.transfers.get(data.id);if(!t)throw new Error('Oferta no encontrada.');if(t.chat){if(!await this.confirm('¿Aceptar DCC CHAT de '+t.nick+'?',`Conexión directa a ${t.host}:${t.port}`))return{cancelled:true};return this.dcc.accept(data.id);}const file=await this.destination({defaultPath:t.name});if(!file)return{cancelled:true};return this.dcc.accept(data.id,{destination:file,resume:data.resume===true});}
+      case 'dcc.send':{const file=await this.pick({title:'Seleccionar archivo para enviar a '+target});return file?this.dcc.sendFile(id,target,file,{secure:data.secure===true,passive:data.passive===true}):{cancelled:true};}
+      case 'dcc.chat':return this.dcc.startChat(id,target,{secure:data.secure===true});
+      case 'dcc.message':this.dcc.sendChat(data.id,data.text);return{ok:true};
+      case 'dcc.trust':{const file=await this.pick({filters:[{name:'Certificado público',extensions:['pem','crt']}]});if(file){const cert=fs.readFileSync(file,'utf8');new(require('node:crypto').X509Certificate)(cert);this.vault.set('dcc-trust:'+id+':'+target.toLowerCase(),cert);}return{ok:!!file};}
+      case 'dcc.certificate':{const cert=(await this.dccCertificate(this.getConfig().settings.dccAddress||'127.0.0.1')).cert;const file=await this.destination({defaultPath:'hexdroid-dcc.crt'});if(file)fs.writeFileSync(file,cert);return{ok:!!file};}
+      case 'tls.import':{const file=await this.pick({filters:[{name:'Certificado',extensions:['pfx','p12','pem','crt']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>1048576)throw new Error('Certificado demasiado grande.');const secrets=this.credentials(id);if(/\.(pfx|p12)$/i.test(file))secrets.clientCertificate={pfx:fs.readFileSync(file).toString('base64'),passphrase:data.passphrase||''};else secrets.ca=fs.readFileSync(file,'utf8');this.vault.set('network:'+id,secrets);this.memory.set(id,secrets);return{ok:true};}
+      case 'secrets.forget':this.vault.set('network:'+id,undefined);this.memory.delete(id);return{ok:true};
+      case 'backup.export':{const secrets=data.includeSecrets?{vault:this.vault.exportValues(),encryption:this.crypto.targets,scripts:this.scripts.scripts}:null;const contents=await createBackup(this.getConfig(),secrets,data.password);const file=await this.destination({defaultPath:'HexDroid-backup.json'});if(file)fs.writeFileSync(file,contents,{mode:0o600});return{ok:!!file};}
+      case 'backup.import':{const file=await this.pick({filters:[{name:'Respaldo HexDroid',extensions:['json']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>5242880)throw new Error('Respaldo demasiado grande.');const backup=await readBackup(fs.readFileSync(file,'utf8'),data.password);if(!await this.confirm('¿Restaurar el respaldo?',`${backup.config.profiles.length} redes. Reemplazará las preferencias actuales; las conexiones se cerrarán.`))return{cancelled:true};this.sessions.close();if(backup.secrets){for(const[k,v]of Object.entries(backup.secrets.vault||backup.secrets))this.vault.set(k,v);if(Array.isArray(backup.secrets.encryption)){this.crypto.targets=backup.secrets.encryption;this.crypto.write();}if(Array.isArray(backup.secrets.scripts)){for(const s of backup.secrets.scripts){s.enabled=false;s.permissions=[];s.domains=[];this.scripts.validate(s);}this.scripts.scripts=backup.secrets.scripts;this.scripts.save();await this.scripts.restart();}}this.saveConfig(backup.config);return{ok:true,reload:true};}
+      case 'media.preview':{const u=new URL(data.url);if(!await this.confirm('¿Cargar contenido de '+u.hostname+'?', 'El servidor web verá tu dirección IP.'))return{cancelled:true};const r=await this.web.request(u.toString(),{domains:[u.hostname],maxBytes:5242880});if(r.status!==200)throw new Error('Respuesta HTTP '+r.status);const mime=imageMime(r.body);return mime?{image:`data:${mime};base64,${r.body.toString('base64')}`}:{title:titleOf(r.body.toString('utf8'))};}
+      case 'link.open':{const u=new URL(data.url);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw new Error('Enlace no permitido.');await this.electron.shell.openExternal(u.toString());return{ok:true};}
+      default:throw new Error('Acción no reconocida.');
+    }
+  }
+  close(){this.sessions.close();this.scripts.close();this.dcc.close();this.history.close();}
+}
+module.exports={Runtime};

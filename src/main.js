@@ -1,5 +1,7 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, clipboard } = require('electron');
+const electron = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, clipboard } = electron;
+const { Runtime } = require('./services/runtime');
 const fs = require('node:fs');
 const path = require('node:path');
 const { IrcClient } = require('./irc');
@@ -11,7 +13,7 @@ const requestedProfile = app.commandLine.getSwitchValue('user-data-dir');
 const dataDirectory = requestedProfile ? path.resolve(requestedProfile) : path.join(app.getPath('appData'), 'HexDroidDreams-Desktop');
 try { fs.mkdirSync(dataDirectory, { recursive: true }); app.setPath('userData', dataDirectory); }
 catch (error) { dialog.showErrorBox('HexDroid Dreams', 'No se pudo crear la carpeta de datos: ' + error.message); app.exit(1); }
-let window, store, config, logFile;
+let window, store, config, logFile, runtime, tray, quitting=false;
 const clients = new Map();
 const startupWarnings = [];
 function log(message) {
@@ -27,7 +29,7 @@ function fatal(error) {
 }
 process.on('uncaughtException', fatal);
 process.on('unhandledRejection', error => fatal(error instanceof Error ? error : new Error(String(error))));
-function emit(id, type, data) { if (window && !window.isDestroyed()) window.webContents.send('irc:event', { id, type, ...data }); }
+function emit(id, type, data) { if (window && !window.isDestroyed()) window.webContents.send('irc:event', { ...data, id, type, subtype:data?.type, transferId:data?.id }); }
 function register(name, handler) {
   ipcMain.handle(name, async (event, ...args) => {
     if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('Solicitud no autorizada.');
@@ -50,7 +52,9 @@ function createWindow() {
   let boundsTimer;
   const saveBounds = () => { if (window && !window.isDestroyed() && !window.isMinimized()) try { stateStore.save(window.getNormalBounds(), window.isMaximized()); } catch (e) { log('No se pudo guardar la ventana: ' + e.message); } };
   for (const event of ['resize','move','maximize','unmaximize']) window.on(event, () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(saveBounds,200); });
-  window.on('close', () => { clearTimeout(boundsTimer); saveBounds(); });
+  window.on('close', event => { clearTimeout(boundsTimer); saveBounds();if(!quitting&&config.settings.closeToTray&&tray){event.preventDefault();window.hide();} });
+  window.on('minimize',()=>{if(config.settings.minimizeToTray&&tray)window.hide();});
+  window.on('focus',()=>window.flashFrame(false));
   window.on('closed', () => { window = null; });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -61,29 +65,20 @@ else {
     store = new Store(app.getPath('userData'), message => { startupWarnings.push(message); log(message); }); config = store.load();
     register('config:load', () => ({ ...config, warnings: startupWarnings, version: app.getVersion() }));
     register('config:save', data => { config = store.save(data); return config; });
-    register('irc:connect', ({ id, password = '' } = {}) => {
-      const profile = config.profiles.find(p => p.id === id); if (!profile) throw new Error('Guarda la red antes de conectar.');
-      if (clients.has(id)) throw new Error('Esta red ya está conectada o conectando.');
-      const client = new IrcClient(profile, password); clients.set(id, client);
-      for (const type of ['status','message','users','channel','nick','topic','modes','server','problem']) client.on(type, data => {
-        const safeData = type === 'problem' ? { text:data } : type === 'status' ? { ...data, connection:{host:client.profile.host,port:client.profile.port,tls:client.profile.tls} } : data;
-        emit(id, type, safeData);
-        if (type === 'status' && data.state === 'disconnected' && clients.get(id) === client) clients.delete(id);
-      });
-      try { client.connect(); } catch (e) { clients.delete(id); throw e; }
-      return { ok: true };
-    });
-    register('irc:disconnect', id => { clients.get(id)?.disconnect(); return { ok: true }; });
-    register('irc:send', ({ id, target, text } = {}) => {
-      executeInput(clients.get(id), target, text, (type, data) => emit(id, type, data));
-      return { ok:true };
-    });
+    runtime = new Runtime({directory:dataDirectory,electron,getWindow:()=>window,getConfig:()=>config,saveConfig:data=>(config=store.save(data)),emit});
+    register('irc:connect', data => runtime.connect(data));
+    register('irc:disconnect', id => { runtime.sessions.disconnect(id); return {ok:true}; });
+    register('irc:send', data => runtime.send(data));
+    register('advanced:action', (name,data) => runtime.action(name,data));
     register('app:copy', text => { if (typeof text !== 'string' || text.length > 1000000) throw new Error('Texto no válido.'); clipboard.writeText(text); return { ok:true }; });
     register('app:logs', async () => { const error = await shell.openPath(app.getPath('userData')); if (error) throw new Error(error); return { ok: true }; });
     register('app:quit', () => { app.quit(); });
+    app.setAppUserModelId('org.hexdroid.dreams');
     createWindow();
+    if(app.commandLine.getSwitchValue('ozone-platform')!=='headless'){tray=new electron.Tray(path.join(__dirname,'assets','tray.png'));tray.setToolTip('HexDroid Dreams');const show=()=>{window?.restore();window?.show();window?.focus();};tray.on('double-click',show);tray.setContextMenu(electron.Menu.buildFromTemplate([{label:'Abrir HexDroid Dreams',click:show},{label:'Salir',click:()=>app.quit()}]));}
+    window.webContents.once('did-finish-load',()=>{ for(const p of config.profiles.filter(p=>p.autoConnect))try{runtime.connect({id:p.id});}catch(e){emit(p.id,'problem',{text:e.message});} });
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   }).catch(fatal);
-  app.on('before-quit', () => { for (const client of clients.values()) client.disconnect(); log('Cierre normal'); });
+  app.on('before-quit', () => { quitting=true;runtime?.close();tray?.destroy(); log('Cierre normal'); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

@@ -16,5 +16,13 @@
     "@electron/packager": "20.3.0",
     "@playwright/test": "1.64.1",
     "electron": "45.2.3"
+  },
+  "dependencies": {
+    "@mongodb-js/saslprep": "1.6.1",
+    "egoroof-blowfish": "4.0.3",
+    "fflate": "0.8.2",
+    "iconv-lite": "0.7.3",
+    "selfsigned": "5.5.0",
+    "socks": "2.8.10"
   }
 }

@@ -71,6 +71,25 @@ async function run() {
     await page.getByRole('button', { name: 'Entrar en una sala', exact: true }).click();
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
+    // Exercise the advanced controls through the actual preload and main process.
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
+    await expect(page.locator('.advanced-dialog')).toBeVisible();
+    await page.getByRole('button',{name:'Historial',exact:true}).click();
+    await page.getByLabel('Guardar historial local',{exact:true}).check();
+    await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
+    await expect(page.locator('.advanced-dialog > p')).toHaveText('Listo.');
+    await page.locator('.advanced-dialog .dialog-header button').click();
+    await page.locator('#message-input').fill('persisted SQLite desktop message');
+    await page.locator('#message-input').press('Enter');
+    await expect.poll(async()=>await page.evaluate(async()=>{const rows=await window.dreams.advanced('history.search',{text:'persisted SQLite desktop message'});return Array.isArray(rows)&&rows.some(m=>m.text==='persisted SQLite desktop message');})).toBe(true);
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
+    await page.getByRole('button',{name:'Scripts .hex',exact:true}).click();
+    await expect(page.locator('.advanced-content')).toContainText('Los scripts se importan desactivados');
+    await page.getByRole('button',{name:'Notificaciones y tema',exact:true}).click();
+    await page.getByLabel('Tema',{exact:true}).selectOption('light');
+    await page.getByRole('button',{name:'Guardar',exact:true}).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+    await page.locator('.advanced-dialog .dialog-header button').click();
     const dataPath = await app.evaluate(({ app }) => app.getPath('userData'));
     expect(path.resolve(dataPath)).toBe(path.resolve(profileDirectory));
     // Ensure all queued preference writes have reached the actual main process.

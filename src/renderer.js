@@ -124,7 +124,7 @@ function renderMessages(preserveScroll = false) {
   const list = $('messages'), c = selected(), query = fold($('message-search').value);
   list.hidden = !c; $('welcome').hidden = !!c;
   if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
+  const signature = JSON.stringify([c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
   if (preserveScroll && signature === lastMessageView) return;
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
@@ -145,7 +145,7 @@ function renderMessages(preserveScroll = false) {
       row.append(el('span','avatar',(m.nick || '?').slice(0,2).toUpperCase()));
       const content = el('div','message-content'), header = el('div','message-header');
       const nick = el('button','message-nick',m.nick); nick.onclick = () => choose(active.id,m.nick); header.append(nick); if (config.settings.timestamps) header.append(time);
-      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body); row.append(content);
+      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
     row.addEventListener('click',e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleMessageSelection(m.id,row); } },true);
@@ -235,10 +235,17 @@ function messageMenu(event,m,row) {
   contextMenu.show(event,m.nick || 'Mensaje del servidor',[
     ...(selection ? [{ label:'Copiar texto seleccionado',action:() => copyText(selection) }] : []),
     { label:'Copiar mensaje',action:() => copyText(printable(m)) },
+    ...(api.advanced&&m.messageId&&network(active.id).capabilities?.includes('message-tags') ? [
+      {label:'Responder',action:()=>askAction('Responder a '+m.nick,'Respuesta','',text=>advancedMessage('reply',m,{text}))},
+      {label:'Reaccionar',action:()=>askAction('Reaccionar','Emoji','👍',emoji=>advancedMessage('reaction',m,{emoji}))},
+      ...(m.own&&network(active.id).capabilities.includes('draft/message-redaction')?[{label:'Eliminar del servidor',action:()=>advancedMessage('redact',m)}]:[])
+    ]:[]),
+    ...(api.advanced&&/https?:\/\/[^\s]+/.test(m.text)?[{label:'Abrir primer enlace',action:()=>advancedMessage('link.open',m,{url:m.text.match(/https?:\/\/[^\s]+/)[0]})}]:[]),
     { label:selectedMessages.has(m.id) ? 'Deseleccionar mensaje' : 'Seleccionar mensaje',action:() => toggleMessageSelection(m.id,row) },
     { label:'Copiar mensajes seleccionados',disabled:!selectedMessages.size,action:copyMessages }
   ]);
 }
+async function advancedMessage(action,m,extra={}){const r=await api.advanced(action,{network:active.id,target:active.target,messageId:m.messageId,...extra});if(r?.error)throw new Error(r.error);}
 async function sendCommand(id,target,text) { const r = await api.send({ id,target,text }); if (r?.error) throw new Error(r.error); }
 function askAction(title,prompt,value,action) {
   pendingAction = action; $('action-title').textContent = title; $('action-prompt').textContent = prompt;
@@ -375,7 +382,7 @@ const actions = {
   connection: () => toggleConnection(), join: () => openJoin(),
   logs: async () => { const r = await api.logs(); if (r?.error) notify(r.error, true); }, quit: () => api.quit(),
   help: () => info('Comandos y atajos', ['/join #sala · /part · /nick apodo · /me acción', '/msg apodo mensaje · /whois apodo · /topic texto · /quit', 'Para enviar un mensaje que empieza por /, escribe // al principio.', 'Ctrl+N: nueva red · Ctrl+J: entrar en sala · Ctrl+U: ocultar usuarios · Ctrl+,: configuración.', 'Las salas aparecen como pestañas arriba. Arrastra el borde izquierdo de la conversación para ajustar la barra lateral.']),
-  about: () => info('HexDroid Dreams', ['Versión ' + (appVersion) + ' · Cliente IRC para Windows.', 'Una implementación nueva e independiente, inspirada en HexDroid. Esta primera versión admite varias redes, TLS, salas y mensajes privados.', 'Todavía no incluye SASL/NickServ automático, cifrado de extremo a extremo, DCC, scripts ni historial persistente.'])
+  about: () => info('HexDroid Dreams', ['Versión ' + (appVersion) + ' · Cliente IRC para Windows.', 'Cliente de escritorio con IRCv3, autenticación SASL, historial opcional, DCC, cifrado y scripts .hex.', 'Las funciones dependen de las capacidades de cada servidor. Revisa Herramientas para configurarlas.'])
 };
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-action]');
@@ -387,12 +394,12 @@ document.addEventListener('click', event => {
 document.querySelectorAll('.menu').forEach(menu => menu.addEventListener('toggle', () => { if (menu.open) for (const other of document.querySelectorAll('.menu')) if (other !== menu) other.open = false; }));
 $('network-form').addEventListener('submit', async event => {
   event.preventDefault(); const host = $('profile-host').value.trim(), nick = $('profile-nick').value.trim();
-  if (!host || /[\s\0\r\n:,]/.test(host) || !/^[^\s\0\r\n:,]+$/.test(nick)) { $('network-error').textContent = 'Revisa el servidor y el apodo: no pueden contener espacios ni dos puntos.'; return; }
+  if (!host || /[\s\0\r\n,]/.test(host) || !/^[^\s\0\r\n:,]+$/.test(nick)) { $('network-error').textContent = 'Revisa el servidor y el apodo: no pueden contener espacios ni dos puntos.'; return; }
   const channels = [...new Set($('profile-channels').value.trim().split(/[\s,]+/).filter(Boolean))];
   if (channels.some(c => !/^[#&+!][^\s:,]+$/.test(c)) || channels.length > 30) { $('network-error').textContent = 'Introduce hasta 30 salas, empezando por #, &, + o !.'; return; }
   if (!$('profile-id').value && config.profiles.length >= 30) { $('network-error').textContent = 'Esta versión admite hasta 30 redes.'; return; }
   const id = $('profile-id').value || crypto.randomUUID();
-  const p = { id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels };
+  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels };
   const previous = config.profiles.findIndex(p => p.id === id); if (previous < 0) config.profiles.push(p); else config.profiles[previous] = p;
   const password = $('profile-password').value;
   try { await persist(); } catch (e) { $('network-error').textContent = e.message; return; }

@@ -1,6 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('dreams', {
+  advanced: (name, data) => ipcRenderer.invoke('advanced:action', name, data),
   load: () => ipcRenderer.invoke('config:load'),
   save: data => ipcRenderer.invoke('config:save', data),
   connect: data => ipcRenderer.invoke('irc:connect', data),

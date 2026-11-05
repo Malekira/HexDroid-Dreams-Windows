@@ -44,6 +44,8 @@
     choose(id, target) { this.active = { id, target }; const c = this.conversation(id, target); this.network(id).lastTarget = target; c.unread = 0; c.mentions = 0; return c; }
     addMessage(id, target, message) {
       const n = this.network(id), c = this.conversation(id, target);
+      const existing=c.messages.find(m=>(message.messageId&&m.messageId===message.messageId)||(message.clientId&&m.clientId===message.clientId));
+      if(existing){Object.assign(existing,message,{id:existing.id});return existing;}
       const nick = fold(n.nick), words = fold(message.text || '').split(/[^a-z0-9_\-{}|~]+/);
       const mention = !message.own && !message.event && !!nick && words.includes(nick);
       const m = { time:new Date().toISOString(), ...message, mention, id: `${Date.now()}-${++Workspace.sequence}` };
