@@ -17,3 +17,6 @@ test('Query opens a private locally and raw remains available without faking uns
   executeInput(c,'*','/raw HELP'); assert.equal(c.lines[0],'HELP');
   assert.throws(() => executeInput(c,'Alice','/kick Bob'),/Selecciona una sala/);
 });
+test('Login, nick and identify work directly without raw',()=>{
+ const lines=[],messages=[],client={ready:true,nick:'Me',sendRaw:line=>lines.push(line),sendMessage:(target,text)=>messages.push({target,text})};executeInput(client,'*','/login account password');executeInput(client,'*','/nick NewNick');executeInput(client,'*','/identify account password');assert.deepEqual(lines,['LOGIN account password','NICK NewNick']);assert.deepEqual(messages,[{target:'NickServ',text:'IDENTIFY account password'}]);assert.throws(()=>executeInput(client,'*','/identify'),/Uso/);
+});

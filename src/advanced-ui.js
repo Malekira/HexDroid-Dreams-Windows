@@ -5,22 +5,61 @@
   let section = "networks",
     state = {},
     busy = false;
-  const dialog = el("dialog", "advanced-dialog"),
-    header = el("header", "dialog-header"),
-    title = el("h2", "", "Configuración completa"),
-    close = el("button", "icon-button", "×");
-  close.type = "button";
-  close.onclick = () => dialog.close();
-  header.append(title, close);
-  const nav = el("nav", "advanced-nav"),
-    body = el("div", "advanced-content"),
-    feedback = el("p", "note");
-  feedback.setAttribute("role", "status");
-  dialog.append(header, nav, body, feedback);
-  document.body.append(dialog);
+  const dialog = $("settings-dialog"),
+    nav = document.querySelector(".settings-nav"),
+    body = el("section", "advanced-content"),
+    feedback = $("settings-feedback");
+  dialog.classList.add("advanced-dialog");
+  body.hidden = true;
+  document.querySelector(".settings-content").append(body);
+  const baseOpenSettings = openSettings;
+  openSettings = function (key = "networks") {
+    body.hidden = true;
+    baseOpenSettings(key);
+  };
+  const groups = {};
+  const existing = [...nav.querySelectorAll("button[data-section]")];
+  nav.replaceChildren();
+  nav.setAttribute("aria-label", "Árbol de configuración");
+  for (const [key, label] of Object.entries({
+    net: "Redes e identidad",
+    look: "Apariencia y conversación",
+    tools: "Datos y herramientas",
+  })) {
+    const group = el("details", "settings-group"),
+      summary = el("summary", "", label),
+      children = el("div", "settings-children");
+    group.open = true;
+    group.append(summary, children);
+    nav.append(group);
+    groups[key] = children;
+  }
+  for (const button of existing) {
+    groups[
+      button.dataset.section === "networks"
+        ? "net"
+        : ["appearance", "chat", "layout"].includes(button.dataset.section)
+          ? "look"
+          : "tools"
+    ].append(button);
+  }
+  nav.addEventListener("keydown", (e) => {
+    const nodes = [...nav.querySelectorAll("button,summary")].filter(
+        (n) => n.getClientRects().length,
+      ),
+      i = nodes.indexOf(document.activeElement);
+    let next;
+    if (e.key === "ArrowDown") next = nodes[Math.min(i + 1, nodes.length - 1)];
+    if (e.key === "ArrowUp") next = nodes[Math.max(i - 1, 0)];
+    if (e.key === "Home") next = nodes[0];
+    if (e.key === "End") next = nodes.at(-1);
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  });
   const names = {
-    appearance: "Apariencia y disposición",
-    networks: "Red y autenticación",
+    networks: "Autenticación y proxy",
     history: "Historial",
     notifications: "Notificaciones y tema",
     dcc: "Transferencias DCC",
@@ -32,10 +71,16 @@
   for (const [key, label] of Object.entries(names)) {
     const b = el("button", "secondary", label);
     b.onclick = () => {
-      section = key;
-      run(show);
+      open(key);
     };
-    nav.append(b);
+    b.dataset.advancedSection = key;
+    groups[
+      key === "networks" || key === "crypto"
+        ? "net"
+        : key === "notifications"
+          ? "look"
+          : "tools"
+    ].append(b);
   }
   function button(label, action, parent = body) {
     const b = el("button", "secondary", label);
@@ -140,9 +185,10 @@
           p.name +
           ". Los cambios se aplican al reconectar.",
       );
-      const username = input("Usuario IRC", p.username || p.nick),
-        realName = input("Nombre real", p.realName || "HexDroid Dreams"),
-        sasl = select(
+      button("Editar identidad, foto y comandos de esta red", () =>
+        openNetwork(p.id),
+      );
+      const sasl = select(
           "SASL",
           [
             ["none", "Desactivado"],
@@ -193,11 +239,6 @@
           p.reconnectDelay || 5,
           "number",
         ),
-        commands = input(
-          "Comandos tras conectar (uno por línea, sin contraseñas)",
-          (p.commands || []).join("\n"),
-          "textarea",
-        ),
         commandDelay = input(
           "Separación entre comandos (ms)",
           p.commandDelay || 1000,
@@ -222,8 +263,6 @@
       button("Guardar configuración avanzada", async () => {
         const updated = {
           ...p,
-          username: username.value,
-          realName: realName.value,
           sasl: sasl.value,
           saslUsername: saslUsername.value,
           alternateNick: alternateNick.value,
@@ -232,10 +271,6 @@
           autoConnect: autoConnect.checked,
           reconnectDelay: Number(delay.value),
           commandDelay: Number(commandDelay.value),
-          commands: commands.value
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean),
           proxy: proxyHost.value
             ? {
                 host: proxyHost.value,
@@ -777,39 +812,25 @@
   }
   function open(key) {
     section = key || section;
-    if (!dialog.open) dialog.showModal();
+    baseOpenSettings("__advanced__");
+    body.hidden = false;
+    for (const b of nav.querySelectorAll("button"))
+      b.classList.toggle("selected", b.dataset.advancedSection === section);
     run(show);
   }
-  const optionSearch = input("Buscar opciones", "", "search", dialog);
-  dialog.insertBefore(optionSearch.parentElement, nav);
-  optionSearch.oninput = () => {
-    const q = optionSearch.value.toLowerCase();
-    for (const b of nav.children)
-      b.hidden = !b.textContent.toLowerCase().includes(q);
+  $("settings-search").addEventListener("input", () => {
+    const q = $("settings-search").value.toLowerCase();
     for (const l of body.querySelectorAll(".advanced-field"))
       l.hidden = !l.textContent.toLowerCase().includes(q);
-  };
+  });
   const top = document.querySelector(".settings-top");
   top.addEventListener("click", (e) => {
     e.stopImmediatePropagation();
-    open();
+    openSettings("networks");
   });
-  const menu = document.querySelector(".menubar nav");
   const launch = el("button", "advanced-launch", "Herramientas");
-  launch.onclick = () => open();
-  menu.append(launch);
-  const settingsNav =
-    document.querySelector(".settings-nav") ||
-    document.querySelector("#settings-dialog nav");
-  if (settingsNav)
-    button(
-      "Configuración completa",
-      () => {
-        document.getElementById("settings-dialog").close();
-        open();
-      },
-      settingsNav,
-    );
+  launch.onclick = () => open("networks");
+  document.querySelector(".menubar nav").append(launch);
   const typing = el("span", "typing-status");
   document.querySelector(".composer").prepend(typing);
   let typingTimer,
@@ -971,6 +992,37 @@
       note(event.text || "Vista del script", content);
     d.showModal();
   }
+  window.previewDreamsMedia = async (url) => {
+    try {
+      const result = await call("media.preview", { url });
+      if (result.cancelled) return;
+      const popup = el("dialog", "image-dialog"),
+        head = el("header", "dialog-header"),
+        title = el("h2", "", "Imagen"),
+        close = el("button", "icon-button", "×"),
+        content = el("div", "form-content");
+      close.onclick = () => {
+        popup.close();
+        popup.remove();
+      };
+      head.append(title, close);
+      if (result.image) {
+        const image = el("img");
+        image.src = result.image;
+        image.alt = "Imagen solicitada";
+        content.append(image);
+      } else
+        note(
+          result.title || "El enlace no contiene una imagen compatible.",
+          content,
+        );
+      popup.append(head, content);
+      document.body.append(popup);
+      popup.showModal();
+    } catch (e) {
+      notify(e.message, true);
+    }
+  };
   const historyLoaded = new Set(),
     originalChoose = choose;
   choose = function (id, target) {

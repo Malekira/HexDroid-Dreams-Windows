@@ -57,7 +57,7 @@ function validateProfile(p) {
       (x) =>
         /[\0\r\n]/.test(x) ||
         Buffer.byteLength(x) > 500 ||
-        /^(?:PASS|AUTHENTICATE|OPER)\b|\b(?:IDENTIFY|LOGIN)\b/i.test(x),
+        /^\/?(?:PASS|AUTHENTICATE|OPER)\b|\b(?:IDENTIFY|LOGIN)\b/i.test(x),
     )
   )
     throw new Error(
@@ -71,6 +71,12 @@ function validateProfile(p) {
     channels: [...new Set(p.channels)],
     username,
     realName,
+    photo:
+      typeof p.photo === "string" &&
+      p.photo.length <= 200000 &&
+      /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(p.photo)
+        ? p.photo
+        : "",
     sasl,
     saslUsername,
     encoding,

@@ -545,6 +545,72 @@ class Runtime {
           throw new Error("El servidor no admite gestionar redes soju.");
         client.sendRaw("BOUNCER LISTNETWORKS");
         return { ok: true };
+      case "network.commands.get":
+        return {
+          commands: [
+            ...(this.getConfig().profiles.find((p) => p.id === id)?.commands ||
+              []),
+            ...(this.credentials(id).commands || []),
+          ],
+        };
+      case "network.commands.save": {
+        if (
+          typeof id !== "string" ||
+          !/^[a-z\d_-]{1,80}$/i.test(id) ||
+          !Array.isArray(data.commands) ||
+          data.commands.length > 50 ||
+          data.commands.some(
+            (c) =>
+              typeof c !== "string" ||
+              /[\0\r\n]/.test(c) ||
+              Buffer.byteLength(c) > 500,
+          )
+        )
+          throw new Error("Comandos de conexión no válidos.");
+        const protectedCommands =
+          this.vault.available() ||
+          data.commands.some((c) =>
+            /\b(?:PASS|AUTHENTICATE|OPER|IDENTIFY|LOGIN)\b/i.test(c),
+          );
+        const secrets = {
+          ...this.credentials(id),
+          commands: protectedCommands ? data.commands : [],
+        };
+        if (protectedCommands || this.vault.available())
+          this.vault.set("network:" + id, secrets);
+        this.memory.set(id, secrets);
+        return {
+          ok: true,
+          publicCommands: protectedCommands ? [] : data.commands,
+        };
+      }
+      case "identity.photo": {
+        const file = await this.pick({
+          title: "Foto de identidad de esta red",
+          filters: [
+            {
+              name: "Fotos",
+              extensions: ["png", "jpg", "jpeg", "webp", "gif"],
+            },
+          ],
+        });
+        if (!file) return { cancelled: true };
+        if (fs.statSync(file).size > 5242880)
+          throw new Error("La foto debe ocupar menos de 5 MB.");
+        const bytes = fs.readFileSync(file);
+        if (!imageMime(bytes))
+          throw new Error("Formato de imagen no compatible.");
+        const image = this.electron.nativeImage.createFromBuffer(bytes);
+        if (image.isEmpty()) throw new Error("No se pudo decodificar la foto.");
+        const size = image.getSize();
+        if (size.width * size.height > 32000000)
+          throw new Error("La foto tiene demasiados píxeles.");
+        return {
+          image: image
+            .resize({ width: 128, height: 128, quality: "good" })
+            .toDataURL(),
+        };
+      }
       case "network.connect":
         return this.connect({
           id,
@@ -1067,10 +1133,40 @@ class Runtime {
         const meta = client.userStates.get(
           require("../irc").fold(data.nick),
         )?.metadata;
-        const url = meta?.avatar || meta?.["avatar-url"];
+        let url = meta?.avatar || meta?.["avatar-url"];
         if (!url) {
-          client.sendRaw("METADATA " + data.nick + " GET avatar");
-          return { pending: true };
+          url = await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+              client.off("user-state", listener);
+              reject(
+                new Error(
+                  "El servidor no devolvió una URL de foto para este usuario.",
+                ),
+              );
+            }, 8000);
+            const listener = (state) => {
+              if (
+                require("../irc").fold(state.nick) ===
+                  require("../irc").fold(data.nick) &&
+                ["avatar", "avatar-url"].includes(state.key) &&
+                state.value
+              ) {
+                clearTimeout(timer);
+                client.off("user-state", listener);
+                resolve(state.value);
+              }
+            };
+            client.on("user-state", listener);
+            try {
+              client.sendRaw(
+                "METADATA " + data.nick + " GET avatar avatar-url",
+              );
+            } catch (e) {
+              clearTimeout(timer);
+              client.off("user-state", listener);
+              reject(e);
+            }
+          });
         }
         return this.action("media.preview", { url });
       }

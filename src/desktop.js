@@ -22,7 +22,7 @@ window.DreamsDesktop = {
       this.node.replaceChildren(); const heading = document.createElement('div'); heading.className = 'context-label'; heading.textContent = title; this.node.append(heading);
       for (const item of items) {
         if (!item) { this.node.append(document.createElement('hr')); continue; }
-        const button = document.createElement('button'); button.setAttribute('role','menuitem'); button.textContent = item.label; button.disabled = item.disabled === true;
+        const button = document.createElement('button'); button.setAttribute('role','menuitem'); button.textContent = item.label; button.disabled = item.disabled === true;if(item.color&&/^#[a-f\d]{6}$/i.test(item.color)){const swatch=document.createElement('span');swatch.className='color-swatch';swatch.style.backgroundColor=item.color;swatch.setAttribute('aria-hidden','true');button.prepend(swatch);}
         button.onclick = () => { this.close(); Promise.resolve().then(item.action).catch(this.onError); }; this.node.append(button);
       }
       this.node.hidden = false;

@@ -93,13 +93,32 @@ async function run() {
 
     }
     console.log('Prueba Electron: historial y preferencias');
+    // Edit identity and commands in the network form; use a native-decoded photo.
+    const photoFile=path.join(root,'identity.png');fs.copyFileSync(path.join(__dirname,'../src/assets/tray.png'),photoFile);
+    await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},photoFile);
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
+    await expect(page.locator('.settings-group')).toHaveCount(3);
+    const settingsSize=await page.locator('#settings-dialog').boundingBox();
+    await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
+    await page.locator('#profile-username').fill('desktop_ident');await page.locator('#profile-realName').fill('Desktop Real Name');
+    await page.locator('#profile-commands').fill('/nick Dreamer');
+    await page.getByRole('button',{name:'Elegir foto',exact:true}).click();
+    await expect(page.locator('#profile-photo-preview')).toBeVisible();
+    const editSize=await page.locator('#network-dialog').boundingBox();expect(editSize.width).toBe(settingsSize.width);expect(editSize.height).toBe(settingsSize.height);
+    await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
+    const identity=await page.evaluate(async()=>{const c=await window.dreams.load();return c.profiles[0];});expect(identity.username).toBe('desktop_ident');expect(identity.realName).toBe('Desktop Real Name');expect(identity.photo).toMatch(/^data:image\/png;base64,/);const storedCommands=await page.evaluate(async id=>(await window.dreams.advanced('network.commands.get',{network:id})).commands,identity.id);expect(storedCommands).toEqual(['/nick Dreamer']);
+    await page.locator('#settings-dialog .dialog-header button').click();
+    await page.locator('#message-input').fill('\x0398,16visible extended color\x0f');await page.locator('#message-input').press('Enter');
+    await expect(page.locator('.message-text span').filter({hasText:'visible extended color'})).toHaveCSS('color','rgb(255, 255, 255)');
+    await expect(page.locator('.message-text span').filter({hasText:'visible extended color'})).toHaveCSS('background-color','rgb(71, 0, 0)');
+    await expect(page.locator('.message.own .avatar img').last()).toBeVisible();
     // Exercise the advanced controls through the actual preload and main process.
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.advanced-dialog')).toBeVisible();
     await page.getByRole('button',{name:'Historial',exact:true}).click();
     await page.getByLabel('Guardar historial local',{exact:true}).check();
     await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
-    await expect(page.locator('.advanced-dialog > p')).toHaveText('Listo.');
+    await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('.advanced-dialog .dialog-header button').click();
     await page.locator('#message-input').fill('persisted SQLite desktop message');
     await page.locator('#message-input').press('Enter');

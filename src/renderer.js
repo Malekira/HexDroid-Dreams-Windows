@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const api = window.dreams;
-let appVersion = '0.3.0';
+let appVersion = '0.4.0';
 let config = { settings: {}, profiles: [] }, active = null, toastTimer, saveQueue = Promise.resolve();
 let workspace = new DreamsWorkspace.Workspace();
 let networks = workspace.networks;
@@ -124,7 +124,7 @@ function renderMessages(preserveScroll = false) {
   const list = $('messages'), c = selected(), query = fold($('message-search').value);
   list.hidden = !c; $('welcome').hidden = !!c;
   if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
+  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
   if (preserveScroll && signature === lastMessageView) return;
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
@@ -142,10 +142,10 @@ function renderMessages(preserveScroll = false) {
     row.dataset.messageId = m.id;
     if (m.event) { if (config.settings.timestamps) row.append(time); row.append(document.createTextNode(m.text)); }
     else {
-      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
+      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=m.own?profile(active.id)?.photo:network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
       const nick = el('button','message-nick',m.nick);if(!m.own){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${document.documentElement.dataset.theme==='light'?38:72}%)`;} nick.onclick = () => choose(active.id,m.nick); header.append(nick); if (config.settings.timestamps) header.append(time);
-      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
+      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
     row.addEventListener('click',e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleMessageSelection(m.id,row); } },true);
@@ -169,7 +169,7 @@ function renderUsers() {
   if (!users.length) { list.append(el('div','empty-users',c?.kind === 'channel' ? 'Los usuarios aparecerán al entrar en la sala.' : 'Selecciona una sala para ver sus usuarios.')); return; }
   for (const user of users.filter(user => fold(user).includes(query))) {
     const bare = bareNick(user,n), b = el('button','user-button' + (rank(user) < 999 ? ' operator' : ''));
-    b.append(el('span','user-avatar',bare.slice(0,2).toUpperCase()),el('span','user-name',user));
+    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=fold(bare)===fold(n.nick)?profile(active.id)?.photo:n.avatars?.[fold(bare)];if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',user));
     b.setAttribute('aria-label',user); b.title = 'Doble clic para abrir un privado con ' + bare;
     const id = active.id; b.ondblclick = () => choose(id,bare); b.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); choose(id,bare); } };
     b.oncontextmenu = e => userMenu(e,id,c,bare); list.append(b);
@@ -195,6 +195,7 @@ function renderHeader() {
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;
+  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');if(p?.photo){const img=el('img');img.src=p.photo;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
   $('self-nick').textContent = n?.nick || 'Tu espacio IRC'; $('connection-summary').textContent = connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}` : 'Sin conexión';
   for (const id of ['global-status','footer-dot']) $(id).className = 'status-dot' + (connected ? ' online' : n?.state === 'connecting' ? ' connecting' : '');
   $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDroid Dreams ' + appVersion;
@@ -285,7 +286,7 @@ function userMenu(event,id,c,nick) {
   contextMenu.show(event,nick,[
     { label:'Abrir privado',action:() => choose(id,nick) },
     ...(api.advanced?[{label:'Ignorar usuario',action:()=>sendCommand(id,c.name,'/ignore '+nick)},{label:'Dejar de ignorar',action:()=>sendCommand(id,c.name,'/unignore '+nick)}]:[]),
-    ...(api.advanced&&n.capabilities?.includes('draft/metadata-2')?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
+    ...(api.advanced&&n.capabilities?.includes('draft/metadata-2')?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;lastMessageView='';render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
     { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); choose(id,'*'); } },
     { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); choose(id,'*'); } },
     { label:'Invitar a un canal…',disabled:!connected,action:() => askAction('Invitar a ' + nick,'Canal de destino',c.name,value => { if (!/^[#&+!][^\s,:]+$/.test(value)) throw new Error('Introduce un canal válido.'); return sendCommand(id,value,'/invite ' + nick); }) },
@@ -316,7 +317,7 @@ function insertFormat(open,close = open) {
   input.setRangeText(open + input.value.slice(start,end) + close,start,end,'end'); input.setSelectionRange(start + open.length,end + open.length); input.focus(); input.dispatchEvent(new Event('input'));
 }
 document.querySelectorAll('[data-format]').forEach(button => button.onclick = event => {
-  if (button.dataset.format === 'color') contextMenu.show(event,'Color IRC',['Blanco','Negro','Azul oscuro','Verde','Rojo','Granate','Violeta','Naranja','Amarillo','Lima','Turquesa oscuro','Turquesa','Azul','Rosa','Gris','Gris claro'].map((name,i) => ({ label:name,action:() => insertFormat('\x03' + String(i).padStart(2,'0'),'\x03') })));
+  if (button.dataset.format === 'color') contextMenu.show(event,'Color IRC',['Blanco','Negro','Azul oscuro','Verde','Rojo','Granate','Violeta','Naranja','Amarillo','Lima','Turquesa oscuro','Turquesa','Azul','Rosa','Gris','Gris claro'].map((name,i) => ({ label:name,color:DreamsFormatting.colors[i],action:() => insertFormat('\x03' + String(i).padStart(2,'0'),'\x03') })));
   else insertFormat({ bold:'\x02',italic:'\x1d',underline:'\x1f' }[button.dataset.format]);
 });
 function filterSettings() {
@@ -353,10 +354,16 @@ function renderProfiles() {
     actions.append(edit, connect, remove); card.append(actions); list.append(card);
   }
 }
+let editingPhoto="";
+function updatePhotoPreview(){const img=$("profile-photo-preview");img.hidden=!editingPhoto;if(editingPhoto)img.src=editingPhoto;else img.removeAttribute("src");}
+$("profile-photo-choose").onclick=async()=>{try{if(!api.advanced)throw new Error("Selector de fotos no disponible.");const r=await api.advanced("identity.photo");if(r.error)throw new Error(r.error);if(r.image){editingPhoto=r.image;updatePhotoPreview();}}catch(e){$("network-error").textContent=e.message;}};
+$("profile-photo-remove").onclick=()=>{editingPhoto="";updatePhotoPreview();};
 function openNetwork(id) {
   const p = id && profile(id); $('network-form').reset(); $('profile-id').value = p?.id || '';
   $('network-dialog-title').textContent = p ? 'Editar red' : 'Añadir una red';
   for (const key of ['name','host','nick','port']) $('profile-' + key).value = p?.[key] ?? (key === 'port' ? 6697 : '');
+  $('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDroid Dreams';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
+  if(p&&api.advanced){const currentId=p.id,initialCommands=$('profile-commands').value;api.advanced('network.commands.get',{network:p.id}).then(r=>{if($('profile-id').value===currentId&&$('profile-commands').value===initialCommands&&r.commands)$('profile-commands').value=r.commands.join('\n');}).catch(e=>notify(e.message,true));}
   $('profile-channels').value = p?.channels.join(', ') || ''; $('profile-tls').checked = p?.tls ?? true; $('profile-password').value = ''; $('network-error').textContent = '';
   if (!$('network-dialog').open) $('network-dialog').showModal(); $('profile-name').focus();
 }
@@ -406,13 +413,14 @@ $('network-form').addEventListener('submit', async event => {
   if (channels.some(c => !/^[#&+!][^\s:,]+$/.test(c)) || channels.length > 30) { $('network-error').textContent = 'Introduce hasta 30 salas, empezando por #, &, + o !.'; return; }
   if (!$('profile-id').value && config.profiles.length >= 30) { $('network-error').textContent = 'Esta versión admite hasta 30 redes.'; return; }
   const id = $('profile-id').value || crypto.randomUUID();
-  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels };
+  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels,username:$("profile-username").value.trim()||nick,realName:$("profile-realName").value,photo:editingPhoto,commandDelay:Number($("profile-commandDelay").value),commands:[] };
+  const previousProfiles=[...config.profiles];
   const previous = config.profiles.findIndex(p => p.id === id); if (previous < 0) config.profiles.push(p); else config.profiles[previous] = p;
   const password = $('profile-password').value;
-  try { await persist(); } catch (e) { $('network-error').textContent = e.message; return; }
+  try { const commands=$('profile-commands').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(api.advanced){const r=await api.advanced('network.commands.save',{network:id,commands});if(r.error)throw new Error(r.error);p.commands=r.publicCommands||[];}else p.commands=commands;await persist(); } catch (e) { config.profiles=previousProfiles;$('network-error').textContent = e.message; return; }
   if (password) passwords.set(id, password); $('profile-password').value = '';
   if (network(id).state === 'disconnected') network(id).nick = nick;
-  $('network-dialog').close(); choose(id, '*'); if ($('settings-dialog').open) renderProfiles();
+  $('network-dialog').close(); choose(id, previous>=0&&active?.id===id?active.target:'*'); if ($('settings-dialog').open) renderProfiles();
   if (event.submitter?.value === 'connect') { if (network(id).state === 'disconnected') await toggleConnection(id); else notify('Red guardada. Desconecta y vuelve a conectar para aplicar los cambios.'); }
 });
 $('profile-tls').addEventListener('change', () => { const p = $('profile-port'); if (p.value === '6697' || p.value === '6667') p.value = $('profile-tls').checked ? '6697' : '6667'; });
@@ -525,7 +533,7 @@ api.onEvent(event => {
     const result = await api.load(); if (result.error) throw new Error(result.error);
     config = { profiles:result.profiles, settings: { fontSize:14,sidebarWidth:240,usersWidth:192,showPrivates:true,showUsers:true,showTopic:true,timestamps:true,showEvents:true,compact:false,autoScroll:true,fontFamily:'Segoe UI',lineHeight:1.65,messageSpacing:9,ownNickColor:'#c0adf1',privateSort:'manual',...result.settings } };
     workspace = new DreamsWorkspace.Workspace(config.profiles,result.workspace); networks = workspace.networks; active = workspace.active;
-    appVersion = result.version || '0.3.0';
+    appVersion = result.version || '0.4.0';
     if (active) $('message-input').value = selected().draft;
     applySettings(); render();
     if (result.warnings?.length) notify(result.warnings.join(' '), true);

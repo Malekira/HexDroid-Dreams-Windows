@@ -349,3 +349,11 @@ test("Multiline sends negotiated batches and protected raw sends cannot bypass t
     !wire.some((line) => line.includes(":hidden") || line.includes(":exposed")),
   );
 });
+
+test('Per-network post-connect slash commands run in order and stop after disconnect',async()=>{
+ const clients=[],lines=[];const manager=new SessionManager({clientFactory:()=>{const c=new EventEmitter();c.ready=true;c.profile={};c.connect=()=>{};c.disconnect=()=>{c.ready=false;c.emit('status',{state:'disconnected'});};c.sendRaw=line=>lines.push(line);c.sendMessage=(target,text)=>lines.push('PRIVMSG '+target+' :'+text);clients.push(c);return c;}});
+ manager.connect({id:'one',host:'localhost',port:6667,tls:false,nick:'Me',channels:[],commands:['/login account pass','/nick NewNick','/identify pass'],commandDelay:20});clients[0].emit('status',{state:'connected'});await until(()=>lines.length===3);assert.deepEqual(lines,['LOGIN account pass','NICK NewNick','PRIVMSG NickServ :IDENTIFY pass']);manager.disconnect('one');manager.close();
+});
+test('Avatar metadata numeric replies update the network user state',()=>{
+ const client=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),events=[];client.on('user-state',e=>events.push(e));client.receive(Buffer.from(':server 761 Me Alice avatar * :https://example.org/avatar.png\r\n'));assert.equal(client.userStates.get('alice').metadata.avatar,'https://example.org/avatar.png');assert.equal(events[0].nick,'Alice');
+});

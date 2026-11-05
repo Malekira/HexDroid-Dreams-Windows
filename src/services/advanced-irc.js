@@ -438,6 +438,18 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           networkIcon: this.networkIcon,
         });
       }
+      if (c === "761" && p.length >= 5) {
+        const nick = p[1],
+          key = p[2],
+          value = p.at(-1),
+          old = this.userStates.get(fold(nick)) || {};
+        this.userStates.set(fold(nick), {
+          ...old,
+          metadata: { ...old.metadata, [key]: value },
+        });
+        this.emit("user-state", { nick, key, value });
+        return;
+      }
       if (c === "CAP") {
         this.capabilitiesMessage(m);
         return;

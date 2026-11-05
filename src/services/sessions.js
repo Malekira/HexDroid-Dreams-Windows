@@ -1,5 +1,6 @@
 "use strict";
 const { EventEmitter } = require("node:events");
+const { executeInput } = require("../commands");
 const { IrcClient, fold } = require("../irc");
 class SessionManager extends EventEmitter {
   constructor({
@@ -78,7 +79,11 @@ class SessionManager extends EventEmitter {
                 s.timers.delete(timer);
                 if (!s.stopped && client.ready)
                   try {
-                    client.sendRaw(command);
+                    if (command.startsWith("/"))
+                      executeInput(client, "*", command, (type, data) =>
+                        this.emit("event", s.profile.id, type, data),
+                      );
+                    else client.sendRaw(command);
                   } catch (e) {
                     this.emit("event", s.profile.id, "problem", e.message);
                   }

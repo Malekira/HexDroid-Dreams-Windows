@@ -235,5 +235,17 @@ test('Editing a profile never misrepresents the security of its existing connect
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await page.getByRole('button',{name:'Listo',exact:true}).click();
   await expect(page.locator('#transport-label')).toContainText('sin cifrar');
+  await expect(page.locator('#conversation-title')).toHaveText('#room');
+  await page.locator('#server-button').click();
   await expect(page.locator('#conversation-subtitle')).toContainText('irc.example.org:6667');
+});
+
+test('Network identity and slash post-connect commands stay independent per profile',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Primera');
+ await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
+ await page.locator('#profile-username').fill('ident_primera');await page.locator('#profile-realName').fill('Nombre Primera');await page.locator('#profile-commands').fill('/nick Primera\n/identify primera');await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();await page.locator('#settings-dialog .dialog-header [data-close]').click();
+ await addNetwork(page,'Segunda');await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list .profile-card').nth(1).getByRole('button',{name:'Editar',exact:true}).click();
+ await expect(page.locator('#profile-username')).not.toHaveValue('ident_primera');await page.locator('#profile-username').fill('ident_segunda');await page.locator('#profile-realName').fill('Nombre Segunda');await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
+ await page.locator('#profile-list .profile-card').first().getByRole('button',{name:'Editar',exact:true}).click();await expect(page.locator('#profile-username')).toHaveValue('ident_primera');await expect(page.locator('#profile-realName')).toHaveValue('Nombre Primera');await expect(page.locator('#profile-commands')).toHaveValue('/nick Primera\n/identify primera');
+ const overflow=await page.locator('#network-dialog .form-content').evaluate(n=>n.scrollWidth>n.clientWidth);expect(overflow).toBe(false);
 });

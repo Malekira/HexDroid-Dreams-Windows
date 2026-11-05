@@ -1,28 +1,16 @@
-# HexDroid Dreams 0.3.0 — IRC y sistemas avanzados (prueba)
+# HexDroid Dreams 0.4.0 — identidad, configuración, fotos y colores
 
-Descarga **HexDroid-Dreams-0.3.0-Windows-x64.zip**, extrae toda la carpeta y abre **HexDroidDreams.exe**. No necesita MSI ni instalar Node.js. Conserva una copia de tus datos antes de probar una versión nueva. El perfil continúa en `%APPDATA%\HexDroidDreams-Desktop`.
+Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva una copia de tus datos antes de actualizar. El perfil de Windows y el certificado personal existente se mantienen.
 
-Esta entrega continúa las etapas 1 y 2 con los sistemas IRC y avanzados de las etapas 3 y 4. Android permanece en su repositorio independiente.
+- Editar red incluye identidad propia (nick, ident/usuario IRC, nombre real y foto), comandos posteriores a la conexión y separación entre comandos.
+- Comandos directos `/login`, `/nick`, `/identify`, servicios y otros comandos IRC sin exigir `/raw`. En la secuencia de conexión se usa el mismo intérprete que en el chat, manteniendo el orden y los retrasos. `/identify` envía IDENTIFY a NickServ; `/login` envía LOGIN al servidor, que debe admitirlo.
+- Los comandos guardados en Windows se protegen con el almacén seguro del usuario; las credenciales no se escriben en settings.json ni en el registro de protocolo.
+- Configuración general con categorías desplegables a la izquierda y contenido a la derecha, navegación por teclado y desplazamiento vertical.
+- Diálogos de la aplicación con dimensiones uniformes y contenido adaptable, evitando desplazamiento horizontal. Los selectores nativos de Windows conservan su disposición del sistema.
+- Foto local de identidad por red mediante selector de archivos: vista previa, cambio y eliminación; se muestra en tus mensajes, lista de usuarios y pie del panel. No se publica automáticamente en IRC: para otros usuarios hacen falta una URL pública y metadatos compatibles del servidor.
+- Fotos remotas: se procesan respuestas METADATA 761 y se espera la URL solicitada en una sola acción. La vista del chat se actualiza al cargar el avatar, sin esperar a otro mensaje. Las imágenes enlazadas HTTPS compatibles tienen un botón de carga manual, con confirmación del dominio.
+- Colores IRC extendidos 0–98, fondos, hexadecimal, ANSI de 256 colores y RGB; colores visibles en la vista previa y muestras en el selector.
 
-- SASL PLAIN, SCRAM-SHA-256 y EXTERNAL sobre TLS verificado; certificados cliente PFX, CA, fijación del primer certificado TLS válido y STS. Credenciales opcionales protegidas por DPAPI en Windows.
-- Reconexión con recuperación de canales, apodos alternativos, recuperación del principal, autojoin con claves, comandos con retrasos, SOCKS4/5 y perfiles de bouncer.
-- CAP/IRCv3 con tiempo de servidor, echo sin duplicación, etiquetas, lotes e historial; respuestas, reacciones, escritura, lectura y redacción según capacidades negociadas.
-- Historial SQLite/FTS opcional, búsqueda global, retención, carpeta configurable y exportación TXT/ZIP. Registros de protocolo opcionales cifrados y sin contenido de mensajes ni credenciales.
-- Avisos nativos, palabras destacadas, silencios, bandeja, conexiones en segundo plano y temas oscuro, claro, sistema y Matrix.
-- DCC SEND/CHAT/SSEND/SCHAT, TLS con certificado previamente intercambiado, IPv4/IPv6, puertos, aceptación/rechazo, progreso, cancelación, envío pasivo y reanudación.
-- Vistas previas solicitadas de imágenes/GIF y enlaces, guardado de imágenes, apertura en navegador y filehost cuando lo anuncie la red. No se descargan recursos externos automáticamente.
-- AGM, FiSH CBC/recepción ECB y AGE con identidades, firmas, grupos y ratchet privado. Los mensajes protegidos no tienen alternativa automática en texto claro; se bloquea el envío directo que evada el cifrado.
-- Administrador `.hex`, alias y eventos, variables/colecciones, condiciones/bucles, vistas y botones, HTTP/JSON por dominio autorizado y selección de archivos con tokens. Los scripts se importan desactivados y requieren permisos explícitos.
-- Respaldos de configuración y, opcionalmente, secretos/scripts cifrados con frase de paso. Los scripts restaurados permanecen desactivados.
+El ZIP incluye el script de firma personal y sus instrucciones. Para esta versión nueva repite Sign y Verify con el certificado ya creado; no hace falta volver a crear ni instalar el certificado. La distribución sigue sin firma comercial, y la política ASR puede seguir requiriendo la excepción puntual que ya configuraste.
 
-Accede desde el **engranaje superior derecho → Configuración completa** o **Herramientas**. La apariencia y los tamaños del chat siguen disponibles en **Ver → Apariencia y disposición**.
-
-## Alcance de la versión de prueba
-
-Las comprobaciones automatizadas cubren núcleo, interfaz, Electron real y el ejecutable empaquetado en Windows. Incluyen autenticación TLS real, DPAPI, transferencia de bytes DCC, aislamiento de scripts, recuperación de historial y vectores AGM/FiSH independientes de Java. AGE se verifica mediante pruebas de protocolo y revisión del código Android; falta una sesión cruzada con un dispositivo Android y una auditoría criptográfica independiente.
-
-No se afirma paridad completa con Android: el puente `age.*` para juegos no se ejecuta como una función disponible. WebPush requiere un servicio de recepción externo y no se registra; la bandeja mantiene las conexiones mientras el programa sigue abierto. La compatibilidad final de extensiones debe verificarse con el servidor utilizado. Los videos, YouTube y X se abren en el navegador.
-
-El historial guarda texto local solo si lo activas; los borradores siguen siendo de sesión. Las exportaciones están limitadas a 100.000 mensajes/50 MB por operación; filtra una búsqueda mayor. DCC directo puede revelar tu IP y se bloquea por defecto al usar proxy. Los certificados autofirmados requieren importar y verificar la CA; no se desactiva la validación TLS.
-
-**El ejecutable no está firmado digitalmente.** La regla ASR de reputación de Windows puede volver a bloquearlo; esta actualización no elimina esa política ni sustituye la firma de código. No es necesario desactivar Defender para revisar o compilar el proyecto.
+Se conserva la funcionalidad IRC, DCC, cifrado, historial, scripts y respaldos de 0.3.0. Las extensiones dependen de las capacidades del servidor; AGE aún requiere validación cruzada Windows–Android. Véanse docs/ADVANCED.md y docs/FIRMA-PERSONAL.md.

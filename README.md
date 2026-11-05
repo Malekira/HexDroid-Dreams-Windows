@@ -1,14 +1,14 @@
 # HexDroid Dreams para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.3.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.4.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.3.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.4.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDroid-Dreams-0.3.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDroid-Dreams-0.4.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDroidDreams.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa el botón **+** de la conversación para entrar en más salas.
@@ -85,7 +85,7 @@ El empaquetado genera `dist/HexDroidDreams-win32-x64/HexDroidDreams.exe`; distri
 
 ## Validación
 
-`npm test` ejecuta 61 pruebas y comprueba protocolo, TLS/SASL, almacenamiento seguro, cifrado, DCC, scripts, multimedia y modelo de conversaciones. `npm run test:ui` comprueba 9 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
+`npm test` ejecuta 65 pruebas y comprueba protocolo, TLS/SASL, almacenamiento seguro, cifrado, DCC, scripts, multimedia y modelo de conversaciones. `npm run test:ui` comprueba 10 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
 
 `npm run test:desktop` utiliza un perfil temporal explícito, separado de los datos personales, y ejecuta **Electron real** y un servidor IRC TCP local: mensajes, privados separados, borradores, líneas múltiples, WHOIS, modos, salida/reentrada de canales, ambos anchos, reapertura, geometría, instancia única y recuperación de configuración dañada. Los menús envían comandos reales por IPC y TCP.
 
@@ -100,3 +100,7 @@ La distribución se publica bajo GPL-3.0-or-later. Véanse [LICENSE](LICENSE) y 
 ## Firma para uso personal
 
 Puedes crear un certificado local y firmar cada copia en tu Windows con [sign-personal.ps1](scripts/sign-personal.ps1). Sigue [estos pasos](docs/FIRMA-PERSONAL.md). La clave privada es no exportable y permanece en tu usuario; el certificado autofirmado no garantiza eliminar el bloqueo ASR.
+
+## Cambios 0.4.0
+
+Identidad y foto independientes en Editar red; comandos de conexión con `/login`, `/nick` y `/identify` sin raw; árbol de configuración lateral y diálogos uniformes; correcciones de fotos y colores IRC/ANSI extendidos. La foto elegida es local a esa identidad; compartirla en IRC requiere una URL pública y soporte de metadatos. Consulta [las notas](RELEASE-NOTES.md).
