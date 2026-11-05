@@ -54,7 +54,7 @@ function createWindow() {
   for (const event of ['resize','move','maximize','unmaximize']) window.on(event, () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(saveBounds,200); });
   window.on('close', event => { clearTimeout(boundsTimer); saveBounds();if(!quitting&&config.settings.closeToTray&&tray){event.preventDefault();window.hide();} });
   window.on('minimize',()=>{if(config.settings.minimizeToTray&&tray)window.hide();});
-  window.on('focus',()=>window.flashFrame(false));
+  window.on('focus',()=>{window.flashFrame(false);app.setBadgeCount(0);if(runtime)runtime.badge=0;if(process.platform==='win32')window.setOverlayIcon(null,'');});
   window.on('closed', () => { window = null; });
 }
 if (!app.requestSingleInstanceLock()) app.quit();

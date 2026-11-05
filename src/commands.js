@@ -9,7 +9,7 @@ function executeInput(client, target, text, emit = () => {}) {
     const lines = (text.startsWith('//') ? text.slice(1) : text).split(/\r?\n/).filter(line => line.trim());
     if (lines.length > 20) throw new Error('Envía como máximo 20 líneas cada vez.');
     for (const line of lines) { cleanText(line); if (Buffer.byteLength(`PRIVMSG ${target} :${line}`) > 510) throw new Error('Una línea es demasiado larga para IRC.'); }
-    for (const line of lines) client.sendMessage(target, line); return;
+    if(lines.length>1&&typeof client.sendMultiline==='function')client.sendMultiline(target,lines);else for (const line of lines) client.sendMessage(target, line); return;
   }
   cleanText(text);
   const split = text.indexOf(' '), command = (split < 0 ? text.slice(1) : text.slice(1,split)).toLowerCase(), args = split < 0 ? '' : text.slice(split + 1).trim();

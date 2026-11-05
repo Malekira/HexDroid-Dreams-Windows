@@ -40,7 +40,7 @@ class DccManager extends EventEmitter {
   async listen(t,accept){
     if(!this.canConnect(t.network))throw new Error('DCC es directo y puede revelar tu IP. Está desactivado mientras usas un proxy.');
     const s=this.settings(),host=s.dccBind||'0.0.0.0';if(!net.isIP(host))throw new Error('Dirección de escucha DCC no válida.');
-    const material=t.tls?await this.tlsMaterial(t.host):null;if(t.tls&&!material)throw new Error('Configura el certificado DCC TLS antes de enviar.');
+    const material=t.tls?await this.tlsMaterial(s.dccAddress||t.host):null;if(t.tls&&!material)throw new Error('Configura el certificado DCC TLS antes de enviar.');
     const handler=socket=>{if(t.socket){socket.destroy();return;}t.socket=socket;clearTimeout(t.timer);t.server.close();accept(socket).catch(e=>this.fail(t,e));};
     const server=t.tls?tls.createServer({cert:material.cert,key:material.key,minVersion:'TLSv1.2'},handler):net.createServer(handler);t.server=server;
     server.on('tlsClientError',e=>{t.error=e.message;this.update(t);});server.on('error',e=>{if(e.code!=='EADDRINUSE')this.fail(t,e);});
@@ -50,6 +50,7 @@ class DccManager extends EventEmitter {
   }
   wireHost(host){return net.isIP(host)===4?String(host.split('.').reduce((n,v)=>n*256+Number(v),0)):host;}
   async sendFile(network,nick,file,{secure=false,passive=false}={}){
+    if(typeof nick!=='string'||/^[#&+!]/.test(nick)||/[\s\0\r\n,:]/.test(nick))throw new Error('Selecciona un usuario privado para DCC.');
     const stat=await fs.promises.stat(file);if(!stat.isFile())throw new Error('Selecciona un archivo regular.');
     const s=this.settings(),host=address(s.dccAddress||'127.0.0.1');
     if(stat.size>(s.dccMaxBytes||1073741824))throw new Error('El archivo supera el límite DCC configurado.');
@@ -93,7 +94,7 @@ class DccManager extends EventEmitter {
     try{await pipeline(fs.createReadStream(t.file,{start:t.offset||0}),meter,socket,{signal:t.abort.signal});await confirmed;}finally{clearTimeout(ackTimer);}
     if(total!==t.size)throw new Error('El archivo cambió durante el envío.');if(t.acknowledged!==t.size)throw new Error('No se recibió la confirmación final DCC.');t.bytes=total;t.state='done';this.update(t);
   }
-  async startChat(network,nick,{secure=false}={}){const s=this.settings(),t={id:crypto.randomUUID(),network,nick,name:'chat',chat:true,kind:secure?'SCHAT':'CHAT',tls:secure,direction:'send',state:'offered',host:address(s.dccAddress||'127.0.0.1'),bytes:0};this.transfers.set(t.id,t);await this.listen(t,socket=>this.chat(t,socket));this.send(network,nick,`DCC ${t.kind} chat ${this.wireHost(t.host)} ${t.port}`);this.update(t);return this.view(t);}
+  async startChat(network,nick,{secure=false}={}){if(typeof nick!=='string'||/^[#&+!]/.test(nick)||/[\s\0\r\n,:]/.test(nick))throw new Error('Selecciona un usuario privado para DCC.');const s=this.settings(),t={id:crypto.randomUUID(),network,nick,name:'chat',chat:true,kind:secure?'SCHAT':'CHAT',tls:secure,direction:'send',state:'offered',host:address(s.dccAddress||'127.0.0.1'),bytes:0};this.transfers.set(t.id,t);await this.listen(t,socket=>this.chat(t,socket));this.send(network,nick,`DCC ${t.kind} chat ${this.wireHost(t.host)} ${t.port}`);this.update(t);return this.view(t);}
   async chat(t,socket){t.socket=socket;t.state='active';t.started=Date.now();this.update(t);let text='';socket.setEncoding('utf8');socket.on('data',chunk=>{text+=chunk;if(text.length>65536){socket.destroy(new Error('Línea DCC CHAT demasiado grande.'));return;}let i;while((i=text.indexOf('\n'))>=0){const line=text.slice(0,i).replace(/\r$/,'');text=text.slice(i+1);this.emit('chat',{id:t.id,network:t.network,nick:t.nick,text:line,own:false,time:new Date().toISOString()});}});socket.on('error',e=>this.fail(t,e));socket.on('close',()=>{if(t.state==='active'){t.state='done';this.update(t);}});}
   sendChat(id,text){const t=this.transfers.get(id);if(!t?.chat||t.state!=='active'||typeof text!=='string'||/[\0\r\n]/.test(text)||Buffer.byteLength(text)>8192)throw new Error('DCC CHAT no disponible o mensaje inválido.');t.socket.write(text+'\r\n');this.emit('chat',{id,network:t.network,nick:'Tú',text,own:true,time:new Date().toISOString()});}
   close(){for(const t of this.transfers.values())if(!['done','failed','cancelled','rejected'].includes(t.state))this.cancel(t.id);}

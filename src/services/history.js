@@ -20,14 +20,14 @@ class HistoryStore {
     if(message.clientId&&message.messageId)this.db.prepare('UPDATE messages SET msgid=COALESCE(msgid,?) WHERE network=? AND clientid=? AND target=?').run(message.messageId,network,message.clientId,message.target.toLowerCase());
     return this.db.prepare('INSERT OR IGNORE INTO messages(network,target,nick,text,time,msgid,clientid,action,own) VALUES(?,?,?,?,?,?,?,?,?)').run(network,message.target.toLowerCase(),message.nick||'',message.text,t.toISOString(),message.messageId||null,message.clientId||null,message.action?1:0,message.own?1:0).changes>0;
   }
-  query({network,target,text='',nick='',limit=100,before}={}) {
+  query({network,target,text='',nick='',limit=100,before}={},maximum=500) {
     this.open(); const args=[],where=[];
     if (network) { where.push('m.network=?');args.push(network); }
     if (target) { where.push('m.target=?');args.push(target.toLowerCase()); }
     if (nick) { where.push('m.nick=? COLLATE NOCASE');args.push(nick); }
     if (before) { where.push('m.time<?');args.push(new Date(before).toISOString()); }
     if (text) { where.push('m.id IN (SELECT rowid FROM search WHERE search MATCH ?)');args.push('"'+String(text).slice(0,500).replace(/"/g,'""')+'"'); }
-    args.push(Math.max(1,Math.min(500,Number(limit)||100)));
+    args.push(Math.max(1,Math.min(maximum,Number(limit)||100)));
     return this.db.prepare('SELECT m.*,m.msgid AS messageId,m.clientid AS clientId FROM messages m'+(where.length?' WHERE '+where.join(' AND '):'')+' ORDER BY m.time DESC,m.id DESC LIMIT ?').all(...args).reverse();
   }
   prune(days) { this.open(); if (Number(days)>0) this.db.prepare('DELETE FROM messages WHERE time<?').run(new Date(Date.now()-Math.min(36500,days)*86400000).toISOString()); }

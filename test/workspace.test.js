@@ -46,3 +46,6 @@ test('Panel layout keeps chat usable at small widths without losing preferred di
   assert.deepEqual(panelSizes(1600,settings),{left:420,right:360});
   assert.equal(panelSizes(820,{...settings,showPrivates:false}).left,0);
 });
+test('Echo confirmation updates an existing message and historical loading never increments unread',()=>{
+ const w=new Workspace([{id:'one',nick:'Me'}]);const original=w.addMessage('one','#room',{nick:'Me',text:'hello',clientId:'client',pending:true,own:true});w.addMessage('one','#room',{nick:'Me',text:'hello',clientId:'client',messageId:'server',pending:false,own:true});const c=w.conversation('one','#room');assert.equal(c.messages.length,1);assert.equal(c.messages[0].id,original.id);assert.equal(c.messages[0].pending,false);w.addMessage('one','#room',{nick:'Alice',text:'old',messageId:'past',historical:true});assert.equal(c.unread,0);
+});

@@ -3,11 +3,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { validateProfile } = require('./irc');
 const { sanitizeWorkspace } = require('./workspace');
-const DEFAULTS = { fontSize: 14, sidebarWidth: 240, usersWidth: 192, showPrivates: true, showUsers: true, showTopic: true, timestamps: true, showEvents: true, compact: false, autoScroll: true, fontFamily: 'Segoe UI', lineHeight: 1.65, messageSpacing: 9, ownNickColor: '#c0adf1', privateSort: 'manual', protocolLogging:false, historyEnabled:false, historyDays:30, notifications:true, notificationPreview:false, notificationSound:false, flashOnMention:true, theme:'dark', minimizeToTray:false, closeToTray:false, highlightWords:[], historyDays:30, dccAllowDirect:false, dccAddress:'127.0.0.1', dccBind:'0.0.0.0', dccPortMin:0, dccPortMax:0, dccMaxBytes:1073741824 };
+const DEFAULTS = { fontSize: 14, sidebarWidth: 240, usersWidth: 192, showPrivates: true, showUsers: true, showTopic: true, timestamps: true, showEvents: true, compact: false, autoScroll: true, fontFamily: 'Segoe UI', lineHeight: 1.65, messageSpacing: 9, ownNickColor: '#c0adf1', privateSort: 'manual', ignoredUsers:{}, protocolLogging:false, historyEnabled:false, historyDays:30, notifications:true, notificationPreview:false, notificationSound:false, flashOnMention:true, theme:'dark', minimizeToTray:false, closeToTray:false, highlightWords:[], historyDays:30, dccAutoAccept:false,dccAllowlist:[],dccAllowDirect:false, dccAddress:'127.0.0.1', dccBind:'0.0.0.0', dccPortMin:0, dccPortMax:0, dccMaxBytes:1073741824 };
 function validateSettings(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
-  for (const key of ['showPrivates','showUsers','showTopic','timestamps','showEvents','compact','autoScroll','historyEnabled','protocolLogging','notifications','notificationPreview','notificationSound','flashOnMention','dccAllowDirect','minimizeToTray','closeToTray']) if (typeof input[key] === 'boolean') s[key] = input[key];
+  for (const key of ['showPrivates','showUsers','showTopic','timestamps','showEvents','compact','autoScroll','historyEnabled','protocolLogging','notifications','notificationPreview','notificationSound','flashOnMention','dccAllowDirect','dccAutoAccept','minimizeToTray','closeToTray']) if (typeof input[key] === 'boolean') s[key] = input[key];
   if (Number.isFinite(input.fontSize)) s.fontSize = Math.max(11, Math.min(24, Math.round(input.fontSize)));
   if (Number.isFinite(input.sidebarWidth)) s.sidebarWidth = Math.max(160, Math.min(420, Math.round(input.sidebarWidth)));
   if (Number.isFinite(input.usersWidth)) s.usersWidth = Math.max(140, Math.min(360, Math.round(input.usersWidth)));
@@ -16,6 +16,8 @@ function validateSettings(input) {
   if (['Segoe UI','Consolas','Arial','Cascadia Mono'].includes(input.fontFamily)) s.fontFamily = input.fontFamily;
   if (typeof input.ownNickColor === 'string' && /^#[0-9a-f]{6}$/i.test(input.ownNickColor)) s.ownNickColor = input.ownNickColor;
   if (['manual','alphabetical','unread'].includes(input.privateSort)) s.privateSort = input.privateSort;
+  if(input.ignoredUsers&&typeof input.ignoredUsers==='object'&&!Array.isArray(input.ignoredUsers)){s.ignoredUsers={};for(const[id,nicks]of Object.entries(input.ignoredUsers).slice(0,30))if(/^[a-z\d_-]{1,80}$/i.test(id)&&Array.isArray(nicks))s.ignoredUsers[id]=nicks.filter(n=>typeof n==='string'&&/^[^\s,:\0]{1,200}$/.test(n)).slice(0,500);}
+  if(Array.isArray(input.dccAllowlist))s.dccAllowlist=input.dccAllowlist.filter(n=>typeof n==='string'&&/^[^\s,:\0]{1,200}$/.test(n)).slice(0,100);
   if(Array.isArray(input.highlightWords))s.highlightWords=input.highlightWords.filter(x=>typeof x==='string'&&x.length>0&&x.length<100).slice(0,50);
   if (['dark','light','system','matrix'].includes(input.theme)) s.theme=input.theme;
   if (Number.isFinite(input.historyDays)) s.historyDays=Math.max(0,Math.min(3650,Math.round(input.historyDays)));

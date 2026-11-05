@@ -124,7 +124,7 @@ function renderMessages(preserveScroll = false) {
   const list = $('messages'), c = selected(), query = fold($('message-search').value);
   list.hidden = !c; $('welcome').hidden = !!c;
   if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
+  const signature = JSON.stringify([c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
   if (preserveScroll && signature === lastMessageView) return;
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
@@ -142,9 +142,9 @@ function renderMessages(preserveScroll = false) {
     row.dataset.messageId = m.id;
     if (m.event) { if (config.settings.timestamps) row.append(time); row.append(document.createTextNode(m.text)); }
     else {
-      row.append(el('span','avatar',(m.nick || '?').slice(0,2).toUpperCase()));
+      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
-      const nick = el('button','message-nick',m.nick); nick.onclick = () => choose(active.id,m.nick); header.append(nick); if (config.settings.timestamps) header.append(time);
+      const nick = el('button','message-nick',m.nick);if(!m.own){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${document.documentElement.dataset.theme==='light'?38:72}%)`;} nick.onclick = () => choose(active.id,m.nick); header.append(nick); if (config.settings.timestamps) header.append(time);
       const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
@@ -284,10 +284,17 @@ function userMenu(event,id,c,nick) {
   const operator = connected && hasMode('oaq'), moderator = connected && hasMode('hoaq');
   contextMenu.show(event,nick,[
     { label:'Abrir privado',action:() => choose(id,nick) },
+    ...(api.advanced?[{label:'Ignorar usuario',action:()=>sendCommand(id,c.name,'/ignore '+nick)},{label:'Dejar de ignorar',action:()=>sendCommand(id,c.name,'/unignore '+nick)}]:[]),
+    ...(api.advanced&&n.capabilities?.includes('draft/metadata-2')?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
     { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); choose(id,'*'); } },
     { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); choose(id,'*'); } },
     { label:'Invitar a un canal…',disabled:!connected,action:() => askAction('Invitar a ' + nick,'Canal de destino',c.name,value => { if (!/^[#&+!][^\s,:]+$/.test(value)) throw new Error('Introduce un canal válido.'); return sendCommand(id,value,'/invite ' + nick); }) },
     null,
+    {label:'Consultar bans',disabled:!connected,action:()=>sendCommand(id,c.name,'/mode '+c.name+' +b')},
+    {label:'Consultar excepciones',disabled:!connected,action:()=>sendCommand(id,c.name,'/mode '+c.name+' +e')},
+    {label:'Aplicar ban…',disabled:!moderator,action:()=>askAction('Aplicar ban','Máscara',nick+'!*@*',mask=>sendCommand(id,c.name,'/ban '+mask))},
+    {label:'Kick y ban…',disabled:!moderator,action:()=>askAction('Expulsar y bloquear','Motivo','Expulsado',reason=>sendCommand(id,c.name,'/kickban '+nick+' '+reason))},
+    ...(n.prefixModes.includes('h')?[{label:'Dar halfop',disabled:!operator,action:()=>sendCommand(id,c.name,'/mode '+c.name+' +h '+nick)},{label:'Quitar halfop',disabled:!operator,action:()=>sendCommand(id,c.name,'/mode '+c.name+' -h '+nick)}]:[]),
     { label:'Expulsar del canal…',disabled:!moderator,action:() => askAction('Expulsar a ' + nick,'Motivo','Expulsado',value => sendCommand(id,c.name,`/kick ${nick} ${value}`)) },
     ...(n.prefixModes.includes('v') ? [
       { label:'Dar voz',disabled:!operator,action:() => sendCommand(id,c.name,'/voice ' + nick) },

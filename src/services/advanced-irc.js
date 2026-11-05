@@ -19,7 +19,7 @@ module.exports=(Base,{parseLine,fold,token,cleanText})=>class AdvancedIrcClient 
     const connected=()=>{
       if(this.closed)return this.socket.destroy();
       this.socket.setTimeout(0);this.sendRaw('CAP LS 302');
-      this.capTimer=setTimeout(()=>{if(p.sasl!=='none')this.fail('El servidor no negoció SASL.');else this.registerIdentity();},1000);this.capTimer.unref();
+      this.capTimer=setTimeout(()=>{if(p.sasl!=='none')this.fail('El servidor no negoció SASL.');else this.registerIdentity();},p.sasl==='none'?1000:15000);this.capTimer.unref();
     };
     const pin=this.secrets.tlsPin,material=this.secrets.clientCertificate||{};
     const options={host:p.host,port:p.port,servername:net.isIP(p.host)?undefined:p.host,rejectUnauthorized:true,minVersion:'TLSv1.2',...(tunnel?{socket:tunnel}:{}),...(this.secrets.ca?{ca:[...tls.rootCertificates,this.secrets.ca]}:{}),...(pin?.pem?{ca:[...tls.rootCertificates,pin.pem]}:{}),...(material.pfx?{pfx:Buffer.from(material.pfx,'base64'),passphrase:material.passphrase}:{}),...(material.cert?{cert:material.cert,key:material.key,passphrase:material.passphrase}:{}),checkServerIdentity:(host,cert)=>{
@@ -117,8 +117,8 @@ module.exports=(Base,{parseLine,fold,token,cleanText})=>class AdvancedIrcClient 
     if(c==='001'&&this.saslInProgress)return this.fail('El servidor intentó registrar sin completar SASL.');
     if(c==='433'&&!this.ready&&this.nickAttempts++<3){this.nick=this.nickAttempts===1?this.profile.alternateNick:this.profile.alternateNick.slice(0,24)+crypto.randomInt(10000);this.sendRaw('NICK '+this.nick);return;}
     if(c==='BATCH'){
-      if(p[0]?.startsWith('+')){if(this.batches.size>=100)return this.fail('Demasiados lotes IRC.');this.batches.set(p[0].slice(1),{type:p[1],target:p[2],label:m.tags.label,lines:[]});}
-      else if(p[0]?.startsWith('-')){const id=p[0].slice(1),b=this.batches.get(id);this.batches.delete(id);if(b?.type==='draft/multiline'&&b.lines.length){const first=b.lines[0];first.params[1]=b.lines.map((line,i)=>(i&&!Object.hasOwn(line.tags,'draft/multiline-concat')?'\n':'')+(line.params[1]||'')).join('');delete first.tags.batch;this.handle(first);}}return;
+      if(p[0]?.startsWith('+')){if(this.batches.size>=100)return this.fail('Demasiados lotes IRC.');this.batches.set(p[0].slice(1),{type:p[1],target:p[2],label:m.tags.label,parent:m.tags.batch,lines:[]});}
+      else if(p[0]?.startsWith('-')){const id=p[0].slice(1),b=this.batches.get(id);this.batches.delete(id);if(b?.type==='draft/multiline'&&b.lines.length){const first=b.lines[0];first.params[1]=b.lines.map((line,i)=>(i&&!Object.hasOwn(line.tags,'draft/multiline-concat')?'\n':'')+(line.params[1]||'')).join('');if(b.parent)first.tags.batch=b.parent;else delete first.tags.batch;this.handle(first);}}return;
     }
     const batch=m.tags.batch&&this.batches.get(m.tags.batch);
     if(batch?.type==='draft/multiline'&&(c==='PRIVMSG'||c==='NOTICE')){if(batch.lines.length>=64||batch.lines.reduce((sum,line)=>sum+(line.params[1]?.length||0),0)+(p[1]?.length||0)>65536)return this.fail('Lote multilínea demasiado grande.');batch.lines.push(m);return;}
@@ -129,7 +129,7 @@ module.exports=(Base,{parseLine,fold,token,cleanText})=>class AdvancedIrcClient 
     }
     if(c==='REDACT'){this.emit('redact',{target:p[0],messageId:p[1],nick:m.nick});return;}
     if(c==='MARKREAD'){this.emit('read-marker',{target:p[0],time:p[1]});return;}
-    if(c==='AWAY'||c==='ACCOUNT'||c==='CHGHOST'||c==='METADATA'){const target=c==='METADATA'?p[0]:m.nick;const update=c==='AWAY'?{away:p[0]||false}:c==='ACCOUNT'?{account:p[0]==='*'?'':p[0]}:c==='METADATA'?{key:p[1],value:p.at(-1)}:{host:p[1]};this.userStates.set(fold(target),{...this.userStates.get(fold(target)),...update});this.emit('user-state',{nick:target,...update});if(c!=='METADATA')return;}
+    if(c==='AWAY'||c==='ACCOUNT'||c==='CHGHOST'||c==='METADATA'){const target=c==='METADATA'?p[0]:m.nick;const update=c==='AWAY'?{away:p[0]||false}:c==='ACCOUNT'?{account:p[0]==='*'?'':p[0]}:c==='METADATA'?{key:p[1],value:p.at(-1)}:{host:p[1]};const oldState=this.userStates.get(fold(target))||{};this.userStates.set(fold(target),{...oldState,...update,...(c==='METADATA'?{metadata:{...oldState.metadata,[p[1]]:p.at(-1)}}:{})});this.emit('user-state',{nick:target,...update});if(c!=='METADATA')return;}
     if(c==='BOUNCER'){this.emit('bouncer',{params:p});return;}
     if((c==='PRIVMSG'||c==='NOTICE')&&p[1]?.startsWith('\x01')&&!p[1].startsWith('\x01ACTION ')){
       if(p[1].endsWith('\x01')){const body=p[1].slice(1,-1),split=body.indexOf(' ');this.emit('ctcp',{nick:m.nick,target:p[0],command:(split<0?body:body.slice(0,split)).toUpperCase(),args:split<0?'':body.slice(split+1),notice:c==='NOTICE'});}return;
@@ -162,6 +162,15 @@ module.exports=(Base,{parseLine,fold,token,cleanText})=>class AdvancedIrcClient 
     const message={target,nick:this.nick,text,action,own:true,time:new Date().toISOString(),clientId,pending};
     if(pending&&frames.length){const timer=setTimeout(()=>{if(this.pendingEcho.delete(clientId))this.emit('delivery',{clientId,failed:true,text:'El servidor no confirmó el mensaje.'});},15000);timer.unref();this.pendingEcho.set(clientId,{target,wire:frames[0],action,message,timer});}
     if(!options.noEcho)this.emit('message',message);
+  }
+  sendMultiline(target,lines){
+    if(!this.ready)throw new Error('Conecta primero esta red.');token(target,'Destino');
+    if(!this.capabilities.has('draft/multiline')||!this.capabilities.has('batch')||!this.capabilities.has('message-tags')||this.protectedTarget?.(target)){for(const line of lines)this.sendMessage(target,line);return;}
+    const limits=Object.fromEntries((this.advertised.get('draft/multiline')||'').split(',').map(p=>p.split('=')));
+    const text=lines.join('\n');if(lines.length>Math.min(20,Number(limits['max-lines'])||20)||Buffer.byteLength(text)>Math.min(65536,Number(limits['max-bytes'])||4096))throw new Error('El mensaje supera los límites multilínea del servidor.');
+    for(const line of lines){cleanText(line);if(iconv.encode('PRIVMSG '+target+' :'+line,this.profile.encoding).length>510)throw new Error('Línea demasiado larga.');}
+    const batch=crypto.randomUUID();this.sendRaw('BATCH +'+batch+' draft/multiline '+target);for(const line of lines)this.sendTagged('PRIVMSG '+target+' :'+line,{batch});this.sendRaw('BATCH -'+batch);
+    const clientId=crypto.randomUUID(),pending=this.capabilities.has('echo-message'),message={target,nick:this.nick,text,own:true,time:new Date().toISOString(),clientId,pending};if(pending){const timer=setTimeout(()=>{if(this.pendingEcho.delete(clientId))this.emit('delivery',{clientId,failed:true,text:'El servidor no confirmó el mensaje multilínea.'});},15000);timer.unref();this.pendingEcho.set(clientId,{target,wire:text,action:false,message,timer});}this.emit('message',message);
   }
   request(command,target){if(!this.capabilities.has('labeled-response'))return this.sendRaw(command);const label=crypto.randomUUID();this.labels.set(label,{target,time:Date.now()});if(this.labels.size>200)this.labels.delete(this.labels.keys().next().value);this.sendTagged(command,{label});}
   requestHistory(target,limit=100,before){token(target,'Canal');if(!this.capabilities.has('draft/chathistory')&&!this.capabilities.has('chathistory'))throw new Error('El servidor no admite CHATHISTORY.');this.sendRaw(`CHATHISTORY ${before?'BEFORE':'LATEST'} ${target} ${before?'timestamp='+new Date(before).toISOString():'*'} ${Math.max(1,Math.min(500,limit))}`);}

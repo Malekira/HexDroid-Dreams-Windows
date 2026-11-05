@@ -30,3 +30,6 @@ test('Two AGE networks negotiate PMs without leaking plaintext and refuse identi
   const frames=a.encrypt('Bob','private message',{clientId:'id'});assert.ok(frames.every(f=>!f.includes('private message')));let text;for(const frame of frames)text=b.receive('Alice','Alice',frame)||text;assert.equal(text,'private message');
   let conflict=false;b.on('security',event=>{if(event.type==='identity-conflict')conflict=true;});b.receive('Alice','Alice',A.ident(A.identity()));assert.equal(conflict,true);
 });
+test('AGM and FiSH decrypt independent Java JCE wire vectors used by the Android formats',()=>{
+ const vector=require('./fixtures/symmetric-jce.json'),key=Buffer.from(vector.key,'base64');assert.equal(new AgmCipher(key).decrypt(vector.agm,'Alice',vector.target),vector.text);assert.equal(new FishCipher(key).decrypt(vector.fish),vector.text);
+});
