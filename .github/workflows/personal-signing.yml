@@ -1,0 +1,20 @@
+name: Verify personal Windows signing
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - scripts/sign-personal.ps1
+      - scripts/test-personal-signing.ps1
+      - .github/workflows/personal-signing.yml
+permissions:
+  contents: read
+jobs:
+  signing:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test personal certificate and Authenticode
+        shell: powershell
+        run: .\scripts\test-personal-signing.ps1

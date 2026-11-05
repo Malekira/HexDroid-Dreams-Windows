@@ -24,6 +24,8 @@ exit /b %DREAMS_EXIT%
 `;
 fs.writeFileSync(path.join(appDir, 'Iniciar-con-diagnostico.cmd'), launcher.replace(/\n/g, '\r\n'));
 fs.copyFileSync(path.join(root, 'README.md'), path.join(appDir, 'LEEME.md'));
+fs.copyFileSync(path.join(root, 'scripts', 'sign-personal.ps1'), path.join(appDir, 'sign-personal.ps1'));
+fs.copyFileSync(path.join(root, 'docs', 'FIRMA-PERSONAL.md'), path.join(appDir, 'FIRMA-PERSONAL.md'));
 const zipPath = path.join(dist, `HexDroid-Dreams-${version}-Windows-x64.zip`);
 fs.rmSync(zipPath, { force: true });
 if (process.platform === 'win32') {

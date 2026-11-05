@@ -96,3 +96,7 @@ El código Windows se mantiene en la rama `main` de [Malekira/HexDroid-Dreams-Wi
 La versión 0.1.0 y su etiqueta conservan el commit y el ZIP originales de antes de la separación. La rama `legacy/windows-prototype` conserva el prototipo Windows anterior como referencia histórica.
 
 La distribución se publica bajo GPL-3.0-or-later. Véanse [LICENSE](LICENSE) y [NOTICE](NOTICE) para la referencia a Android y los avisos de terceros.
+
+## Firma para uso personal
+
+Puedes crear un certificado local y firmar cada copia en tu Windows con [sign-personal.ps1](scripts/sign-personal.ps1). Sigue [estos pasos](docs/FIRMA-PERSONAL.md). La clave privada es no exportable y permanece en tu usuario; el certificado autofirmado no garantiza eliminar el bloqueo ASR.
