@@ -1,7 +1,7 @@
 {
   "name": "hexdroid-dreams",
   "productName": "HexDroid Dreams",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cliente IRC de escritorio para Windows",
   "private": true,
   "main": "src/main.js",
@@ -20,7 +20,7 @@
   "dependencies": {
     "@mongodb-js/saslprep": "1.6.1",
     "egoroof-blowfish": "4.0.3",
-    "fflate": "0.8.2",
+    "fflate": "0.8.3",
     "iconv-lite": "0.7.3",
     "selfsigned": "5.5.0",
     "socks": "2.8.10"

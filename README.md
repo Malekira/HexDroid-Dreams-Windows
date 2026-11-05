@@ -1,14 +1,14 @@
 # HexDroid Dreams para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba de la nueva interfaz: **0.2.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.3.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.2.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.3.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDroid-Dreams-0.2.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDroid-Dreams-0.3.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDroidDreams.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa el botón **+** de la conversación para entrar en más salas.
@@ -17,7 +17,7 @@ Necesita Windows 10/11 de 64 bits. La distribución de prueba no está firmada d
 
 Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuración y `startup.log` se guardan en `%APPDATA%\HexDroidDreams-Desktop`. El lanzador añade `launcher.log` allí. También puedes abrir esa carpeta desde **Archivo → Abrir carpeta de diagnóstico**. No hace falta eliminar tus datos ni reinstalar para obtener el registro. Esta carpeta es independiente del nombre del ejecutable y de las versiones anteriores.
 
-## Interfaz 0.2.0
+## Interfaz de escritorio
 
 - Privados exclusivamente a la izquierda, con búsqueda, orden manual/por nombre/sin leer, contadores y menciones. Su menú permite cerrar, marcar leído y silenciar el resaltado de actividad.
 - Canales exclusivamente en las pestañas superiores, reordenables mediante arrastre o menú contextual; el orden y los silencios se conservan al reiniciar.
@@ -34,15 +34,30 @@ Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/n
 
 ![Interfaz de escritorio con mensajes de prueba](docs/images/workspace-0.2.0.png)
 
+## IRC y sistemas avanzados 0.3.0
+
+El engranaje superior derecho y **Herramientas** abren redes/autenticación, historial, notificaciones/tema, DCC, cifrado, scripts, respaldos y multimedia. La interfaz de paneles de 0.2.0 se conserva.
+
+- CAP/SASL (PLAIN, SCRAM-SHA-256, EXTERNAL), certificados PFX/CA, TLS verificado, STS, reconexión, recuperación de canales y nick, autojoin con claves, codificaciones, SOCKS4/5 y perfiles de bouncer.
+- IRCv3 negociado: echo sin duplicación, lotes/multilínea, CHATHISTORY, respuestas, reacciones, escritura, marcas de lectura y eliminación compatibles. Filehost e iconos se detectan mediante ISUPPORT; los avatares requieren metadatos compatibles y descarga solicitada.
+- SQLite/FTS opcional con búsqueda global, retención, carpeta y exportación TXT/ZIP; diagnóstico de protocolo cifrado y sin credenciales ni contenido de chat.
+- Notificaciones nativas, bandeja y segundo plano; silencios y palabras destacadas; temas claro/oscuro/sistema/Matrix.
+- DCC SEND/CHAT/SSEND/SCHAT, aceptación explícita, transferencia TLS verificada, envío pasivo, progreso, cancelación, puertos y reanudación.
+- AGM, FiSH y AGE; claves e identidades en el almacén seguro, control de huellas y bloqueo de texto claro en destinos protegidos.
+- Intérprete `.hex` aislado con alias, eventos, variables y colecciones, bucles, HTTP/JSON por dominio y permiso, vistas/botones y archivos seleccionados por el usuario. Sin `eval` ni acceso arbitrario al sistema de archivos.
+- Respaldos con secretos cifrados opcionales; scripts restaurados desactivados.
+
+Consulta [las notas y límites de esta versión](RELEASE-NOTES.md) y [el estado de las etapas](docs/IMPLEMENTATION.md). No es una versión estable ni una certificación de paridad con Android.
+
 ## Alcance y privacidad
 
-Esta entrega implementa la prioridad de **interfaz principal** del [documento maestro](docs/MASTER-PLAN.md), tras la [auditoría y plan](docs/IMPLEMENTATION.md). No constituye paridad completa con Android ni una versión estable.
+El historial está desactivado por defecto. Al activarlo se guarda el contenido de las conversaciones en este equipo. Los borradores se conservan solo durante la sesión. Se mantienen hasta 600 mensajes cargados por conversación y 100 entradas de composición; la base de historial tiene su propia retención. No se descargan imágenes, avatares ni enlaces automáticamente.
 
-Siguen pendientes CAP/SASL, reconexión automática, proxies/Tor, bouncers avanzados, credenciales protegidas persistentes, historial indexado/CHATHISTORY, notificaciones y bandeja, DCC, multimedia remota, cifrado interoperable, `.hex`, alias y copias de seguridad. Respuestas, reacciones, escritura y avatares no se anuncian como disponibles sin negociación del servidor.
+Las contraseñas se mantienen en memoria salvo que marques guardar. En Windows se usa `safeStorage` de Electron respaldado por DPAPI; si el proveedor seguro no está disponible se rechaza guardar secretos, sin alternativa en texto claro. Las configuraciones anteriores conservan sus perfiles y disposición. Guarda un respaldo antes de probar cambios de cifrado o restauraciones.
 
-Los mensajes y borradores permanecen **solo en memoria**; hasta 600 mensajes por conversación y 100 entradas de composición por conversación. No sobreviven al cierre. Se guardan disposición, orden, conversaciones abiertas y silencios. Las contraseñas del servidor son solo para la conexión actual; no son contraseñas de NickServ y no se guardan. Tampoco se cargan imágenes ni enlaces externos automáticamente.
+DCC utiliza conexiones directas. DCC, HTTP de scripts y vistas previas se bloquean por defecto al usar proxy para evitar fugas de IP. Las claves compartidas deben intercambiarse por un canal seguro. AGE necesita validación cruzada con el cliente Android real; las pruebas entre componentes Windows no la sustituyen.
 
-Las configuraciones 0.1.0 conservan sus perfiles al migrar. La geometría de ventana se guarda en `window-state.json`, por separado de `settings.json`.
+El binario sigue sin firma digital: la política ASR que bloqueó versiones anteriores puede bloquear también esta. El empaquetado no cambia las protecciones de Windows.
 
 ## Desarrollar
 
@@ -70,7 +85,7 @@ El empaquetado genera `dist/HexDroidDreams-win32-x64/HexDroidDreams.exe`; distri
 
 ## Validación
 
-`npm test` ejecuta 20 pruebas del protocolo, TLS, almacenamiento, comandos, aislamiento, lectura, formato y geometría. `npm run test:ui` comprueba 9 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
+`npm test` ejecuta 59 pruebas y comprueba protocolo, TLS/SASL, almacenamiento seguro, cifrado, DCC, scripts, multimedia y modelo de conversaciones. `npm run test:ui` comprueba 9 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
 
 `npm run test:desktop` utiliza un perfil temporal explícito, separado de los datos personales, y ejecuta **Electron real** y un servidor IRC TCP local: mensajes, privados separados, borradores, líneas múltiples, WHOIS, modos, salida/reentrada de canales, ambos anchos, reapertura, geometría, instancia única y recuperación de configuración dañada. Los menús envían comandos reales por IPC y TCP.
 
@@ -79,3 +94,5 @@ GitHub Actions ejecuta núcleo, Electron y pruebas de interfaz en Windows antes 
 El código Windows se mantiene en la rama `main` de [Malekira/HexDroid-Dreams-Windows](https://github.com/Malekira/HexDroid-Dreams-Windows). GitHub Actions compila y prueba Windows al actualizar esa rama. Sus versiones y descargas se publican en este mismo repositorio.
 
 La versión 0.1.0 y su etiqueta conservan el commit y el ZIP originales de antes de la separación. La rama `legacy/windows-prototype` conserva el prototipo Windows anterior como referencia histórica.
+
+La distribución se publica bajo GPL-3.0-or-later. Véanse [LICENSE](LICENSE) y [NOTICE](NOTICE) para la referencia a Android y los avisos de terceros.

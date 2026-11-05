@@ -1,21 +1,28 @@
-# HexDroid Dreams 0.2.0 — interfaz de escritorio (prueba)
+# HexDroid Dreams 0.3.0 — IRC y sistemas avanzados (prueba)
 
-Descarga **HexDroid-Dreams-0.2.0-Windows-x64.zip**, extrae toda la carpeta y abre **HexDroidDreams.exe**. No necesita MSI ni instalar Node.js. Conserva la versión anterior como respaldo. El perfil de usuario sigue en `%APPDATA%\HexDroidDreams-Desktop`.
+Descarga **HexDroid-Dreams-0.3.0-Windows-x64.zip**, extrae toda la carpeta y abre **HexDroidDreams.exe**. No necesita MSI ni instalar Node.js. Conserva una copia de tus datos antes de probar una versión nueva. El perfil continúa en `%APPDATA%\HexDroidDreams-Desktop`.
 
-## Cambios de esta entrega
+Esta entrega continúa las etapas 1 y 2 con los sistemas IRC y avanzados de las etapas 3 y 4. Android permanece en su repositorio independiente.
 
-- Privados a la izquierda y canales únicamente en pestañas superiores, con selector de red compacto.
-- Ambos paneles ajustables y ocultables; orden, silencios, ancho y ventana persistentes.
-- Borradores y lectura individuales, redes aisladas, contadores y menciones, búsqueda y primer mensaje sin leer.
-- Menús contextuales funcionales, doble clic para privados, WHOIS y moderación según los rangos del servidor.
-- Formato IRC/ANSI básico, controles de composición, fuente/espaciado, selección y copia de mensajes, líneas múltiples y navegación por teclado.
+- SASL PLAIN, SCRAM-SHA-256 y EXTERNAL sobre TLS verificado; certificados cliente PFX, CA, fijación del primer certificado TLS válido y STS. Credenciales opcionales protegidas por DPAPI en Windows.
+- Reconexión con recuperación de canales, apodos alternativos, recuperación del principal, autojoin con claves, comandos con retrasos, SOCKS4/5 y perfiles de bouncer.
+- CAP/IRCv3 con tiempo de servidor, echo sin duplicación, etiquetas, lotes e historial; respuestas, reacciones, escritura, lectura y redacción según capacidades negociadas.
+- Historial SQLite/FTS opcional, búsqueda global, retención, carpeta configurable y exportación TXT/ZIP. Registros de protocolo opcionales cifrados y sin contenido de mensajes ni credenciales.
+- Avisos nativos, palabras destacadas, silencios, bandeja, conexiones en segundo plano y temas oscuro, claro, sistema y Matrix.
+- DCC SEND/CHAT/SSEND/SCHAT, TLS con certificado previamente intercambiado, IPv4/IPv6, puertos, aceptación/rechazo, progreso, cancelación, envío pasivo y reanudación.
+- Vistas previas solicitadas de imágenes/GIF y enlaces, guardado de imágenes, apertura en navegador y filehost cuando lo anuncie la red. No se descargan recursos externos automáticamente.
+- AGM, FiSH CBC/recepción ECB y AGE con identidades, firmas, grupos y ratchet privado. Los mensajes protegidos no tienen alternativa automática en texto claro; se bloquea el envío directo que evada el cifrado.
+- Administrador `.hex`, alias y eventos, variables/colecciones, condiciones/bucles, vistas y botones, HTTP/JSON por dominio autorizado y selección de archivos con tokens. Los scripts se importan desactivados y requieren permisos explícitos.
+- Respaldos de configuración y, opcionalmente, secretos/scripts cifrados con frase de paso. Los scripts restaurados permanecen desactivados.
 
-No hay funciones simuladas en la aplicación: el contenido proviene de conexiones IRC. Los servidores y mensajes simulados pertenecen exclusivamente a las pruebas.
+Accede desde el **engranaje superior derecho → Configuración completa** o **Herramientas**. La apariencia y los tamaños del chat siguen disponibles en **Ver → Apariencia y disposición**.
 
-## Comprobaciones y alcance
+## Alcance de la versión de prueba
 
-Se incluyen 20 pruebas de núcleo, 9 de interfaz y una integración con Electron y servidor IRC local reales. La publicación está condicionada a que pasen en Windows, junto con la compilación. La validación en redes públicas y en el equipo del usuario sigue siendo necesaria. Esta distribución no está firmada digitalmente.
+Las comprobaciones automatizadas cubren núcleo, interfaz, Electron real y el ejecutable empaquetado en Windows. Incluyen autenticación TLS real, DPAPI, transferencia de bytes DCC, aislamiento de scripts, recuperación de historial y vectores AGM/FiSH independientes de Java. AGE se verifica mediante pruebas de protocolo y revisión del código Android; falta una sesión cruzada con un dispositivo Android y una auditoría criptográfica independiente.
 
-Esta es la primera entrega del documento maestro: auditoría e interfaz principal. SASL/CAP, reconexión, historial persistente, notificaciones/bandeja, DCC, cifrado, multimedia, scripts `.hex`, alias y respaldos permanecen pendientes. Los borradores y mensajes se conservan solo durante la sesión; los silencios se refieren al resaltado de actividad.
+No se afirma paridad completa con Android: el puente `age.*` para juegos no se ejecuta como una función disponible. WebPush requiere un servicio de recepción externo y no se registra; la bandeja mantiene las conexiones mientras el programa sigue abierto. La compatibilidad final de extensiones debe verificarse con el servidor utilizado. Los videos, YouTube y X se abren en el navegador.
 
-El documento completo y el plan ordenado se guardan en `docs/MASTER-PLAN.md` y `docs/IMPLEMENTATION.md`. Android continúa en su repositorio independiente.
+El historial guarda texto local solo si lo activas; los borradores siguen siendo de sesión. Las exportaciones están limitadas a 100.000 mensajes/50 MB por operación; filtra una búsqueda mayor. DCC directo puede revelar tu IP y se bloquea por defecto al usar proxy. Los certificados autofirmados requieren importar y verificar la CA; no se desactiva la validación TLS.
+
+**El ejecutable no está firmado digitalmente.** La regla ASR de reputación de Windows puede volver a bloquearlo; esta actualización no elimina esa política ni sustituye la firma de código. No es necesario desactivar Defender para revisar o compilar el proyecto.

@@ -25,7 +25,7 @@ function executeInput(client, target, text, emit = () => {}) {
   } else if (command === 'part') client.sendRaw(`PART ${channel()} :${args || 'Hasta pronto'}`);
   else if (command === 'cycle') { client.sendRaw(`PART ${channel()} :${args || 'Volviendo'}`); client.join(target); }
   else if (command === 'nick') { token(args,'Apodo'); client.sendRaw(`NICK ${args}`); }
-  else if (command === 'whois' || command === 'who') { token(args || target,'Destino'); client.sendRaw(`${command.toUpperCase()} ${args || target}`); }
+  else if (command === 'whois' || command === 'who') { token(args || target,'Destino'); if(typeof client.request==='function')client.request(`${command.toUpperCase()} ${args||target}`,target);else client.sendRaw(`${command.toUpperCase()} ${args || target}`); }
   else if (command === 'topic') client.sendRaw(`TOPIC ${channel()}${args ? ' :' + args : ''}`);
   else if (command === 'mode') client.sendRaw(`MODE ${args || channel()}`);
   else if (['op','deop','voice','devoice','ban','unban'].includes(command)) {

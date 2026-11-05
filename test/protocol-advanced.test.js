@@ -1,31 +1,351 @@
-const{test}=require('node:test'),assert=require('node:assert/strict');const net=require('node:net'),crypto=require('node:crypto'),{once,EventEmitter}=require('node:events');const{IrcClient}=require('../src/irc');const{ScramSha256}=require('../src/services/sasl');const{SessionManager}=require('../src/services/sessions');
-async function until(fn){for(let i=0;i<300;i++){if(fn())return;await new Promise(r=>setTimeout(r,10));}assert.fail('No llegó el evento de protocolo.');}
-test('SCRAM-SHA-256 verifies server signature and rejects injected nonces and excessive work',()=>{
-  const nonce='clientnonce123',s=new ScramSha256('user','pencil',nonce);assert.equal(s.first(),'n,,n=user,r='+nonce);const salt=Buffer.from('test-salt-123'),first=`r=${nonce}servernonce,s=${salt.toString('base64')},i=4096`,final=s.challenge(first),bare=final.split(',p=')[0],auth=`n=user,r=${nonce},${first},${bare}`,salted=crypto.pbkdf2Sync('pencil',salt,4096,32,'sha256'),serverKey=crypto.createHmac('sha256',salted).update('Server Key').digest(),signature=crypto.createHmac('sha256',serverKey).update(auth).digest('base64');s.challenge('v='+signature);assert.equal(s.verified,true);
-  const bad=new ScramSha256('user','pass','nonce');bad.first();assert.throws(()=>bad.challenge('r=other,s=YWJjZGVmZ2g=,i=4096'));assert.throws(()=>bad.challenge('r=nonceserver,s=YWJjZGVmZ2g=,i=99999999'));
+const { test } = require("node:test"),
+  assert = require("node:assert/strict");
+const net = require("node:net"),
+  crypto = require("node:crypto"),
+  { once, EventEmitter } = require("node:events");
+const { IrcClient } = require("../src/irc");
+const { ScramSha256 } = require("../src/services/sasl");
+const { SessionManager } = require("../src/services/sessions");
+async function until(fn) {
+  for (let i = 0; i < 300; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.fail("No llegó el evento de protocolo.");
+}
+test("SCRAM-SHA-256 verifies server signature and rejects injected nonces and excessive work", () => {
+  const nonce = "clientnonce123",
+    s = new ScramSha256("user", "pencil", nonce);
+  assert.equal(s.first(), "n,,n=user,r=" + nonce);
+  const salt = Buffer.from("test-salt-123"),
+    first = `r=${nonce}servernonce,s=${salt.toString("base64")},i=4096`,
+    final = s.challenge(first),
+    bare = final.split(",p=")[0],
+    auth = `n=user,r=${nonce},${first},${bare}`,
+    salted = crypto.pbkdf2Sync("pencil", salt, 4096, 32, "sha256"),
+    serverKey = crypto
+      .createHmac("sha256", salted)
+      .update("Server Key")
+      .digest(),
+    signature = crypto
+      .createHmac("sha256", serverKey)
+      .update(auth)
+      .digest("base64");
+  s.challenge("v=" + signature);
+  assert.equal(s.verified, true);
+  const bad = new ScramSha256("user", "pass", "nonce");
+  bad.first();
+  assert.throws(() => bad.challenge("r=other,s=YWJjZGVmZ2g=,i=4096"));
+  assert.throws(() => bad.challenge("r=nonceserver,s=YWJjZGVmZ2g=,i=99999999"));
 });
-test('CAP negotiation exposes only acknowledged features and handles labeled history and typing',async t=>{
-  const received=[],peers=new Set();const server=net.createServer(socket=>{peers.add(socket);let buffer='';socket.setEncoding('utf8');socket.on('data',data=>{buffer+=data;let i;while((i=buffer.indexOf('\r\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+2);received.push(line);if(line==='CAP LS 302')socket.write(':s CAP * LS :server-time message-tags batch draft/chathistory echo-message\r\n');if(line.startsWith('CAP REQ'))socket.write(':s CAP * ACK :server-time message-tags batch draft/chathistory echo-message\r\n');if(line==='CAP END')socket.write(':s 001 Tester :Welcome\r\n');}});});server.listen(0,'127.0.0.1');await once(server,'listening');const c=new IrcClient({host:'127.0.0.1',port:server.address().port,nick:'Tester',tls:false,channels:[]});t.after(()=>{c.disconnect();for(const p of peers)p.destroy();server.close();});const messages=[];c.on('message',m=>messages.push(m));c.connect();await until(()=>c.ready);assert.ok(c.capabilities.has('draft/chathistory'));assert.ok(received.indexOf('CAP END')>received.findIndex(x=>x.startsWith('CAP REQ')));c.requestHistory('#room',25);c.sendTyping('#room','active');c.sendMessage('#room','hello');await until(()=>received.some(x=>x==='PRIVMSG #room :hello'));const peer=[...peers][0];peer.write('@msgid=server1;time=2026-11-05T00:00:00Z :Tester!u@h PRIVMSG #room :hello\r\n');await until(()=>messages.length===2);assert.equal(messages[0].clientId,messages[1].clientId);assert.equal(messages[1].messageId,'server1');assert.equal(messages[1].pending,false);assert.ok(received.includes('CHATHISTORY LATEST #room * 25'));assert.ok(received.some(x=>x.startsWith('@+typing=active TAGMSG')));
+test("CAP negotiation exposes only acknowledged features and handles labeled history and typing", async (t) => {
+  const received = [],
+    peers = new Set();
+  const server = net.createServer((socket) => {
+    peers.add(socket);
+    let buffer = "";
+    socket.setEncoding("utf8");
+    socket.on("data", (data) => {
+      buffer += data;
+      let i;
+      while ((i = buffer.indexOf("\r\n")) >= 0) {
+        const line = buffer.slice(0, i);
+        buffer = buffer.slice(i + 2);
+        received.push(line);
+        if (line === "CAP LS 302")
+          socket.write(
+            ":s CAP * LS :server-time message-tags batch draft/chathistory echo-message\r\n",
+          );
+        if (line.startsWith("CAP REQ"))
+          socket.write(
+            ":s CAP * ACK :server-time message-tags batch draft/chathistory echo-message\r\n",
+          );
+        if (line === "CAP END") socket.write(":s 001 Tester :Welcome\r\n");
+      }
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const c = new IrcClient({
+    host: "127.0.0.1",
+    port: server.address().port,
+    nick: "Tester",
+    tls: false,
+    channels: [],
+  });
+  t.after(() => {
+    c.disconnect();
+    for (const p of peers) p.destroy();
+    server.close();
+  });
+  const messages = [];
+  c.on("message", (m) => messages.push(m));
+  c.connect();
+  await until(() => c.ready);
+  assert.ok(c.capabilities.has("draft/chathistory"));
+  assert.ok(
+    received.indexOf("CAP END") >
+      received.findIndex((x) => x.startsWith("CAP REQ")),
+  );
+  c.requestHistory("#room", 25);
+  c.sendTyping("#room", "active");
+  c.sendMessage("#room", "hello");
+  await until(() => received.some((x) => x === "PRIVMSG #room :hello"));
+  const peer = [...peers][0];
+  peer.write(
+    "@msgid=server1;time=2026-11-05T00:00:00Z :Tester!u@h PRIVMSG #room :hello\r\n",
+  );
+  await until(() => messages.length === 2);
+  assert.equal(messages[0].clientId, messages[1].clientId);
+  assert.equal(messages[1].messageId, "server1");
+  assert.equal(messages[1].pending, false);
+  assert.ok(received.includes("CHATHISTORY LATEST #room * 25"));
+  assert.ok(received.some((x) => x.startsWith("@+typing=active TAGMSG")));
 });
-test('Required SASL cannot silently fall back to unencrypted authentication',async()=>{
-  const c=new IrcClient({host:'127.0.0.1',port:6667,nick:'Tester',tls:false,channels:[],sasl:'PLAIN',saslUsername:'account'},{saslPassword:'never-sent'});const problems=[];c.on('problem',p=>problems.push(p));c.connect();await until(()=>problems.length);assert.match(problems[0],/TLS/);assert.equal(c.socket,null);
+test("Required SASL cannot silently fall back to unencrypted authentication", async () => {
+  const c = new IrcClient(
+    {
+      host: "127.0.0.1",
+      port: 6667,
+      nick: "Tester",
+      tls: false,
+      channels: [],
+      sasl: "PLAIN",
+      saslUsername: "account",
+    },
+    { saslPassword: "never-sent" },
+  );
+  const problems = [];
+  c.on("problem", (p) => problems.push(p));
+  c.connect();
+  await until(() => problems.length);
+  assert.match(problems[0], /TLS/);
+  assert.equal(c.socket, null);
 });
-test('Manual disconnect cancels a queued reconnect and preserves channel state',async()=>{
-  const clients=[];const manager=new SessionManager({clientFactory:()=>{const c=new EventEmitter();c.profile={};c.connect=()=>{};c.disconnect=()=>c.emit('status',{state:'disconnected'});clients.push(c);return c;}});manager.connect({id:'one',host:'irc.example',port:6697,tls:true,channels:['#room'],commands:[],commandDelay:1000,autoReconnect:true,reconnectDelay:1});clients[0].emit('channel',{own:true,action:'join',target:'#other'});clients[0].emit('status',{state:'disconnected'});assert.ok(manager.sessions.get('one').retry);manager.disconnect('one');await new Promise(r=>setTimeout(r,1100));assert.equal(clients.length,1);assert.equal(manager.sessions.get('one').stopped,true);manager.close();
+test("Manual disconnect cancels a queued reconnect and preserves channel state", async () => {
+  const clients = [];
+  const manager = new SessionManager({
+    clientFactory: () => {
+      const c = new EventEmitter();
+      c.profile = {};
+      c.connect = () => {};
+      c.disconnect = () => c.emit("status", { state: "disconnected" });
+      clients.push(c);
+      return c;
+    },
+  });
+  manager.connect({
+    id: "one",
+    host: "irc.example",
+    port: 6697,
+    tls: true,
+    channels: ["#room"],
+    commands: [],
+    commandDelay: 1000,
+    autoReconnect: true,
+    reconnectDelay: 1,
+  });
+  clients[0].emit("channel", { own: true, action: "join", target: "#other" });
+  clients[0].emit("status", { state: "disconnected" });
+  assert.ok(manager.sessions.get("one").retry);
+  manager.disconnect("one");
+  await new Promise((r) => setTimeout(r, 1100));
+  assert.equal(clients.length, 1);
+  assert.equal(manager.sessions.get("one").stopped, true);
+  manager.close();
 });
-for(const mechanism of ['PLAIN','SCRAM-SHA-256','EXTERNAL'])test('SASL '+mechanism+' completes over verified TLS'+(mechanism==='EXTERNAL'?' with client certificate':''),async t=>{
- const tls=require('node:tls'),certificate=await require('selfsigned').generate([{name:'commonName',value:'127.0.0.1'}],{keyType:'ec',curve:'P-256',extensions:[{name:'subjectAltName',altNames:[{type:7,ip:'127.0.0.1'}]}]});let authenticated=false,peerVerified=false,step=0,first,serverFirst,nonce,salt=Buffer.from('independent-server-salt');const peers=new Set();
- const server=tls.createServer({key:certificate.private,cert:certificate.cert,requestCert:mechanism==='EXTERNAL',rejectUnauthorized:mechanism==='EXTERNAL',ca:certificate.cert},socket=>{peers.add(socket);peerVerified=socket.authorized;let buffer='';socket.setEncoding('utf8');socket.on('data',data=>{buffer+=data;let i;while((i=buffer.indexOf('\r\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+2);if(line==='CAP LS 302')socket.write(':s CAP * LS :sasl='+mechanism+'\r\n');else if(line.startsWith('CAP REQ'))socket.write(':s CAP * ACK :sasl\r\n');else if(line==='AUTHENTICATE '+mechanism)socket.write('AUTHENTICATE +\r\n');else if(line.startsWith('AUTHENTICATE ')){
-  const response=line.slice(13),decoded=response==='+'?'':Buffer.from(response,'base64').toString();
-  if(mechanism==='PLAIN'){assert.equal(decoded,'\0account\0correct-password');authenticated=true;socket.write(':s 903 Tester :Authenticated\r\n');}
-  else if(mechanism==='EXTERNAL'){assert.equal(decoded,'account');assert.equal(peerVerified,true);authenticated=true;socket.write(':s 903 Tester :Authenticated\r\n');}
-  else if(step++===0){assert.ok(decoded.startsWith('n,,n=account,r='));first=decoded.slice(3);nonce=first.split('r=')[1]+'server';serverFirst=`r=${nonce},s=${salt.toString('base64')},i=4096`;socket.write('AUTHENTICATE '+Buffer.from(serverFirst).toString('base64')+'\r\n');}
-  else if(step===2){const final=decoded.split(',p=')[0],auth=first+','+serverFirst+','+final,salted=crypto.pbkdf2Sync('correct-password',salt,4096,32,'sha256'),h=(k,v)=>crypto.createHmac('sha256',k).update(v).digest(),clientKey=h(salted,'Client Key'),stored=crypto.createHash('sha256').update(clientKey).digest(),signature=h(stored,auth),expected=Buffer.from(clientKey.map((b,j)=>b^signature[j])).toString('base64');assert.equal(decoded.split(',p=')[1],expected);socket.write('AUTHENTICATE '+Buffer.from('v='+h(h(salted,'Server Key'),auth).toString('base64')).toString('base64')+'\r\n');}
-  else {assert.equal(response,'+');authenticated=true;socket.write(':s 903 Tester :Authenticated\r\n');}
- }else if(line==='CAP END'){assert.equal(authenticated,true);socket.write(':s 001 Tester :Welcome\r\n');}}});});server.listen(0,'127.0.0.1');await once(server,'listening');
- const c=new IrcClient({host:'127.0.0.1',port:server.address().port,nick:'Tester',channels:[],tls:true,sasl:mechanism,saslUsername:'account'},{ca:certificate.cert,saslPassword:'correct-password',...(mechanism==='EXTERNAL'?{clientCertificate:{cert:certificate.cert,key:certificate.private}}:{})});const problems=[];c.on('problem',p=>problems.push(p));t.after(()=>{c.disconnect();for(const p of peers)p.destroy();server.close();});c.connect();await until(()=>c.ready||problems.length);assert.deepEqual(problems,[]);assert.equal(c.ready,true);assert.equal(authenticated,true);
-});
-test('Multiline sends negotiated batches and protected raw sends cannot bypass the cipher',()=>{
- const c=new IrcClient({host:'localhost',port:6667,nick:'Tester',tls:false,channels:[]}),wire=[],messages=[];c.ready=true;c.socket={writable:true,destroyed:false,write:bytes=>wire.push(bytes.toString())};c.on('message',m=>messages.push(m));c.capabilities=new Set(['draft/multiline','batch','message-tags']);c.sendMultiline('#room',['first','second']);assert.match(wire[0],/^BATCH \+.* draft\/multiline #room/);assert.match(wire[1],/^@batch=.* PRIVMSG #room :first/);assert.equal(messages[0].text,'first\nsecond');
- c.protectedTarget=target=>target==='#secret';assert.throws(()=>c.sendRaw('PRIVMSG #secret :exposed'),/cifrado/);assert.throws(()=>c.sendRaw('@x=y NOTICE #secret :exposed'),/cifrado/);c.cipher={encrypt:()=>['+AGM ciphertext']};c.sendMessage('#secret','hidden');assert.ok(wire.some(line=>line.includes('PRIVMSG #secret :+AGM ciphertext')));assert.ok(!wire.some(line=>line.includes(':hidden')||line.includes(':exposed')));
+for (const mechanism of ["PLAIN", "SCRAM-SHA-256", "EXTERNAL"])
+  test(
+    "SASL " +
+      mechanism +
+      " completes over verified TLS" +
+      (mechanism === "EXTERNAL" ? " with client certificate" : ""),
+    async (t) => {
+      const tls = require("node:tls"),
+        certificate = await require("selfsigned").generate(
+          [{ name: "commonName", value: "127.0.0.1" }],
+          {
+            keyType: "ec",
+            curve: "P-256",
+            extensions: [
+              {
+                name: "subjectAltName",
+                altNames: [{ type: 7, ip: "127.0.0.1" }],
+              },
+            ],
+          },
+        );
+      let authenticated = false,
+        peerVerified = false,
+        step = 0,
+        first,
+        serverFirst,
+        nonce,
+        salt = Buffer.from("independent-server-salt");
+      const peers = new Set();
+      const server = tls.createServer(
+        {
+          key: certificate.private,
+          cert: certificate.cert,
+          requestCert: mechanism === "EXTERNAL",
+          rejectUnauthorized: mechanism === "EXTERNAL",
+          ca: certificate.cert,
+        },
+        (socket) => {
+          peers.add(socket);
+          peerVerified = socket.authorized;
+          let buffer = "";
+          socket.setEncoding("utf8");
+          socket.on("data", (data) => {
+            buffer += data;
+            let i;
+            while ((i = buffer.indexOf("\r\n")) >= 0) {
+              const line = buffer.slice(0, i);
+              buffer = buffer.slice(i + 2);
+              if (line === "CAP LS 302")
+                socket.write(":s CAP * LS :sasl=" + mechanism + "\r\n");
+              else if (line.startsWith("CAP REQ"))
+                socket.write(":s CAP * ACK :sasl\r\n");
+              else if (line === "AUTHENTICATE " + mechanism)
+                socket.write("AUTHENTICATE +\r\n");
+              else if (line.startsWith("AUTHENTICATE ")) {
+                const response = line.slice(13),
+                  decoded =
+                    response === "+"
+                      ? ""
+                      : Buffer.from(response, "base64").toString();
+                if (mechanism === "PLAIN") {
+                  assert.equal(decoded, "\0account\0correct-password");
+                  authenticated = true;
+                  socket.write(":s 903 Tester :Authenticated\r\n");
+                } else if (mechanism === "EXTERNAL") {
+                  assert.equal(decoded, "account");
+                  assert.equal(peerVerified, true);
+                  authenticated = true;
+                  socket.write(":s 903 Tester :Authenticated\r\n");
+                } else if (step++ === 0) {
+                  assert.ok(decoded.startsWith("n,,n=account,r="));
+                  first = decoded.slice(3);
+                  nonce = first.split("r=")[1] + "server";
+                  serverFirst = `r=${nonce},s=${salt.toString("base64")},i=4096`;
+                  socket.write(
+                    "AUTHENTICATE " +
+                      Buffer.from(serverFirst).toString("base64") +
+                      "\r\n",
+                  );
+                } else if (step === 2) {
+                  const final = decoded.split(",p=")[0],
+                    auth = first + "," + serverFirst + "," + final,
+                    salted = crypto.pbkdf2Sync(
+                      "correct-password",
+                      salt,
+                      4096,
+                      32,
+                      "sha256",
+                    ),
+                    h = (k, v) =>
+                      crypto.createHmac("sha256", k).update(v).digest(),
+                    clientKey = h(salted, "Client Key"),
+                    stored = crypto
+                      .createHash("sha256")
+                      .update(clientKey)
+                      .digest(),
+                    signature = h(stored, auth),
+                    expected = Buffer.from(
+                      clientKey.map((b, j) => b ^ signature[j]),
+                    ).toString("base64");
+                  assert.equal(decoded.split(",p=")[1], expected);
+                  socket.write(
+                    "AUTHENTICATE " +
+                      Buffer.from(
+                        "v=" +
+                          h(h(salted, "Server Key"), auth).toString("base64"),
+                      ).toString("base64") +
+                      "\r\n",
+                  );
+                } else {
+                  assert.equal(response, "+");
+                  authenticated = true;
+                  socket.write(":s 903 Tester :Authenticated\r\n");
+                }
+              } else if (line === "CAP END") {
+                assert.equal(authenticated, true);
+                socket.write(":s 001 Tester :Welcome\r\n");
+              }
+            }
+          });
+        },
+      );
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const c = new IrcClient(
+        {
+          host: "127.0.0.1",
+          port: server.address().port,
+          nick: "Tester",
+          channels: [],
+          tls: true,
+          sasl: mechanism,
+          saslUsername: "account",
+        },
+        {
+          ca: certificate.cert,
+          saslPassword: "correct-password",
+          ...(mechanism === "EXTERNAL"
+            ? {
+                clientCertificate: {
+                  cert: certificate.cert,
+                  key: certificate.private,
+                },
+              }
+            : {}),
+        },
+      );
+      const problems = [];
+      c.on("problem", (p) => problems.push(p));
+      t.after(() => {
+        c.disconnect();
+        for (const p of peers) p.destroy();
+        server.close();
+      });
+      c.connect();
+      await until(() => c.ready || problems.length);
+      assert.deepEqual(problems, []);
+      assert.equal(c.ready, true);
+      assert.equal(authenticated, true);
+    },
+  );
+test("Multiline sends negotiated batches and protected raw sends cannot bypass the cipher", () => {
+  const c = new IrcClient({
+      host: "localhost",
+      port: 6667,
+      nick: "Tester",
+      tls: false,
+      channels: [],
+    }),
+    wire = [],
+    messages = [];
+  c.ready = true;
+  c.socket = {
+    writable: true,
+    destroyed: false,
+    write: (bytes) => wire.push(bytes.toString()),
+  };
+  c.on("message", (m) => messages.push(m));
+  c.capabilities = new Set(["draft/multiline", "batch", "message-tags"]);
+  c.sendMultiline("#room", ["first", "second"]);
+  assert.match(wire[0], /^BATCH \+.* draft\/multiline #room/);
+  assert.match(wire[1], /^@batch=.* PRIVMSG #room :first/);
+  assert.equal(messages[0].text, "first\nsecond");
+  c.protectedTarget = (target) => target === "#secret";
+  assert.throws(() => c.sendRaw("PRIVMSG #secret :exposed"), /cifrado/);
+  assert.throws(() => c.sendRaw("@x=y NOTICE #secret :exposed"), /cifrado/);
+  c.cipher = { encrypt: () => ["+AGM ciphertext"] };
+  c.sendMessage("#secret", "hidden");
+  assert.ok(
+    wire.some((line) => line.includes("PRIVMSG #secret :+AGM ciphertext")),
+  );
+  assert.ok(
+    !wire.some((line) => line.includes(":hidden") || line.includes(":exposed")),
+  );
 });

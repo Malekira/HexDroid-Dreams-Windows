@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const api = window.dreams;
-let appVersion = '0.2.0';
+let appVersion = '0.3.0';
 let config = { settings: {}, profiles: [] }, active = null, toastTimer, saveQueue = Promise.resolve();
 let workspace = new DreamsWorkspace.Workspace();
 let networks = workspace.networks;
@@ -525,7 +525,7 @@ api.onEvent(event => {
     const result = await api.load(); if (result.error) throw new Error(result.error);
     config = { profiles:result.profiles, settings: { fontSize:14,sidebarWidth:240,usersWidth:192,showPrivates:true,showUsers:true,showTopic:true,timestamps:true,showEvents:true,compact:false,autoScroll:true,fontFamily:'Segoe UI',lineHeight:1.65,messageSpacing:9,ownNickColor:'#c0adf1',privateSort:'manual',...result.settings } };
     workspace = new DreamsWorkspace.Workspace(config.profiles,result.workspace); networks = workspace.networks; active = workspace.active;
-    appVersion = result.version || '0.2.0';
+    appVersion = result.version || '0.3.0';
     if (active) $('message-input').value = selected().draft;
     applySettings(); render();
     if (result.warnings?.length) notify(result.warnings.join(' '), true);
