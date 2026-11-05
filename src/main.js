@@ -42,6 +42,7 @@ function createWindow() {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); dialog.showErrorBox('HexDroid Dreams', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
+  window.webContents.once('did-finish-load',()=>log('Ventana preparada'));
   window.loadFile(path.join(__dirname, 'index.html')).catch(fatal);
   if (bounds.maximized) window.maximize();
   let boundsTimer;

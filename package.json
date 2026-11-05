@@ -10,7 +10,7 @@
     "test": "node --test test/*.test.js",
     "test:ui": "playwright test",
     "test:desktop": "node scripts/smoke-desktop.js",
-    "build:win": "electron-packager . HexDroidDreams --platform=win32 --arch=x64 --out=dist --overwrite --asar --prune=true --ignore=^/test --ignore=^/scripts --ignore=^/playwright --ignore=^/test-results --ignore=^/dist --ignore=^/.github"
+    "build:win": "node scripts/build-windows.mjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

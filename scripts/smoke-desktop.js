@@ -31,7 +31,7 @@ async function run() {
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const profileDirectory = path.join(root,'profile');
-  const args = [...(process.platform === 'linux' ? ['--no-sandbox','--ozone-platform=headless','--disable-gpu'] : []), '--user-data-dir=' + profileDirectory, '.'];
+  const args = [...(process.platform === 'linux' ? ['--no-sandbox','--ozone-platform=headless','--disable-gpu'] : []), '--user-data-dir=' + profileDirectory, ...(process.env.DREAMS_BINARY?[]:['.'])];
   const env = { ...process.env, XDG_CONFIG_HOME: root, XDG_CACHE_HOME: path.join(root, 'cache') };
   // On Windows, isolate userData too, without modifying the production application.
   if (process.platform === 'win32') env.APPDATA = root;

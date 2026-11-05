@@ -28,6 +28,24 @@ jobs:
           npm run test:ui
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run build:win
+      - name: Verify packaged launch without debugger
+        shell: pwsh
+        run: |
+          $probeDir = Join-Path $env:RUNNER_TEMP "dreams-normal-boot"
+          New-Item -ItemType Directory -Force $probeDir | Out-Null
+          $exe = (Resolve-Path "dist/HexDroidDreams-win32-x64/HexDroidDreams.exe").Path
+          $boot = Start-Process -FilePath $exe -ArgumentList "--user-data-dir=$probeDir/profile" -PassThru -RedirectStandardOutput "$probeDir/stdout.log" -RedirectStandardError "$probeDir/stderr.log"
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 80; $i++) {
+              if ((Test-Path "$probeDir/profile/startup.log") -and (Select-String -Path "$probeDir/profile/startup.log" -Pattern "Ventana preparada" -Quiet)) { $ready = $true; break }
+              Start-Sleep -Milliseconds 250
+            }
+            Get-Content "$probeDir/profile/startup.log", "$probeDir/stdout.log", "$probeDir/stderr.log" -ErrorAction SilentlyContinue
+            if (-not $ready) { throw "El ejecutable empaquetado no preparó la ventana." }
+          } finally {
+            Stop-Process -Id $boot.Id -Force -ErrorAction SilentlyContinue
+          }
       - name: Test packaged Windows executable
         timeout-minutes: 3
         shell: pwsh
