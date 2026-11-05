@@ -73,7 +73,7 @@ if ($Action -eq 'Sign') {
 } else { $signature = Get-AuthenticodeSignature -LiteralPath $resolved }
 
 if (-not $signature.SignerCertificate -or $signature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
-    throw 'La firma no corresponde a tu certificado personal.'
+    throw "La firma no corresponde a tu certificado personal. Estado: $($signature.Status) - $($signature.StatusMessage)"
 }
 if ($signature.Status -ne 'Valid') {
     throw "La firma no es valida para este usuario: $($signature.Status) - $($signature.StatusMessage). Si falta confianza, ejecuta Trust y vuelve a verificar."

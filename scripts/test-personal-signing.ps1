@@ -37,7 +37,9 @@ try {
         if ((Get-Item "Cert:\CurrentUser\$store\$thumbprint").HasPrivateKey) { throw 'A trust store contains a private key.' }
     }
     $exe = Join-Path $directory 'HexDroidDreams.exe'
-    Copy-Item "$env:WINDIR\System32\where.exe" $exe
+    # Compile a fresh PE instead of copying a Windows binary: catalog signatures
+    # on system files can take precedence over an embedded personal signature.
+    Add-Type -TypeDefinition 'public class PersonalSigningFixture { public static void Main() {} }' -OutputAssembly $exe -OutputType ConsoleApplication
     Write-Host 'TEST: sign and verify executable'
     & $script -Action Sign -FilePath $exe -Confirm:$false
     & $script -Action Verify -FilePath $exe
