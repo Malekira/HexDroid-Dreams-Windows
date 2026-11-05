@@ -911,6 +911,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.sendRaw(`REDACT ${target} ${messageId} :Eliminado por su autor`);
     }
     markRead(target) {
+      if (target === "*") return;
       if (this.capabilities.has("draft/read-marker")) {
         token(target, "Destino");
         this.sendRaw(

@@ -883,7 +883,11 @@
         ...event,
       };
     }
-    if (event.type === "typing" && event.id === active?.id) {
+    if (
+      event.type === "typing" &&
+      event.id === active?.id &&
+      fold(event.target) === fold(active?.target)
+    ) {
       typing.textContent =
         event.state === "done" ? "" : event.nick + " está escribiendo…";
       clearTimeout(typingTimer);
@@ -970,6 +974,8 @@
   const historyLoaded = new Set(),
     originalChoose = choose;
   choose = function (id, target) {
+    typing.textContent = "";
+    clearTimeout(typingTimer);
     originalChoose(id, target);
     call("read", { network: id, target }).catch(() => {});
     const key = id + "\0" + fold(target);

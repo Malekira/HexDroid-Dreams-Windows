@@ -1,20 +1,15 @@
 'use strict';
 const electron = require('electron');
 const { app, BrowserWindow, ipcMain, dialog, shell, screen, clipboard } = electron;
-const { Runtime } = require('./services/runtime');
+let Runtime, Store, WindowState;
 const fs = require('node:fs');
 const path = require('node:path');
-const { IrcClient } = require('./irc');
-const { Store } = require('./storage');
-const { WindowState } = require('./window-state');
-const { executeInput } = require('./commands');
 // A fixed, separate profile avoids inheriting data from older Dreams packages.
 const requestedProfile = app.commandLine.getSwitchValue('user-data-dir');
 const dataDirectory = requestedProfile ? path.resolve(requestedProfile) : path.join(app.getPath('appData'), 'HexDroidDreams-Desktop');
 try { fs.mkdirSync(dataDirectory, { recursive: true }); app.setPath('userData', dataDirectory); }
 catch (error) { dialog.showErrorBox('HexDroid Dreams', 'No se pudo crear la carpeta de datos: ' + error.message); app.exit(1); }
 let window, store, config, logFile, runtime, tray, quitting=false;
-const clients = new Map();
 const startupWarnings = [];
 function log(message) {
   try { fs.mkdirSync(app.getPath('userData'), { recursive: true });
@@ -62,6 +57,7 @@ else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
   app.whenReady().then(() => {
     log(`Inicio ${app.getVersion()} · ${process.platform} ${process.arch}`);
+    ({Store}=require('./storage'));({WindowState}=require('./window-state'));({Runtime}=require('./services/runtime'));
     store = new Store(app.getPath('userData'), message => { startupWarnings.push(message); log(message); }); config = store.load();
     register('config:load', () => ({ ...config, warnings: startupWarnings, version: app.getVersion() }));
     register('config:save', data => { config = store.save(data); return config; });
