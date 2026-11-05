@@ -18,4 +18,4 @@ Esto no sustituye la prueba en tu equipo ni demuestra compatibilidad con todas l
 
 Todavía no incluye SASL/NickServ automático, DCC, cifrado de extremo a extremo, scripts, historial persistente ni reconexión automática. Las contraseñas del servidor se usan solo para la sesión y no se guardan en disco.
 
-El código vive en la rama **dreams-windows**. La rama **main** y la aplicación Android no se modificaron.
+El proyecto Windows vive en **Malekira/HexDroid-Dreams-Windows**, separado de **Malekira/HexDroid-Dreams-Android**. Esta versión conserva el ZIP y el commit originales; el traslado no introduce cambios en la aplicación.

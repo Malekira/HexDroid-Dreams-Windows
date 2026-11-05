@@ -2,6 +2,10 @@
 
 Cliente IRC de escritorio creado desde cero. Primera versión funcional: **0.1.0**.
 
+Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
+
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.1.0)**
+
 ## Abrir en Windows
 
 1. Extrae **todo** `HexDroid-Dreams-0.1.0-Windows-x64.zip` en una carpeta normal.
@@ -60,6 +64,8 @@ El empaquetado genera `dist/HexDroidDreams-win32-x64/HexDroidDreams.exe`; distri
 - Prueba adicional de Electron real con puente IPC y servidor IRC local: arranque, conexión, mensajes, usuarios, salida y reentrada de sala, segundo arranque con preferencias guardadas, instancia única y recuperación de configuración dañada.
 - Empaquetado cruzado para Windows x64 y revisión del contenido del archivo ASAR.
 
-Estas comprobaciones se ejecutaron en Linux. **El ejecutable Windows todavía requiere validación en un equipo Windows real.** No se probó conexión con redes IRC públicas. Las capturas de ejemplo contienen conversaciones simuladas, no mensajes reales.
+Las pruebas de protocolo, almacenamiento, reapertura e IPC en Electron y la compilación también pasaron en el runner Windows de GitHub Actions. **El resultado puede variar en otros equipos Windows.** No se probó conexión con redes IRC públicas. Las capturas de ejemplo contienen conversaciones simuladas, no mensajes reales.
 
-El proyecto de Windows se distribuye en la rama independiente `dreams-windows` de `Malekira/HexDroidVip`. La rama `main` conserva la aplicación Android. GitHub Actions compila y prueba la versión Windows al actualizar esta rama; el ZIP se encuentra en los artefactos de la ejecución correspondiente.
+El código Windows se mantiene en la rama `main` de [Malekira/HexDroid-Dreams-Windows](https://github.com/Malekira/HexDroid-Dreams-Windows). GitHub Actions compila y prueba Windows al actualizar esa rama. Sus versiones y descargas se publican en este mismo repositorio.
+
+La versión 0.1.0 y su etiqueta conservan el commit y el ZIP originales de antes de la separación. La rama `legacy/windows-prototype` conserva el prototipo Windows anterior como referencia histórica.
