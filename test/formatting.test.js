@@ -19,3 +19,8 @@ test('Extended IRC and ANSI foreground/background colors remain visible and rese
  const truecolor=segments('\x1b[38;2;12;34;56;48;2;90;80;70mcolor\x1b[49mplain');assert.equal(truecolor[0].style.color,'#0c2238');assert.equal(truecolor[0].style.background,'#5a5046');assert.equal(truecolor[1].style.background,undefined);
  assert.equal(segments('\x1b[38;5;196;48;5;21mbright')[0].style.color,'#ff0000');assert.equal(segments('\x1b[38;5;196;48;5;21mbright')[0].style.background,'#0000ff');
 });
+test('Display colors keep readable contrast on independently chosen room backgrounds',()=>{
+ const {readableColor,contrast}=require('../src/formatting');
+ for(const [color,background] of [['#e4e8f1','#ffffff'],['#000000','#151b29'],['#c0adf1','#ffffff'],['#ff0000','#ffffff']])assert.ok(contrast(readableColor(color,background),background)>=4.5);
+ assert.equal(readableColor('#000000','#ffffff'),'#000000');assert.equal(readableColor('#ffffff','#000000'),'#ffffff');
+});

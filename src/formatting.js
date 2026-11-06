@@ -176,8 +176,68 @@
       .map((s) => s.text)
       .join("");
   }
+  function rgb(color) {
+    let m = /^#([a-f0-9]{6}|[a-f0-9]{3})$/i.exec(color || "");
+    if (m) {
+      let hex = m[1];
+      if (hex.length === 3) hex = [...hex].map((c) => c + c).join("");
+      return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    }
+    m = /^rgba?\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)/.exec(color || "");
+    return m ? m.slice(1, 4).map(Number) : null;
+  }
+  function luminance(color) {
+    const c = rgb(color);
+    if (!c) return 0;
+    const v = c.map((x) => {
+      x /= 255;
+      return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+    });
+    return v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722;
+  }
+  function contrast(a, b) {
+    const x = luminance(a),
+      y = luminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  function readableColor(color, background, min = 4.5) {
+    const c = rgb(color);
+    if (!c || !rgb(background) || contrast(color, background) >= min)
+      return color;
+    const end =
+      contrast("#000000", background) > contrast("#ffffff", background)
+        ? 0
+        : 255;
+    for (let t = 0.05; t <= 1.001; t += 0.05) {
+      const v = c.map((x) => Math.round(x + (end - x) * t)),
+        value = "#" + v.map((x) => x.toString(16).padStart(2, "0")).join("");
+      if (contrast(value, background) >= min) return value;
+    }
+    return end ? "#ffffff" : "#000000";
+  }
+  function renderBackground(node) {
+    const doc = node.ownerDocument,
+      win = doc.defaultView;
+    if (!win) return "#0d111b";
+    let surface = node.closest?.(".messages,.room-live-preview");
+    if (!surface && node.classList?.contains("message-text"))
+      surface = doc.getElementById("messages");
+    if (!surface && node.isConnected) surface = node;
+    while (surface) {
+      const bg = win.getComputedStyle(surface).backgroundColor;
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg;
+      surface = surface.parentElement;
+    }
+    return (
+      win
+        .getComputedStyle(doc.documentElement)
+        .getPropertyValue("--surface")
+        .trim() || "#0d111b"
+    );
+  }
   function render(node, text) {
     node.replaceChildren();
+    const background = renderBackground(node);
     for (const s of segments(text)) {
       const span = node.ownerDocument.createElement("span");
       span.textContent = s.text;
@@ -192,11 +252,20 @@
           .join(" ")
           .trim();
       if (v.mono) span.style.fontFamily = "Consolas, monospace";
-      if (v.color) span.style.color = v.color;
+      if (v.color)
+        span.style.color = readableColor(v.color, v.background || background);
       if (v.background) span.style.backgroundColor = v.background;
       if (v.inverse) span.style.filter = "invert(1)";
       node.append(span);
     }
   }
-  return { segments, plain, render, colors };
+  return {
+    segments,
+    plain,
+    render,
+    colors,
+    readableColor,
+    luminance,
+    contrast,
+  };
 });

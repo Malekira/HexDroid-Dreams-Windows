@@ -34,7 +34,7 @@
       shown ? "Ocultar topic" : "Mostrar topic",
     );
     toggle.setAttribute("aria-pressed", String(shown));
-    divider.hidden = !shown;
+    divider.hidden = !shown || selected()?.kind !== "channel" || !selected()?.topic;
     topic.style.height = Number.isFinite(config.settings.topicHeight)
       ? config.settings.topicHeight + "px"
       : "";

@@ -33,7 +33,7 @@ async function run() {
         if(line==='METADATA * GET avatar')socket.write(':local 761 Dreamer Dreamer avatar * :'+avatar+'\r\n');
         if(line.startsWith('MONITOR + '))socket.write(':local 730 Dreamer :'+line.slice(10).split(',').map(nick=>nick+'!ident@host').join(',')+'\r\n');
         if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\n:local 005 Dreamer MONITOR=100 :supported\r\nPING :desktop-test\r\n');
-        if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
+        if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 332 Dreamer #dreams :Topic de prueba\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
         if (line === 'WHO Alice') socket.write(':local 352 Dreamer #dreams ident host local Alice H :0 Alice WHO result\r\n:local 315 Dreamer Alice :End of WHO\r\n');
@@ -87,7 +87,8 @@ async function run() {
 
     for(const socket of sockets)socket.write(':local 332 Dreamer #dreams :\x02\x0302Bienvenidos\x0f al canal \x0304Chat\x0f 🦆\r\n');
     await expect(page.locator('#conversation-subtitle')).toHaveText('Bienvenidos al canal Chat 🦆');
-    await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('color','rgb(0, 0, 127)');
+    await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('font-weight','700');
+    await page.getByLabel('Estilos de escritura',{exact:true}).click();
     await page.getByRole('button',{name:'Abrir emojis',exact:true}).click();
     await page.getByRole('button',{name:'Insertar 🦆',exact:true}).click();
     await expect(page.locator('#message-input')).toHaveValue('🦆');
@@ -99,9 +100,9 @@ async function run() {
     await page.locator('#message-input').fill('draft in channel');
     await page.getByRole('button',{name:'@Alice',exact:true}).dblclick();
     await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
-    await expect(page.getByRole('tab',{name:'Alice',exact:true})).toHaveCount(1);
+    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveCount(1);
     await page.locator('#message-input').fill('draft in private');
-    await page.getByRole('tab',{name:'#dreams',exact:true}).click();
+    await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await expect(page.locator('#message-input')).toHaveValue('draft in channel');
     await page.getByRole('button',{name:'Privado Alice',exact:true}).click();
     await expect(page.locator('#message-input')).toHaveValue('draft in private');
@@ -109,11 +110,11 @@ async function run() {
     await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
     await expect.poll(() => received.includes('WHOIS Alice')).toBe(true);
     await expect(page.locator('#messages')).toContainText('Alice Test');
-    await expect(page.getByRole('tab',{name:'WHOIS / WHO',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toBeVisible();
     await page.locator('#message-input').fill('/who Alice');await page.locator('#message-input').press('Enter');
     await expect(page.locator('#messages')).toContainText('Alice WHO result');
     for(const socket of sockets)socket.write(':Alice!ident@host NICK :Alicia\r\n');
-    await page.getByRole('tab',{name:'#dreams',exact:true}).click();
+    await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await expect(page.getByRole('button',{name:'@Alicia',exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'@Alice',exact:true})).toHaveCount(0);
     for(const socket of sockets)socket.write(':Alicia!ident@host NICK :Alice\r\n');
@@ -123,13 +124,15 @@ async function run() {
     await page.getByRole('separator',{name:'Ancho de usuarios'}).focus(); await page.keyboard.press('End');
     await page.getByRole('button', { name: 'Ocultar usuarios', exact: true }).click();
     await page.getByRole('separator', { name: 'Ancho de conversaciones' }).focus(); await page.keyboard.press('End');
-    await page.getByRole('button', { name: 'Cerrar #dreams', exact: true }).click();
-    await expect(page.getByRole('tab', { name: '#dreams', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Cerrar nodo #dreams', exact: true }).click();
+    await expect(page.getByRole('button',{name:'Sala #dreams',exact:true})).toHaveCount(0);
     await expect.poll(() => received.some(line => line.startsWith('PART #dreams'))).toBe(true);
     await page.getByRole('button', { name: 'Entrar en una sala', exact: true }).click();
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     console.log('Prueba Electron: formato permanente sin códigos en el editor');
+    await page.getByLabel('Estilos de escritura',{exact:true}).click();
+    if(!await page.locator('.composer-styles').getAttribute('open').then(v=>v!==null))await page.getByLabel('Estilos de escritura',{exact:true}).click();
     await page.getByRole('button',{name:'Negrita',exact:true}).click();
     await page.getByRole('button',{name:'Color IRC',exact:true}).click();
     await page.getByRole('menuitem',{name:'Color 13',exact:true}).click();
@@ -140,6 +143,7 @@ async function run() {
       await expect.poll(()=>received.includes('PRIVMSG #dreams :\x02\x0313'+text+'\x0f')).toBe(true);
       await expect(page.locator('.message-text span').filter({hasText:text})).toHaveCSS('font-weight','700');
     }
+    if(!await page.locator('.composer-styles').getAttribute('open').then(v=>v!==null))await page.getByLabel('Estilos de escritura',{exact:true}).click();
     await page.getByRole('button',{name:'Negrita',exact:true}).click();
     await page.getByRole('button',{name:'Color IRC',exact:true}).click();
     await page.getByRole('menuitem',{name:'Sin color',exact:true}).click();
@@ -327,9 +331,9 @@ async function run() {
     await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
     expect(fs.existsSync(path.join(dataPath,'window-state.json'))).toBe(true);
     await expect(page.locator('#connection-button')).toHaveText('Conectar');
-    await page.getByRole('tab',{name:'WHOIS / WHO',exact:true}).click();
+    await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();
     await expect(page.locator('#messages')).toContainText('Alice Test');
-    await page.getByRole('tab',{name:'#dreams',exact:true}).click();
+    await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await page.locator('#connection-button').click();
     await expect(page.locator('.message-text').last()).toHaveText('Desktop IPC works');
     await expect(page.locator('.message-text').filter({hasText:'persisted SQLite desktop message'})).toHaveCount(1);
@@ -338,6 +342,13 @@ async function run() {
     const timer = setTimeout(() => child.kill(), 10000);
     const [code] = await once(child, 'exit'); clearTimeout(timer);
     expect(code).toBe(0); expect(await app.windows()).toHaveLength(1);
+    console.log('Prueba Electron: campanita de menciones y NOTICE en sala activa');
+    await app.evaluate(({Notification,shell})=>{Notification.isSupported=()=>false;shell.beep=()=>{};});
+    for(const socket of sockets)socket.write(':Alice!u@local PRIVMSG #dreams :Dreamer: campanita de prueba\r\n:Alice!u@local NOTICE #dreams :NOTICE registrado en la sala activa\r\n');
+    await expect.poll(()=>page.evaluate(async()=>(await window.dreams.advanced('notifications.list')).length)).toBe(2);
+    await page.locator('#notification-bell').click();await expect(page.locator('#notification-dialog')).toContainText('campanita de prueba');await expect(page.locator('#notification-dialog')).toContainText('NOTICE registrado');
+    await expect.poll(()=>page.evaluate(async()=>(await window.dreams.advanced('notifications.list')).every(n=>n.read))).toBe(true);
+    await page.getByRole('button',{name:'Vaciar registro',exact:true}).click();await expect(page.locator('#notification-dialog')).toContainText('Sin menciones ni NOTICE');await page.locator('#notification-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');

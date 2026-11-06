@@ -17,3 +17,8 @@ test('Avatar resolution prioritizes metadata, handles removal, and versions the 
  assert.notEqual(resolveAvatar({nick:'Alice',template,now:120000}).url,resolveAvatar({nick:'Alice',template,now:180000}).url);
  assert.equal(resolveAvatar({nick:'Alice',template,state:{metadata:{avatar:'https://unconfigured.example/photo.png'}},automatic:true}).blocked,true);
 });
+test('Web GECOS metadata is not displayed as an encoded real name; ordinary names are preserved',()=>{
+ const {displayRealName}=require('../src/services/avatar-policy');
+ assert.equal(displayRealName(Buffer.from('#|female|42|/avatar/Chat/Alice.png').toString('base64')),'Nombre real no facilitado');
+ for(const text of ['Nombre de Alice','\x0313Nombre con color','YWJjZA=='])assert.equal(displayRealName(text),text);
+});

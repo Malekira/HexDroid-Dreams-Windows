@@ -1,14 +1,14 @@
 const { test, expect } = require('@playwright/test');
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    let listener;
+    const listeners=[];
     const defaults = { fontSize: 14, sidebarWidth: 240, showUsers: true, timestamps: true, showEvents: true, compact: false, autoScroll: true };
-    const emit = event => listener?.(event);
+    const emit = event => listeners.forEach(cb=>cb(event));
     window.__emit = emit;
     window.dreams = {
       load: async () => ({ ...(JSON.parse(localStorage.getItem('dreams-test')) || { settings: defaults, profiles: [] }), version: '0.2.0', warnings: [] }),
       save: async data => { localStorage.setItem('dreams-test', JSON.stringify(data)); return data; },
-      copy: async text => { window.__copied = text; return {ok:true}; }, onEvent: cb => { listener = cb; }, logs: async () => ({ ok: true }), quit: async () => {},
+      copy: async text => { window.__copied = text; return {ok:true}; }, onEvent: cb => { listeners.push(cb); }, logs: async () => ({ ok: true }), quit: async () => {},
       connect: async ({ id }) => {
         const p = JSON.parse(localStorage.getItem('dreams-test')).profiles.find(p => p.id === id);
         emit({ id, type: 'status', state: 'connected', text: 'Conectado', nick: p.nick, connection:{host:p.host,port:p.port,tls:p.tls} });
@@ -37,13 +37,14 @@ async function addNetwork(page, name = 'Libera Chat', host = 'irc.libera.chat', 
   if (!tls) await page.locator('#profile-tls').uncheck();
   await page.getByRole('button', { name: 'Guardar y conectar', exact: true }).click();
 }
-test('Requested desktop layout: tabs, adjustable left sidebar, hideable users, top settings', async ({ page }) => {
+test('Tree navigation, adjustable left sidebar, hideable users and top settings', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:4173');
   await expect(page.getByRole('heading', { name: 'La conversación empieza aquí.' })).toBeVisible();
+  await expect(page.locator('#toast')).toBeHidden();
   await addNetwork(page);
-  await expect(page.getByRole('tab', { name: '#dreams', exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: '#general', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button',{name:'Sala #dreams',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Sala #general',exact:true})).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('button', { name: '@Luna', exact: true })).toBeVisible();
   await page.getByRole('separator', { name: 'Ancho de conversaciones' }).focus();
   await page.keyboard.press('End');
@@ -65,34 +66,34 @@ test('Requested desktop layout: tabs, adjustable left sidebar, hideable users, t
   await expect(page.locator('html')).toHaveCSS('--font-size', '18px');
   expect(errors).toEqual([]);
 });
-test('Messages, private conversations, unread tabs, room closure and multiple networks', async ({ page }) => {
+test('Messages, private conversations, unread tree nodes, room closure and multiple networks', async ({ page }) => {
   await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
-  await page.getByRole('tab', { name: '#dreams', exact: true }).click();
+  await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
   await page.locator('#message-input').fill('Hola desde Dreams'); await page.locator('#message-input').press('Enter');
   await expect(page.locator('.message-text').filter({ hasText: 'Hola desde Dreams' })).toBeVisible();
   await page.evaluate(() => {
     const id = JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;
     window.__emit({ id, type: 'message', target: '#general', nick: 'Luna', text: '<img src=x onerror=alert(1)>', time: new Date().toISOString() });
   });
-  await expect(page.getByRole('tab', { name: '#general', exact: true }).locator('.badge')).toHaveText('1');
-  await page.getByRole('tab', { name: '#general', exact: true }).click();
+  await expect(page.getByRole('button',{name:'Sala #general',exact:true}).locator('.badge')).toHaveText('1');
+  await page.getByRole('button',{name:'Sala #general',exact:true}).click();
   await expect(page.locator('.message-text')).toHaveText('<img src=x onerror=alert(1)>');
   await expect(page.locator('.message-text img')).toHaveCount(0);
   await page.getByRole('button', { name: '@Luna', exact: true }).dblclick();
   await expect(page.getByRole('button', { name: 'Privado Luna', exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Luna', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'Privado Luna',exact:true})).toHaveCount(1);
   await page.locator('#message-input').fill('Mensaje privado'); await page.locator('#message-input').press('Enter');
   await expect(page.locator('.message-text')).toHaveText('Mensaje privado');
   await addNetwork(page, 'Otra red', 'irc.example.org', '#otra');
   await expect(page.locator('#network-select option')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Cerrar #otra', exact: true }).click();
-  await expect(page.getByRole('tab', { name: '#otra', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cerrar nodo #otra', exact: true }).click();
+  await expect(page.getByRole('button',{name:'Sala #otra',exact:true})).toHaveCount(0);
   await page.locator('#connection-button').click();
   await expect(page.locator('#connection-button')).toHaveText('Conectar');
 });
 test('Screenshot of the populated chat and settings; no layout overflow', async ({ page }) => {
   await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
-  await page.getByRole('tab', { name: '#dreams', exact: true }).click();
+  await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
   await page.evaluate(() => {
     const id = JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;
     for (const [nick, text, own] of [
@@ -119,12 +120,12 @@ test('Private drafts, channels and conversations with identical names stay isola
   await page.locator('#message-input').fill('channel draft');
   await page.getByRole('button',{name:'@Luna',exact:true}).dblclick();
   await page.locator('#message-input').fill('private draft');
-  await page.getByRole('tab',{name:'#general',exact:true}).click();
+  await page.getByRole('button',{name:'Sala #general',exact:true}).click();
   await expect(page.locator('#message-input')).toHaveValue('channel draft');
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click();
   await expect(page.locator('#message-input')).toHaveValue('private draft');
   await expect(page.locator('#private-panel .conversation')).toHaveCount(1);
-  await expect(page.getByRole('tab',{name:'Luna',exact:true})).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'Privado Luna',exact:true})).toHaveCount(1);
   await addNetwork(page,'Second','irc.example.org','#general');
   await page.getByRole('button',{name:'@Luna',exact:true}).dblclick();
   await expect(page.locator('#message-input')).toHaveValue('');
@@ -162,20 +163,20 @@ test('Both panel widths, visibility and configuration searches work and survive 
 });
 test('Channel drag order, keyboard context menus, private silence and closure persist correctly', async ({page}) => {
   await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
-  await page.getByRole('tab',{name:'#general',exact:true}).dragTo(page.getByRole('tab',{name:'#dreams',exact:true}));
-  await expect.poll(() => page.getByRole('tab').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')))).toEqual(['#general','#dreams']);
+  await page.getByRole('button',{name:'Sala #general',exact:true}).dragTo(page.getByRole('button',{name:'Sala #dreams',exact:true}));
+  await expect.poll(() => page.locator('#tree-rooms .tree-name').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')))).toEqual(['Sala #general','Sala #dreams']);
   await page.getByRole('button',{name:'@Luna',exact:true}).dblclick();
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click({button:'right'});
   await page.getByRole('menuitem',{name:'Silenciar resaltado de actividad',exact:true}).click();
   await expect(page.locator('.conversation.is-muted')).toHaveCount(1);
   await page.reload();
-  await expect(page.getByRole('tab').first()).toHaveAttribute('aria-label','#general');
+  await expect(page.locator('#tree-rooms .tree-name').first()).toHaveAttribute('aria-label','Sala #general');
   await expect(page.locator('.conversation.is-muted')).toHaveCount(1);
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click({button:'right'});
   await page.getByRole('menuitem',{name:'Cerrar privado',exact:true}).click();
   await expect(page.getByRole('button',{name:'Privado Luna',exact:true})).toHaveCount(0);
   expect(await page.evaluate(() => (window.__sent || []).some(m => m.text === '/quit'))).toBe(false);
-  await page.getByRole('tab',{name:'#general',exact:true}).click({button:'right'}); await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Sala #general',exact:true}).click({button:'right'}); await page.keyboard.press('Escape');
   await expect(page.locator('#context-menu')).toBeHidden();
 });
 test('Message formatting, selection, clipboard, search and user permissions have functional actions', async ({page}) => {
@@ -256,7 +257,7 @@ test('Topic renders IRC formatting and emoji picker inserts at the cursor',async
  await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('color','rgb(255, 0, 255)');
  await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('font-weight','700');
  await page.locator('#message-input').fill('Hola ');await page.locator('#message-input').press('End');
- await page.getByRole('button',{name:'Abrir emojis',exact:true}).click();await page.getByRole('button',{name:'Insertar 🦆',exact:true}).click();
+ await page.getByLabel('Estilos de escritura',{exact:true}).click();await page.getByRole('button',{name:'Abrir emojis',exact:true}).click();await page.getByRole('button',{name:'Insertar 🦆',exact:true}).click();
  await expect(page.locator('#message-input')).toHaveValue('Hola 🦆');
 });
 test('Identity editor has alternate nick, formatted real name and readable light-theme controls',async({page})=>{
@@ -277,24 +278,25 @@ test('Topic can be hidden, resized upward and restored after reloading',async({p
  await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:Array(12).fill('Un tema largo con varias líneas').join('\n')});});
  const before=await page.locator('#messages').evaluate(n=>n.clientHeight);await page.getByRole('button',{name:'Ocultar topic',exact:true}).click();await expect(page.locator('#conversation-subtitle')).toBeHidden();expect(await page.locator('#messages').evaluate(n=>n.clientHeight)).toBeGreaterThan(before);
  await page.reload();await expect(page.locator('#conversation-subtitle')).toBeHidden();await page.getByRole('button',{name:'Mostrar topic',exact:true}).click();
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});
  const separator=page.getByRole('separator',{name:'Altura del topic',exact:true});await separator.focus();await page.keyboard.press('End');
  const bounds=await separator.boundingBox(),top=await page.locator('#conversation-subtitle').evaluate(n=>n.getBoundingClientRect().top);
  await page.mouse.move(bounds.x+40,bounds.y+2);await page.mouse.down();await page.mouse.move(bounds.x+40,top+60);await page.mouse.up();await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
- await page.reload();await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
+ await page.reload();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
 });
 test('Notify lists are saved independently for each network',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Primera');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
  await addNetwork(page,'Segunda');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).not.toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
  const ids=await page.locator('#network-select option').evaluateAll(nodes=>nodes.map(n=>n.value));await page.locator('#network-select').selectOption(ids[0]);await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');
 });
-test('Compact toolbar, alphabetic private tabs and Explorer tree replace the old private panel',async({page})=>{
+test('Compact toolbar and alphabetic Explorer tree replace the old private panel',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;for(const nick of ['Zeta','Alpha'])window.__emit({id,type:'message',target:nick,nick,text:'Hola '+nick});window.__emit({id,type:'modes',target:'#general',text:'+nt'});});
- await expect.poll(()=>page.getByRole('tab').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')))).toEqual(['#dreams','#general','Alpha','Zeta']);
+ await expect.poll(()=>page.locator('#tree-rooms .tree-name').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')))).toEqual(['Sala #dreams','Sala #general']);
  expect(await page.locator('.chat-heading').evaluate(n=>n.getBoundingClientRect().height)).toBeLessThanOrEqual(28);
  for(const id of ['connection-button','join-button','notify-button','topic-toggle','room-appearance-button'])expect(await page.locator('#'+id).evaluate(n=>!!n.closest('.menubar'))).toBe(true);
  const title=await page.locator('#conversation-title').boundingBox(),modes=await page.locator('#channel-modes').boundingBox();expect(Math.abs(title.y-modes.y)).toBeLessThan(8);
- await page.getByRole('button',{name:'Privado Alpha',exact:true}).click();await expect(page.getByRole('tab',{name:'Alpha',exact:true})).toHaveAttribute('aria-selected','true');
- await page.locator('#tree-privates>summary').click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toBeHidden();await expect(page.getByRole('tab',{name:'Alpha',exact:true})).toBeVisible();await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.treePrivatesOpen)).toBe(false);await page.reload();await expect(page.locator('#tree-privates')).not.toHaveAttribute('open','');
+ await page.getByRole('button',{name:'Privado Alpha',exact:true}).click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toHaveAttribute('aria-current','true');
+ await page.locator('#tree-privates>summary').click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toBeHidden();await expect(page.getByRole('tab')).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.treePrivatesOpen)).toBe(false);await page.reload();await expect(page.locator('#tree-privates')).not.toHaveAttribute('open','');
 });
 test('Channel event arrows, optional masks and nickname actions never add photo thumbnails',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;for(const action of ['join','part','quit'])window.__emit({id,type:'channel',target:'#general',nick:'Visitante',ident:'ident',host:'host.example',action});});
@@ -311,4 +313,39 @@ test('Commands menu groups commands and enables room and IRC operators from actu
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.locator('#commands-menu>summary').click();await page.locator('#commands-menu').getByText('Operador de sala (@)',{exact:true}).click();const op=page.getByRole('menuitem',{name:'Operador de sala (@): /op · Dar operador',exact:true});await expect(op).toBeDisabled();
  await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'users',target:'#general',users:['@Dreamer','Luna']});});await expect(op).toBeEnabled();await op.click();await expect(page.locator('#message-input')).toHaveValue('/op ');expect(await page.evaluate(()=>window.__sent||[])).toEqual([]);
  await page.locator('#commands-menu>summary').click();await page.locator('#commands-menu').getByText('Operador de red (IRC oper)',{exact:true}).click();const kill=page.getByRole('menuitem',{name:'Operador de red (IRC oper): /kill · Desconectar usuario',exact:true});await expect(kill).toBeDisabled();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'oper-state',oper:true});});await expect(kill).toBeEnabled();
+});
+test('A single tree click survives messages arriving between pointer down and pointer up',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'message',target:'Alice',nick:'Alice',text:'privado'});});
+ for(const name of ['Sala #dreams','Privado Alice','Sala #general']){
+  const button=page.getByRole('button',{name,exact:true}),box=await button.boundingBox();
+  await button.evaluate(n=>window.__clickedNode=n);await page.mouse.move(box.x+30,box.y+box.height/2);await page.mouse.down();
+  await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;for(let i=0;i<15;i++)window.__emit({id,type:'message',target:'#general',nick:'Visitor',text:'llegando '+i});});
+  await page.waitForTimeout(60);expect(await button.evaluate(n=>n===window.__clickedNode)).toBe(true);await page.mouse.up();
+  await expect(button).toHaveAttribute('aria-current','true');
+ }
+ await expect(page.locator('#room-tabs')).toBeHidden();await expect(page.getByRole('tab')).toHaveCount(0);
+});
+test('Composer uses one compact styled editor and typing preference survives reload',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.getByLabel('Estilos de escritura',{exact:true}).click();await page.getByRole('button',{name:'Negrita',exact:true}).click();
+ await page.getByLabel('Enviar «Estoy escribiendo»',{exact:true}).uncheck();
+ await page.locator('#message-input').fill('Texto sin duplicar');await expect(page.locator('#format-preview')).toBeHidden();
+ await expect(page.locator('#message-input')).toHaveCSS('font-weight','700');await expect(page.locator('#message-input')).toHaveCSS('font-size','14px');
+ expect((await page.locator('#composer').boundingBox()).height).toBeLessThan(65);
+ await page.reload();await page.getByLabel('Estilos de escritura',{exact:true}).click();await expect(page.getByLabel('Enviar «Estoy escribiendo»',{exact:true})).not.toBeChecked();
+});
+test('Private selection opens the interlocutor profile, and empty topics consume no panel space',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.getByRole('button',{name:'@Luna',exact:true}).dblclick();await expect(page.locator('#user-profile')).toBeVisible();await expect(page.locator('#user-profile h3')).toHaveText('Luna');await expect(page.locator('#topic-panel')).toBeHidden();
+ await page.getByRole('button',{name:'Sala #general',exact:true}).click();await expect(page.locator('#user-profile')).toBeHidden();
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:''});});await expect(page.locator('#topic-panel')).toBeHidden();await expect(page.locator('#topic-height-resizer')).toBeHidden();
+});
+test('Light room backgrounds stay readable inside a dark application, including IRC colors and event nicks',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{config.settings.roomAppearance={background:'#ffffff',text:'#e4e8f1',inputBackground:'#ffffff'};applySettings();const id=config.profiles[0].id;window.__emit({id,type:'message',target:'#general',nick:'Luna',text:'\x0300Texto blanco sobre blanco\x0f'});window.__emit({id,type:'channel',target:'#general',nick:'Visitante',action:'join'});});
+ await expect(page.locator('.message-text')).toContainText('Texto blanco sobre blanco');
+ const result=await page.evaluate(()=>{const bg=getComputedStyle(document.getElementById('messages')).backgroundColor;return [...document.querySelectorAll('.message-text span,.event-nick,.message-header .message-nick')].map(n=>DreamsFormatting.contrast(getComputedStyle(n).color,bg));});
+ expect(result.length).toBeGreaterThan(2);for(const contrast of result)expect(contrast).toBeGreaterThanOrEqual(4.5);
+ await page.screenshot({path:'dist/Dreams-contraste-claro.png'});
 });

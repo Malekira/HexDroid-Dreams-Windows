@@ -63,6 +63,21 @@ function normalizePhoto(value, legacy = false) {
     return null;
   }
 }
+// Chat web carries profile metadata in GECOS, rather than a human real name.
+function displayRealName(value) {
+  if (
+    typeof value !== "string" ||
+    value.length > 4096 ||
+    !value ||
+    !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(value)
+  )
+    return value || "";
+  const decoded = Buffer.from(value, "base64").toString("utf8"),
+    parts = decoded.split("|");
+  if (parts.length < 4 || /[\x00-\x08\ufffd]/.test(decoded)) return value;
+  // The web schema contains location, sex, age and avatar, not an IRC real name.
+  return "Nombre real no facilitado";
+}
 function legacyPhoto(realName) {
   if (
     typeof realName !== "string" ||
@@ -137,4 +152,10 @@ function resolveAvatar({
     );
   return { url: u.toString(), source };
 }
-module.exports = { avatarUrl, legacyPhoto, normalizePhoto, resolveAvatar };
+module.exports = {
+  displayRealName,
+  avatarUrl,
+  legacyPhoto,
+  normalizePhoto,
+  resolveAvatar,
+};

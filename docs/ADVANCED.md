@@ -68,8 +68,12 @@ En la identidad de cada red, **Publicar mi foto en esta red** anuncia la direcci
 
 ## Interfaz compacta y menús
 
-Las salas aparecen antes de los privados en las pestañas; los privados se ordenan alfabéticamente. El panel izquierdo muestra Notify en línea y un árbol desplegable de salas y privados. Topic permite ocultar el tema, conservando el encabezado pequeño y los modos junto al nombre.
+El árbol izquierdo es el acceso a salas y privados; sus botones se conservan durante la actividad de IRC para no interrumpir los clics. Los privados se ordenan alfabéticamente y los contadores distinguen la actividad de la selección. Topic permite ocultar el tema y ajustar su altura; no se reserva espacio si la sala no tiene topic o la conversación es privada.
 
-Comandos, junto a Ver, organiza los comandos en Usuario, Operador de sala (@) e IRC oper. Elegir uno prepara el cuadro de texto para revisar sus argumentos antes de pulsar Enter. Las opciones se habilitan según conexión y permisos conocidos; el soporte final depende del servidor. Scripts permite importar, administrar, recargar y seleccionar los alias activos.
+El cuadro único conserva el tamaño de letra. El icono de estilos a su derecha abre formato, colores y emojis. «Enviar Estoy escribiendo» se configura allí o en Notificaciones y tema, y controla lo que se anuncia al servidor. Al abrir un privado, el panel derecho muestra su perfil.
 
-Apariencia de sala reúne vista previa, fondos, color de texto, fuente, tamaño, estilo y color del propio nick. En Chat y mensajes se puede activar ident y host para entradas y salidas; estos eventos no muestran miniaturas y sus nicks abren el perfil.
+La campanita junto a Red registra menciones y NOTICE incluso con la conversación activa. Guarda hasta 500 avisos en memoria durante la sesión de la aplicación; abrirla marca los avisos mostrados como leídos. Puede abrir cada conversación o vaciar el registro. Ignorar o silenciar un usuario sigue suprimiendo sus notificaciones.
+
+Comandos, junto a Ver, prepara comandos en el cuadro de texto según conexión y permisos; completa sus argumentos antes de pulsar Enter. El soporte final depende del servidor. Scripts permite importar, administrar, recargar y seleccionar los alias activos.
+
+Los colores de texto se ajustan visualmente cuando no contrastan con el fondo elegido; el código IRC enviado permanece intacto. Las iniciales representan usuarios sin foto. Los metadatos codificados de la web se separan del nombre real del perfil, sin modificar la fuente de fotos.

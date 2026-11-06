@@ -32,6 +32,7 @@ class Runtime {
     try{this.trustedCertificates=JSON.parse(fs.readFileSync(path.join(directory,'server-certificates.json'),'utf8'));}catch{}
     this.launchers = new Map();
     this.badge = 0;
+    this.notificationLog = [];
     try {
       this.sts = JSON.parse(
         fs.readFileSync(path.join(directory, "sts.json"), "utf8"),
@@ -302,6 +303,12 @@ class Runtime {
     const record = ws?.networks?.find((n) => n.id === id);
     const focused=!!w?.isFocused(),viewing=focused&&this.activeConversation?.id===id&&require('../irc').fold(this.activeConversation.target)===require('../irc').fold(data.target);
     if((settings.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick||'')))return;
+    const self=this.sessions.get(id)?.nick||'',plain=require('../formatting').plain(data.text||''),fold=require('../irc').fold;
+    const mentioned=!!self&&fold(plain).split(/[^a-z0-9_{}|~\-]+/).includes(fold(self))||(settings.highlightWords||[]).some(word=>fold(plain).includes(fold(word)));
+    if((mentioned||data.notice)&&!data.own&&!data.historical){
+      const entry={key:require('node:crypto').randomUUID(),network:id,target:data.target,nick:data.nick||'Servidor',text:plain.slice(0,10000),kind:data.notice?'notice':'mention',time:data.time||new Date().toISOString(),read:false};
+      this.notificationLog||=[];this.notificationLog.push(entry);if(this.notificationLog.length>500)this.notificationLog.shift();this.emit(id,'notification-entry',{entry});
+    }
     if(!settings.notifications||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
     const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^a-z0-9_{}|~\-]+/),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
     const sound=mention?settings.mentionSound!==false:privateMessage?settings.privateSound!==false:settings.channelSound===true;
@@ -544,6 +551,9 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'notifications.list':return this.notificationLog||[];
+      case 'notifications.read':{const keys=new Set(Array.isArray(data.keys)?data.keys:[]);for(const item of this.notificationLog||[])if(keys.has(item.key))item.read=true;return{ok:true};}
+      case 'notifications.clear':this.notificationLog=[];return{ok:true};
       case 'identity.publish':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Guarda la red antes de publicar.');const session=this.sessions.sessions.get(id);if(session){session.profile.publishPhoto=p.publishPhoto;session.profile.photoUrl=p.photoUrl;}if(!client?.ready)return{pending:true};client.profile.publishPhoto=p.publishPhoto;client.ownAvatarTemplate=p.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';return client.publishOwnAvatar(true);}
       case 'presence.sync':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Red no válida.');const session=this.sessions.sessions.get(id);if(session)session.profile.notifyNicks=[...p.notifyNicks];if(client){client.profile.notifyNicks=[...p.notifyNicks];client.presence.names=[...p.notifyNicks];if(client.ready)client.presence.start();}return{ok:true};}
       case 'presence.status':return client?.ready?client.presence.snapshot():(this.getConfig().profiles.find(p=>p.id===id)?.notifyNicks||[]).map(nick=>({nick,online:null}));
@@ -729,7 +739,7 @@ class Runtime {
         client.requestHistory(target, data.limit, data.before);
         return { ok: true };
       case "typing":
-        client.sendTyping(target, data.state);
+        if(this.getConfig().settings.sendTyping!==false || data.state==="done")client?.sendTyping(target, data.state);
         return { ok: true };
       case "reply":
         client.sendMessage(target, data.text, false, {

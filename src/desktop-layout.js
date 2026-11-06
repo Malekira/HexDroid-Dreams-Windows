@@ -47,10 +47,8 @@
     footer,
   );
   sidebar.setAttribute("aria-label", "Notify y conversaciones");
-  function badge(c, parent) {
-    if (c.unread) parent.append(el("span", "badge", String(c.unread)));
-  }
   function node(c, kind) {
+    const id = active.id;
     const row = el(
         "div",
         "tree-row" +
@@ -75,8 +73,16 @@
           ? "Sala "
           : "Consulta ") + c.name,
     );
-    badge(c, b);
-    b.onclick = () => choose(active.id, c.name);
+    b.replaceChildren(
+      el("span", "tree-label", c.kind === "queries" ? "WHOIS / WHO" : c.name),
+    );
+    row.dataset.target = fold(c.name);
+    row.dataset.network = id;
+    b.setAttribute(
+      "aria-current",
+      String(fold(active.target) === fold(c.name)),
+    );
+    b.onclick = () => choose(id, c.name);
     row.append(b);
     const close = el("button", "tree-close", "×");
     close.type = "button";
@@ -84,9 +90,10 @@
       "aria-label",
       (kind === "private" ? "Cerrar privado " : "Cerrar nodo ") + c.name,
     );
-    close.onclick = () => closeConversation(active.id, c.name);
+    close.onclick = () => closeConversation(id, c.name);
     row.append(close);
-    row.oncontextmenu = (e) => conversationMenu(e, active.id, c);
+    row.oncontextmenu = (e) => conversationMenu(e, id, c);
+    if (kind === "channel") dragOrder(row, id, c.name);
     return row;
   }
   function group(title, id, key, entries, query) {
@@ -95,7 +102,8 @@
     details.open = !!query || config.settings[key] !== false;
     details.dataset.initial = String(details.open);
     details.ontoggle = () => {
-      if (details.dataset.initial === String(details.open) || query) return;
+      if (details.dataset.initial === String(details.open) || $("search").value)
+        return;
       details.dataset.initial = String(details.open);
       config.settings[key] = details.open;
       persist().catch(() => {});
@@ -106,26 +114,29 @@
       details.append(el("span", "tree-empty", "Sin conversaciones"));
     return details;
   }
+  let notifyView = "";
   window.renderDreamsNotify = () => {
+    const id = active?.id,
+      online = (id ? window.getDreamsNotify?.(id) || [] : []).filter(
+        (p) => p.online === true,
+      );
+    const signature = JSON.stringify([id, online.map((p) => p.nick)]);
+    if (signature === notifyView) return;
+    notifyView = signature;
     onlineList.replaceChildren();
-    const people = active ? window.getDreamsNotify?.(active.id) || [] : [];
-    const online = people.filter((p) => p.online === true);
     for (const person of online) {
       const b = el("button", "notify-online-row");
       b.type = "button";
       b.setAttribute("aria-label", "Notify " + person.nick + " en línea");
       b.append(el("span", "online-dot", "●"), el("span", "", person.nick));
-      b.onclick = () => choose(active.id, person.nick);
+      b.onclick = () => choose(id, person.nick);
       b.oncontextmenu = (e) =>
         contextMenu.show(e, person.nick, [
-          {
-            label: "Abrir privado",
-            action: () => choose(active.id, person.nick),
-          },
+          { label: "Abrir privado", action: () => choose(id, person.nick) },
           {
             label: "Dejar de seguir conexión",
             action: async () => {
-              await window.followDreamsUser(active.id, person.nick);
+              await window.followDreamsUser(id, person.nick);
               window.renderDreamsNotify();
             },
           },
@@ -135,24 +146,93 @@
     if (!online.length)
       onlineList.append(el("span", "tree-empty", "Sin contactos en línea"));
   };
+  let treeNetwork;
   window.renderDreamsTree = () => {
     window.renderDreamsNotify();
-    list.replaceChildren();
+    if (treeNetwork !== active?.id) {
+      list.replaceChildren();
+      treeNetwork = active?.id;
+    }
     const all = active ? [...network(active.id).conversations.values()] : [],
-      query = fold($("search").value),
-      matches = (c) => !query || fold(c.name).includes(query);
-    const rooms = all.filter((c) => c.kind === "channel" && matches(c)),
+      query = fold($("search").value);
+    const rooms = all.filter((c) => c.kind === "channel"),
       privates = all
-        .filter((c) => c.kind === "private" && matches(c))
+        .filter((c) => c.kind === "private")
         .sort((a, b) =>
           a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
         );
-    list.append(
-      group("Salas", "tree-rooms", "treeRoomsOpen", rooms, query),
-      group("Privados", "tree-privates", "treePrivatesOpen", privates, query),
+    const desired = new Set();
+    function reconcile(parent, entries) {
+      let previous = null;
+      for (const c of entries) {
+        const key = fold(c.name);
+        desired.add(key);
+        let row = [...list.querySelectorAll(".tree-row")].find(
+          (r) => r.dataset.target === key,
+        );
+        if (!row) row = node(c, c.kind);
+        const expected = previous
+          ? previous.nextElementSibling
+          : parent.querySelector(":scope > .tree-row");
+        if (row.parentElement !== parent || expected !== row) {
+          if (previous) previous.after(row);
+          else if (parent.tagName === "DETAILS")
+            parent.querySelector("summary").after(row);
+          else parent.append(row);
+        }
+        previous = row;
+        row.hidden = !!query && !key.includes(query);
+        row.classList.toggle("active", fold(active?.target || "") === key);
+        row.classList.toggle("is-muted", !!c.muted);
+        row.classList.toggle(
+          "has-activity",
+          config.settings.highlightActivity !== false &&
+            !c.muted &&
+            !!(c.unread || c.activityUntil > Date.now()),
+        );
+        row.classList.toggle(
+          "has-mention",
+          !c.muted && !!(c.mentions || c.mentionUntil > Date.now()),
+        );
+        const b = row.firstElementChild;
+        b.setAttribute(
+          "aria-current",
+          String(fold(active?.target || "") === key),
+        );
+        let count = b.querySelector(".badge");
+        if (c.unread) {
+          if (!count) {
+            count = el("span", "badge");
+            b.append(count);
+          }
+          count.textContent = String(c.unread);
+        } else count?.remove();
+      }
+    }
+    for (const [title, id, key, entries] of [
+      ["Salas", "tree-rooms", "treeRoomsOpen", rooms],
+      ["Privados", "tree-privates", "treePrivatesOpen", privates],
+    ]) {
+      let g = $(id);
+      if (!g) {
+        g = group(title, id, key, [], "");
+        g.querySelector(".tree-empty")?.remove();
+        list.append(g);
+      }
+      const visible = entries.filter(
+        (c) => !query || fold(c.name).includes(query),
+      );
+      g.querySelector("summary").textContent =
+        title + " (" + visible.length + ")";
+      if (query) g.open = true;
+      reconcile(g, entries);
+    }
+    reconcile(
+      list,
+      all.filter((c) => c.kind === "queries"),
     );
-    for (const c of all.filter((c) => c.kind === "queries" && matches(c)))
-      list.append(node(c, "queries"));
+    for (const row of list.querySelectorAll(".tree-row"))
+      if (!desired.has(row.dataset.target)) row.remove();
     window.updateDreamsCommandMenu?.();
   };
   window.renderDreamsChannelEvent = (row, m, time) => {

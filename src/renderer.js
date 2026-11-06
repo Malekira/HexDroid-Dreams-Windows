@@ -74,31 +74,19 @@ function dragOrder(node,id,target) {
   node.addEventListener('dragend',() => { draggedItem = null; renderSidebar(); renderTabs(); });
 }
 function renderSidebar() {
-  const picker = $('network-select'); picker.replaceChildren();
+  const picker = $('network-select'); const existing=new Map([...picker.options].map(o=>[o.value,o]));
   for (const p of config.profiles) {
     const n = network(p.id), unread = [...n.conversations.values()].reduce((sum,c) => sum + c.unread,0);
-    const option = el('option','',p.name + (unread ? ` (${unread})` : '')); option.value = p.id; picker.append(option);
+    let option=existing.get(p.id);if(!option){option=el('option');option.value=p.id;picker.append(option);}option.textContent=p.name+(unread?` (${unread})`:'');existing.delete(p.id);
   }
+  for(const option of existing.values())option.remove();
   if (!config.profiles.length) picker.append(el('option','','Sin redes')); else picker.value = active?.id || config.profiles[0].id;
   picker.disabled = !config.profiles.length;
   if (draggedItem) return;
   window.renderDreamsTree?.();
 }
 
-function renderTabs() {
-  if (draggedItem) return;
-  const tabs = $('room-tabs'); tabs.replaceChildren();
-  const all=active?[...network(active.id).conversations.values()]:[];const channels=[...all.filter(c=>c.kind==='channel'),...all.filter(c=>c.kind==='private').sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})),...all.filter(c=>c.kind==='queries')];
-  if (!channels.length) tabs.append(el('span','empty-tabs','Sin canales abiertos · usa + para entrar en una sala'));
-  for (const c of channels) {
-    const id = active.id, selected = fold(c.name) === fold(active.target), tab = el('div','room-tab' + (selected ? ' selected' : '') + ((c.mentions||c.mentionUntil>Date.now()) && !c.muted ? ' has-mention' : '') + (config.settings.highlightActivity!==false&&(c.unread||c.activityUntil>Date.now())&&!c.muted?' has-activity':'') + (c.muted ? ' is-muted' : ''));
-    const button = el('button','',c.kind==='queries'?'WHOIS / WHO':c.name); button.setAttribute('role','tab'); button.setAttribute('aria-label',c.kind==='queries'?'WHOIS / WHO':c.name); button.setAttribute('aria-selected',String(selected)); button.tabIndex = selected ? 0 : -1;
-    if (c.unread) button.append(el('span','badge' + (c.mentions && !c.muted ? ' mention' : ''),String(c.unread)));
-    button.onclick = () => choose(id,c.name); tab.append(button);
-    const close = el('button','close-tab','×'); close.setAttribute('aria-label','Cerrar ' + c.name); close.onclick = () => closeConversation(id,c.name); tab.append(close);
-    tab.oncontextmenu = e => conversationMenu(e,id,c); if(c.kind==='channel')dragOrder(tab,id,c.name);tabs.append(tab);
-  }
-}
+function renderTabs() { $('room-tabs').hidden = true; }
 async function closeConversation(id, target) {
   const c = conversation(id, target);
   if (c.joined && network(id).state === 'connected') {
@@ -139,7 +127,7 @@ function renderMessages(preserveScroll = false) {
     else {
       const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick);if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
-      const nick = el('button','message-nick','{'+m.nick+'}');nick.setAttribute('aria-label',m.nick);if(!m.own&&config.settings.coloredNicks!==false){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${document.documentElement.dataset.theme==='light'?38:72}%)`;} nick.onclick = () => choose(active.id,m.nick); if (config.settings.timestamps)header.append(time,document.createTextNode(' '));header.append(nick,document.createTextNode(' '));
+      const nick = el('button','message-nick','{'+m.nick+'}');nick.setAttribute('aria-label',m.nick);if(!m.own&&config.settings.coloredNicks!==false){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${DreamsFormatting.luminance(getComputedStyle($('messages')).backgroundColor)>.4?32:72}%)`;} nick.onclick = () => choose(active.id,m.nick); if (config.settings.timestamps)header.append(time,document.createTextNode(' '));header.append(nick,document.createTextNode(' '));
       const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced&&config.settings.mediaEnabled!==false){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
@@ -156,7 +144,10 @@ function renderMessages(preserveScroll = false) {
   $('first-unread').disabled = !c.firstUnreadId;
 }
 function stripFormatting(text) { return DreamsFormatting.plain(text); }
+let lastUsersView='';
 function renderUsers() {
+  const view=JSON.stringify([active,selected()?.users,(active?network(active.id).avatarRevision:null),$('user-search').value,config.settings.mediaEnabled,config.settings.showAvatars]);
+  if(view===lastUsersView)return;lastUsersView=view;
   const list = $('user-list'); list.replaceChildren(); const c = selected(), n = active && network(active.id), query = fold($('user-search').value);
   const rank = user => { const i = n.prefixes.indexOf(user[0]); return i < 0 ? 999 : i; };
   const users = [...(c?.users || [])].sort((a,b) => rank(a) - rank(b) || a.localeCompare(b));
@@ -178,7 +169,8 @@ function renderHeader() {
   const connection = n?.state !== 'disconnected' && n?.connection || p;
   $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a Dreams';
   $('channel-symbol').textContent = c ? c.name === '*' ? '◈' : /^[#&+!]/.test(c.name) ? '#' : '◌' : '✦';
-  $('conversation-subtitle').hidden = !config.settings.showTopic;
+  $('conversation-subtitle').hidden = !config.settings.showTopic || c?.kind !== 'channel' || !c.topic;
+  const topicDivider=$('topic-height-resizer');if(topicDivider)topicDivider.hidden = $('conversation-subtitle').hidden;
   $('channel-modes').hidden = !c?.modes; $('channel-modes').textContent = c?.modes || '';
   $('server-button').disabled = !p;
   DreamsFormatting.render($('conversation-subtitle'), c ? c.kind==='queries'?'Resultados de consultas al servidor · Historial':c.topic || (c.name === '*' ? `${connection.host}:${connection.port} · ${connection.tls ? 'TLS' : 'Sin TLS'}` : /^[#&+!]/.test(c.name) ? p.name + ' · Sala IRC' : p.name + ' · Mensaje privado') : 'Un lugar para todas tus conversaciones.');
@@ -304,8 +296,8 @@ function userMenu(event,id,c,nick) {
   ]);
 }
 function composeText(text){const s=config.settings,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(Number.isInteger(s.composerColor)?'\x03'+String(s.composerColor).padStart(2,'0'):'');if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
-function applyComposerStyle(){const s=config.settings,i=$('message-input');i.style.color=Number.isInteger(s.composerColor)?DreamsFormatting.colors[s.composerColor]:'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
-function previewFormat(){applyComposerStyle();const input=$('message-input'),preview=$('format-preview'),formatted=composeText(input.value);preview.hidden=!formatted||formatted===input.value&&!/[\x02\x03\x04\x0f\x11\x16\x1b\x1d-\x1f]/.test(input.value);if(!preview.hidden)DreamsFormatting.render(preview,formatted);}
+function applyComposerStyle(){const s=config.settings,i=$('message-input');i.style.color=Number.isInteger(s.composerColor)?DreamsFormatting.readableColor(DreamsFormatting.colors[s.composerColor],getComputedStyle(document.querySelector('.composer-input')).backgroundColor):'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
+function previewFormat(){applyComposerStyle();$('format-preview').hidden=true;}
 document.querySelectorAll('[data-format]').forEach(button=>button.onclick=event=>{const type=button.dataset.format;if(type==='color'){contextMenu.show(event,'Color permanente para escribir',[{label:'Sin color',action:()=>{config.settings.composerColor=null;previewFormat();persist().catch(()=>{});}},...DreamsFormatting.colors.map((color,i)=>({label:'Color '+String(i).padStart(2,'0'),color,action:()=>{config.settings.composerColor=i;config.settings.ownNickColor=color;applySettings();previewFormat();persist().catch(()=>{});$('message-input').focus();}}))]);}else{const key={bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[type];config.settings[key]=!config.settings[key];previewFormat();persist().catch(()=>{});$('message-input').focus();}});
 function filterSettings() {
   const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();

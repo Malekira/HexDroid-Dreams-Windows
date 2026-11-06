@@ -499,9 +499,10 @@
           "Palabras destacadas (separadas por comas)",
           (config.settings.highlightWords || []).join(", "),
         );
-      const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Iluminar pestañas con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Iluminar pestañas por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
+      const sendTyping=input('Enviar aviso «Estoy escribiendo»',config.settings.sendTyping!==false,'checkbox');
+      const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Resaltar conversaciones con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Resaltar conversaciones por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
       button("Guardar", () =>
-        settings({notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
+        settings({sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
           minimizeToTray: minimize.checked,
           closeToTray: closeTray.checked,
           highlightWords: highlights.value
@@ -822,7 +823,7 @@
   let typingTimer,
     lastTyping = 0;
   $("message-input").addEventListener("input", () => {
-    if (active && Date.now() - lastTyping > 4000) {
+    if (config.settings.sendTyping !== false && active && $("message-input").value.trim() && Date.now() - lastTyping > 4000) {
       lastTyping = Date.now();
       call("typing", { ...context(), state: "active" }).catch(() => {});
     }
@@ -1016,6 +1017,8 @@
   const historyLoaded = new Set(),
     originalChoose = choose;
   choose = function (id, target) {
+    if(active && config.settings.sendTyping!==false)call("typing",{...context(),state:"done"}).catch(()=>{});
+    lastTyping=0;
     typing.textContent = "";
     clearTimeout(typingTimer);
     originalChoose(id, target);

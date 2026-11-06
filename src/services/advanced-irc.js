@@ -454,7 +454,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.emit('oper-state',{oper:this.userModes.has('o')||this.userModes.has('O'),modes:[...this.userModes].join('')});
       }
       if(['311','312','313','317','318','319','330','301','401'].includes(c)){
-        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),complete:c==='318',error:c==='401'});
+        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),...(c==='311'?{realName:require('./avatar-policy').displayRealName(p[5])}:{}),complete:c==='318',error:c==='401'});
       }
       if(c==='321')this.emit('room-list',{reset:true});
       if(c==='322')this.emit('room-list',{name:p[1],members:Number(p[2])||0,topic:p[3]||''});

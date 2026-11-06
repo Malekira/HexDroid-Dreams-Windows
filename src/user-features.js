@@ -122,7 +122,7 @@
       DreamsFormatting.render(value, details[key] || "—");
       list.append(term, value);
     }
-    userPanel.append(list);
+    // Put actions before long WHOIS fields so they remain easy to reach.
     button(
       "Mencionar",
       () => {
@@ -177,6 +177,7 @@
       },
       userPanel,
     );
+    userPanel.append(list);
   }
   window.refreshDreamsUserPhoto = () => {
     if (!viewing) return;
@@ -209,7 +210,9 @@
   const originalChoose = choose;
   choose = function (...args) {
     closeProfile();
-    return originalChoose(...args);
+    const result=originalChoose(...args);
+    if(selected()?.kind === "private")window.openDreamsUser(args[0],selected().name);
+    return result;
   };
   // Keep IRC controls out of the editable surface; serialize only supported styles.
   const realEditor = $("profile-realName");
@@ -558,6 +561,7 @@
     );
     const ownColor=field(nickSettings,"Color del propio nick","color",config.settings.ownNickColor||"#c0adf1");
     function update() {
+      preview.style.backgroundColor=appearanceFields.background.value;
       preview.replaceChildren(el("strong", "", "[12:34] {"+(active?network(active.id).nick:"TuNick")+"}"));
       const text = el("p");
       DreamsFormatting.render(
@@ -633,8 +637,15 @@
       fontStyle: a.style?.includes("italic") ? "italic" : "",
     }))
       messages.style[k] = v;
-    document.querySelector(".composer-input").style.backgroundColor =
-      a.inputBackground || "";
+    const background=a.background||getComputedStyle(messages).backgroundColor;
+    messages.style.color=DreamsFormatting.readableColor(a.text||getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),background);
+    messages.style.setProperty('--room-muted',DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),background));
+    messages.style.setProperty('--room-own',DreamsFormatting.readableColor(config.settings.ownNickColor||'#c0adf1',background));
+    const composer=document.querySelector(".composer-input");
+    composer.style.backgroundColor=a.inputBackground||"";
+    composer.style.color=DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),getComputedStyle(composer).backgroundColor);
+    applyComposerStyle();
+    for(const [key,color] of Object.entries({join:'#6dc7a1',part:'#d8b541',quit:'#e07878'}))messages.style.setProperty('--room-'+key,DreamsFormatting.readableColor(color,background,3));
   };
   const appearanceButton = button(
     "◐",
@@ -771,7 +782,7 @@
           p = event.params;
         switch (event.code) {
           case "311":
-            Object.assign(d, { ident: p[0], host: p[1], realName: p[3] });
+            Object.assign(d, { ident: p[0], host: p[1], realName: event.realName ?? p[3] });
             break;
           case "312":
             d.server = p[0];
