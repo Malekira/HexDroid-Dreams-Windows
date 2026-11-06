@@ -45,10 +45,12 @@ function validateProfile(p) {
       : username;
   const realName =
     typeof p.realName === "string"
-      ? p.realName.slice(0, 200)
-      : "HexDroid Dreams";
+      ? p.realName
+      : "HexDreams IRC";
   if (/[\0\r\n]/.test(realName + saslUsername))
     throw new Error("Identidad no válida.");
+  if(iconv.encode(`USER ${username} 0 * :${realName}`,encoding).length>510)
+    throw new Error('El nombre real y su formato superan el espacio de una línea IRC. Acórtalo o reduce los cambios de estilo; no se ha recortado.');
   const commands = Array.isArray(p.commands)
     ? p.commands.filter((x) => typeof x === "string").slice(0, 50)
     : [];

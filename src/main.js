@@ -8,7 +8,7 @@ const path = require('node:path');
 const requestedProfile = app.commandLine.getSwitchValue('user-data-dir');
 const dataDirectory = requestedProfile ? path.resolve(requestedProfile) : path.join(app.getPath('appData'), 'HexDroidDreams-Desktop');
 try { fs.mkdirSync(dataDirectory, { recursive: true }); app.setPath('userData', dataDirectory); }
-catch (error) { dialog.showErrorBox('HexDroid Dreams', 'No se pudo crear la carpeta de datos: ' + error.message); app.exit(1); }
+catch (error) { dialog.showErrorBox('HexDreams IRC', 'No se pudo crear la carpeta de datos: ' + error.message); app.exit(1); }
 let window, store, config, logFile, runtime, tray, quitting=false;
 const startupWarnings = [];
 function log(message) {
@@ -21,7 +21,7 @@ function log(message) {
 function fatal(error) {
   log(error.stack || String(error));
   if(quitting)return;
-  dialog.showErrorBox('HexDroid Dreams — error', `${error.message || error}\n\nRegistro: ${logFile || app.getPath('userData')}`);
+  dialog.showErrorBox('HexDreams IRC — error', `${error.message || error}\n\nRegistro: ${logFile || app.getPath('userData')}`);
 }
 process.on('uncaughtException', fatal);
 process.on('unhandledRejection', error => fatal(error instanceof Error ? error : new Error(String(error))));
@@ -37,12 +37,12 @@ function createWindow() {
   const stateStore = new WindowState(dataDirectory);
   const bounds = stateStore.load(screen.getAllDisplays().map(d => d.workArea));
   window = new BrowserWindow({ x:bounds.x, y:bounds.y, width:bounds.width, height:bounds.height, minWidth:760, minHeight:500,
-    title: 'HexDroid Dreams', backgroundColor: '#0c1019', autoHideMenuBar: true,
+    title: 'HexDreams IRC', icon:path.join(__dirname,'assets',process.platform==='win32'?'app.ico':'logo.png'), backgroundColor: '#0c1019', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
-  window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); if(quitting||details.reason==='clean-exit')return;dialog.showErrorBox('HexDroid Dreams', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
+  window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); if(quitting||details.reason==='clean-exit')return;dialog.showErrorBox('HexDreams IRC', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
   window.webContents.once('did-finish-load',()=>log('Ventana preparada'));
   window.loadFile(path.join(__dirname, 'index.html')).catch(fatal);
   if (bounds.maximized) window.maximize();
@@ -73,7 +73,7 @@ else {
     register('app:quit', () => { app.quit(); });
     app.setAppUserModelId('org.hexdroid.dreams');
     createWindow();
-    if(app.commandLine.getSwitchValue('ozone-platform')!=='headless'){tray=new electron.Tray(path.join(__dirname,'assets','tray.png'));tray.setToolTip('HexDroid Dreams');const show=()=>{window?.restore();window?.show();window?.focus();};tray.on('double-click',show);tray.setContextMenu(electron.Menu.buildFromTemplate([{label:'Abrir HexDroid Dreams',click:show},{label:'Salir',click:()=>app.quit()}]));}
+    if(app.commandLine.getSwitchValue('ozone-platform')!=='headless'){tray=new electron.Tray(path.join(__dirname,'assets','tray.png'));tray.setToolTip('HexDreams IRC');const show=()=>{window?.restore();window?.show();window?.focus();};tray.on('double-click',show);tray.setContextMenu(electron.Menu.buildFromTemplate([{label:'Abrir HexDreams IRC',click:show},{label:'Salir',click:()=>app.quit()}]));}
     window.webContents.once('did-finish-load',()=>{ for(const p of config.profiles.filter(p=>p.autoConnect))try{runtime.connect({id:p.id});}catch(e){emit(p.id,'problem',{text:e.message});} });
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   }).catch(fatal);

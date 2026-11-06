@@ -2,15 +2,15 @@
 
 No necesitas comprar un certificado ni instalar el SDK de Windows. El script usa Windows PowerShell 5.1 y el almacén de certificados de **tu usuario**. Ejecuta los comandos en tu equipo, sin abrir PowerShell como administrador.
 
-Guarda `sign-personal.ps1` junto al ejecutable extraído y cierra HexDroid Dreams antes de firmarlo. Revisa el script antes de usarlo. Si Windows indica que el script procede de Internet, desbloquea **ese archivo** desde Propiedades → Desbloquear, después de revisarlo. No cambies la política global de ejecución.
+Guarda `sign-personal.ps1` junto al ejecutable extraído y cierra HexDreams IRC antes de firmarlo. Revisa el script antes de usarlo. Si Windows indica que el script procede de Internet, desbloquea **ese archivo** desde Propiedades → Desbloquear, después de revisarlo. No cambies la política global de ejecución.
 
 Abre una terminal en esa carpeta (clic derecho → Abrir en Terminal). Ejecuta estos comandos, uno por uno; acepta las confirmaciones solamente si la huella corresponde al certificado que acabas de crear:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Create
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Trust
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Sign -FilePath .\HexDroidDreams.exe
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Verify -FilePath .\HexDroidDreams.exe
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Sign -FilePath .\HexDreamsIRC.exe
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\sign-personal.ps1 -Action Verify -FilePath .\HexDreamsIRC.exe
 ```
 
 `RemoteSigned` se aplica solo a ese proceso de PowerShell; no altera la configuración permanente. Una política impuesta por el sistema puede prevalecer.

@@ -457,6 +457,7 @@
       );
       button("Eliminar historial local", () => call("history.clear"));
     } else if(section==='palette'){
+      window.renderDreamsThemeManager?.(body);
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
       button('Guardar colores del entorno',()=>settings({customColors:Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]))}));button('Restaurar colores del tema',()=>settings({customColors:{}}));
     } else if (section === "notifications") {
@@ -467,6 +468,7 @@
             ["light", "Claro"],
             ["system", "Sistema"],
             ["matrix", "Matrix"],
+            ["violet", "Morado y azul marino"],
           ],
           config.settings.theme || "dark",
         ),
@@ -835,6 +837,7 @@
     }
     if (event.type === "features")
       Object.assign(network(event.id), {
+        realNameLimit: event.realNameLimit,
         filehost: event.filehost,
         networkIcon: event.networkIcon,
       });

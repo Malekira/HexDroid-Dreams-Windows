@@ -51,7 +51,7 @@ class IrcClient extends EventEmitter {
       this.socket.setTimeout(0);
       if (this.password) this.sendRaw(`PASS ${this.password}`);
       this.password = '';
-      this.sendRaw(`NICK ${this.nick}`); this.sendRaw(`USER ${this.nick} 0 * :HexDroid Dreams`);
+      this.sendRaw(`NICK ${this.nick}`); this.sendRaw(`USER ${this.nick} 0 * :HexDreams IRC`);
       this.registrationTimer = setTimeout(() => this.fail('El servidor no completó el registro IRC en 30 segundos.'), 30000);
       this.registrationTimer.unref();
     };

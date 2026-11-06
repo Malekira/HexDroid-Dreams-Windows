@@ -1,17 +1,13 @@
-# HexDroid Dreams 0.8.0 — navegación estable y escritura compacta
+# HexDreams IRC 0.9.0 para Windows
 
-Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva redes y preferencias.
+El programa pasa a llamarse HexDreams IRC. Incluye el logo elegido, con el exterior transparente, en la aplicación y en sus iconos de Windows.
 
-- Corregidos los clics que se perdían al llegar mensajes: el árbol conserva sus botones y actualiza contadores sin reemplazarlos. Las salas y privados se abren con un clic.
-- Se eliminan las pestañas superiores. La navegación se realiza desde el árbol izquierdo, con privados alfabéticos, contadores, menciones y selección diferenciados.
-- Un único cuadro de escritura compacto, con el tamaño de texto configurado. El icono de estilos a su derecha despliega color, negrita, cursiva, subrayado y emojis; desaparece la vista previa duplicada. El cuadro crece al escribir varias líneas.
-- Opción «Enviar Estoy escribiendo» en estilos y en Notificaciones y tema. Se conserva al reiniciar y se aplica también al envío real por IRC.
-- Abrir un privado muestra automáticamente el perfil de ese usuario en el panel derecho. Las acciones del perfil aparecen antes de los campos largos de WHOIS.
-- Campanita junto a Red con menciones y NOTICE, incluidos los de la conversación activa. Permite abrir la conversación y vaciar el registro; mantiene hasta 500 avisos durante la sesión de la aplicación.
-- Mejor contraste de nicks, eventos, controles y colores IRC según el fondo real, incluso con sala clara y aplicación oscura. Se mantiene el formato enviado; el ajuste de legibilidad es visual.
-- El topic vacío y la franja descriptiva de los privados dejan de consumir altura. Se conserva ocultar y ajustar un topic existente.
-- Los datos codificados del perfil web ya no aparecen como un nombre real ilegible. Si el servidor aporta metadatos en lugar de nombre, se indica que no lo ha facilitado.
+- Corregida la confirmación de mensajes propios cuando el servidor cambia o elimina códigos de estilo. Se actualiza la copia pendiente, conservando dos envíos iguales intencionales como mensajes separados. El historial antiguo ya duplicado no se elimina automáticamente.
+- El nombre real ya no se recorta silenciosamente a 200 caracteres. Se conserva completo si cabe en la línea IRC; si no, aparece un error claro. El editor muestra caracteres visibles y bytes con formato. Los límites propios del servidor siguen aplicándose. Si el texto se había guardado recortado, vuelve a escribirlo completo y reconecta.
+- WHOIS abre una ventana flotante con foto, nombre real, idle, ident, host y demás datos, además de conservar las respuestas en WHOIS/WHO. Notify incorpora WHOIS junto a cada usuario.
+- Los botones del perfil son compactos, se colocan uno junto a otro y bajan de fila automáticamente según el espacio.
+- «Agregar red…» está disponible en el desplegable de redes.
+- Se pueden guardar, seleccionar y eliminar hasta 40 temas personalizados con nombre. Incluyen colores del entorno, fondos y estilo de sala, fuente, tamaño y formato de escritura. No contienen redes ni credenciales.
+- Nuevo tema «Morado y azul marino», con degradados y sin dorado. Se selecciona en Configuración → Apariencia o Colores del entorno; se conserva tu estilo actual hasta elegirlo.
 
-Las iniciales de quienes no tienen foto son normales. Se conserva la publicación de tu foto, ya comprobada desde la web.
-
-Para firmar este EXE reutiliza tu certificado personal con Sign y Verify; no hace falta recrearlo.
+Extrae toda la carpeta del ZIP y abre HexDreamsIRC.exe. La carpeta de datos y el almacén del certificado personal se mantienen compatibles con las versiones anteriores: no hace falta recrear redes ni certificado. Para firmar este EXE utiliza Sign y Verify apuntando a HexDreamsIRC.exe.

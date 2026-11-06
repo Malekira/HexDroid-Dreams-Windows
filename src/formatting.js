@@ -253,7 +253,7 @@
           .trim();
       if (v.mono) span.style.fontFamily = "Consolas, monospace";
       if (v.color)
-        span.style.color = readableColor(v.color, v.background || background);
+        span.style.color = node.classList?.contains("realname-editor") ? v.color : readableColor(v.color, v.background || background);
       if (v.background) span.style.backgroundColor = v.background;
       if (v.inverse) span.style.filter = "invert(1)";
       node.append(span);

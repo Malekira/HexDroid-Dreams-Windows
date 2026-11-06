@@ -30,3 +30,10 @@ test('Settings are bounded and profile identifiers cannot collide', () => {
   assert.equal(settings.fontSize, 24); assert.equal(settings.sidebarWidth, 160); assert.equal(settings.showUsers, true);
   assert.throws(() => sanitizeData({ ...data, profiles: [data.profiles[0], data.profiles[0]] }), /Identificador/);
 });
+test('Real name survives past 200 characters and rejects oversized wire data instead of silently cutting it',()=>{
+ const {validateProfile}=require('../src/services/profiles');const p=data.profiles[0];const realName='\x0313'+('Nombre 🌙 ').repeat(26)+'\x0f';assert.ok(realName.length>200);assert.equal(validateProfile({...p,realName}).realName,realName);assert.throws(()=>validateProfile({...p,realName:'🌙'.repeat(140)}),/no se ha recortado/);
+});
+test('Named themes preserve visual settings while excluding credentials and nested saved themes',()=>{
+ const s=validateSettings({savedThemes:[{id:'my-theme',name:'Morado mío',settings:{theme:'violet',fontSize:18,roomAppearance:{background:'#112233'},customColors:{accent:'#bb77ee'},password:'secret',savedThemes:[{id:'evil'}]}}]});
+ assert.equal(s.savedThemes.length,1);const t=s.savedThemes[0].settings;assert.equal(t.theme,'violet');assert.equal(t.roomAppearance.background,'#112233');assert.equal(t.fontSize,18);assert.equal(t.password,undefined);assert.equal(t.savedThemes,undefined);assert.equal(validateSettings({savedThemes:[...s.savedThemes,...s.savedThemes]}).savedThemes.length,1);
+});

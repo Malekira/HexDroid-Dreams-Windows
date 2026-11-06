@@ -79,7 +79,28 @@
   const bell = el("button", "notification-bell", "♧");
   bell.id = "notification-bell";
   bell.type = "button";
-  bell.textContent = "🔔";
+  const bellIcon = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg",
+  );
+  bellIcon.setAttribute("viewBox", "0 0 24 24");
+  bellIcon.setAttribute("width", "16");
+  bellIcon.setAttribute("height", "16");
+  bellIcon.setAttribute("aria-hidden", "true");
+  const bellPath = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "path",
+  );
+  bellPath.setAttribute(
+    "d",
+    "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
+  );
+  bellPath.setAttribute("fill", "none");
+  bellPath.setAttribute("stroke", "currentColor");
+  bellPath.setAttribute("stroke-width", "2");
+  bellPath.setAttribute("stroke-linecap", "round");
+  bellIcon.append(bellPath);
+  bell.replaceChildren(bellIcon);
   bell.setAttribute("aria-label", "Notificaciones");
   bell.title = "Menciones y NOTICE";
   document.querySelector(".network-picker").after(bell);
@@ -117,7 +138,10 @@
   };
   function badge() {
     const count = entries.filter((e) => !e.read).length;
-    bell.textContent = "🔔" + (count ? " " + count : "");
+    bell.replaceChildren(
+      bellIcon,
+      document.createTextNode(count ? " " + count : ""),
+    );
     bell.setAttribute(
       "aria-label",
       "Notificaciones" + (count ? ": " + count + " sin leer" : ""),

@@ -5,16 +5,16 @@ const { execFileSync } = require('node:child_process');
 const { version } = require('../package.json');
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist');
-const appDir = path.join(dist, 'HexDroidDreams-win32-x64');
-if (!fs.existsSync(path.join(appDir, 'HexDroidDreams.exe'))) throw new Error('Primero ejecuta npm run build:win.');
+const appDir = path.join(dist, 'HexDreamsIRC-win32-x64');
+if (!fs.existsSync(path.join(appDir, 'HexDreamsIRC.exe'))) throw new Error('Primero ejecuta npm run build:win.');
 const launcher = `@echo off
 setlocal
 set "DREAMS_LOG_DIR=%APPDATA%\\HexDroidDreams-Desktop"
 if not exist "%DREAMS_LOG_DIR%" mkdir "%DREAMS_LOG_DIR%"
-echo HexDroid Dreams - Inicio con diagnostico
+echo HexDreams IRC - Inicio con diagnostico
 echo El registro se guardara en "%DREAMS_LOG_DIR%\\launcher.log"
 pushd "%~dp0"
-"%~dp0HexDroidDreams.exe" --enable-logging=file --log-file="%DREAMS_LOG_DIR%\\chromium.log" > "%DREAMS_LOG_DIR%\\launcher.log" 2>&1
+"%~dp0HexDreamsIRC.exe" --enable-logging=file --log-file="%DREAMS_LOG_DIR%\\chromium.log" > "%DREAMS_LOG_DIR%\\launcher.log" 2>&1
 set "DREAMS_EXIT=%ERRORLEVEL%"
 echo Codigo de salida: %DREAMS_EXIT% >> "%DREAMS_LOG_DIR%\\launcher.log"
 popd
@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(appDir, 'Iniciar-con-diagnostico.cmd'), launcher.repl
 fs.copyFileSync(path.join(root, 'README.md'), path.join(appDir, 'LEEME.md'));
 fs.copyFileSync(path.join(root, 'scripts', 'sign-personal.ps1'), path.join(appDir, 'sign-personal.ps1'));
 fs.copyFileSync(path.join(root, 'docs', 'FIRMA-PERSONAL.md'), path.join(appDir, 'FIRMA-PERSONAL.md'));
-const zipPath = path.join(dist, `HexDroid-Dreams-${version}-Windows-x64.zip`);
+const zipPath = path.join(dist, `HexDreams-IRC-${version}-Windows-x64.zip`);
 fs.rmSync(zipPath, { force: true });
 if (process.platform === 'win32') {
   // Arguments are delivered through the environment, not interpolated into PowerShell code.

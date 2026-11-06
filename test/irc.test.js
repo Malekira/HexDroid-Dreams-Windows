@@ -52,7 +52,7 @@ test('Local IRC workflow registers, joins, answers PING, receives users, chats a
   for (const type of ['status','message','users','channel','topic','nick']) client.on(type, data => events.push({ type, ...data }));
   client.on('problem', p => problems.push(p)); client.connect();
   await waitFor(() => events.some(e => e.type === 'message' && e.text === 'private hello'));
-  assert.ok(received.includes('NICK Dreamer')); assert.ok(received.includes('USER Dreamer 0 * :HexDroid Dreams'));
+  assert.ok(received.includes('NICK Dreamer')); assert.ok(received.includes('USER Dreamer 0 * :HexDreams IRC'));
   assert.ok(received.includes('PONG :keepalive'));
   assert.ok(events.some(e => e.type === 'users' && e.users.includes('@Alice')));
   assert.ok(events.some(e => e.type === 'topic' && e.text === 'Welcome to Dreams'));

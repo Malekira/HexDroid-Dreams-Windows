@@ -759,3 +759,110 @@ html[data-theme="light"] .event-part .event-arrow {
 #messages .event-quit .event-arrow {
   color: var(--room-quit, #e07878);
 }
+.profile-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0;
+}
+.user-profile .profile-action-buttons .secondary {
+  width: auto;
+  flex: 0 1 auto;
+  max-width: 100%;
+  padding: 4px 8px;
+  min-height: 26px;
+  font-size: 11px;
+  margin: 0;
+}
+#whois-profile-dialog {
+  width: min(600px, 94vw);
+  max-height: 90vh;
+}
+#whois-profile-dialog .user-profile {
+  padding: 0;
+}
+#whois-profile-dialog .user-details {
+  display: grid;
+  grid-template-columns: 95px minmax(0, 1fr);
+  gap: 8px 14px;
+}
+#whois-profile-dialog .user-details :is(dt, dd) {
+  margin: 0;
+}
+#whois-profile-dialog .user-profile > h3 {
+  text-align: center;
+}
+#whois-profile-dialog .profile-action-buttons {
+  justify-content: center;
+}
+#notify-dialog .notify-row .secondary {
+  padding: 4px 8px;
+  min-height: 27px;
+  font-size: 12px;
+}
+.theme-manager {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.theme-manager-controls,
+.theme-manager-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.theme-manager-controls :is(select, input) {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px;
+}
+.theme-manager-actions .secondary {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+html[data-theme="violet"] :is(.menubar, .sidebar, .statusbar, .dialog-header) {
+  background: linear-gradient(125deg, #352056 0%, #191837 48%, #0b1734 100%);
+}
+html[data-theme="violet"]
+  :is(.tree-row.active, .profile-actions, .composer-style-popup) {
+  background: linear-gradient(120deg, #372353, #11213f);
+}
+html[data-theme="violet"] :is(.settings-nav, .users-panel, dialog) {
+  background: linear-gradient(150deg, #231b3d, #0d1830);
+}
+html[data-theme="violet"] .badge {
+  background: #997cdb;
+  color: #080c1b;
+}
+html[data-theme="violet"]
+  :is(.tree-row.has-mention:not(.active), .message.mention) {
+  box-shadow: inset 3px 0 #a58bff;
+  border-left-color: #a58bff;
+}
+html[data-theme="violet"] .brand-mark {
+  background: none;
+  border: 0;
+}
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+.welcome-logo {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 15px;
+}
+.identity-length {
+  font-size: 11px;
+  margin: 3px 0;
+}

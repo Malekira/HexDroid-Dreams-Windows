@@ -474,10 +474,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           if (["SOJU.IM/FILEHOST", "DRAFT/FILEHOST", "FILEHOST"].includes(name))
             this.filehost = value;
           if(name==="MONITOR")this.presence.setMonitor(true);if(name==="-MONITOR")this.presence.setMonitor(false);
+          if(name==="REALNAMELEN"&&/^\d+$/.test(value))this.realNameLimit=Number(value);
           if(name==="WHOX")this.whox=true;
           if (["ICON", "DRAFT/ICON"].includes(name)) this.networkIcon = value;
         }
         this.emit("features", {
+          realNameLimit: this.realNameLimit,
           filehost: this.filehost,
           networkIcon: this.networkIcon,
         });
@@ -726,13 +728,13 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           historical: !!batch && /chathistory/.test(batch.type),
           tags: m.tags,
         };
-        if (own) {
-          const found = [...this.pendingEcho].find(
-            ([, v]) =>
-              fold(v.target) === fold(data.target) &&
-              v.wire === data.text &&
-              !!v.action === !!data.action,
-          );
+        if (own && !data.historical && !data.notice) {
+          const label=m.tags.label||(m.tags.batch&&this.batches.get(m.tags.batch)?.label);
+          const candidates=[...this.pendingEcho].filter(([,v])=>fold(v.target)===fold(data.target)&&!!v.action===!!data.action);
+          const plain=require('../formatting').plain;
+          // Labels identify an echo even if the server strips styles. Without a
+          // label, consume one pending send in FIFO order, never a past message.
+          const found=(label&&candidates.find(([id])=>id===label))||candidates.find(([,v])=>v.wire===data.text)||candidates.find(([,v])=>plain(v.wire)===plain(data.text));
           if (found) {
             const [id, item] = found;
             clearTimeout(item.timer);
@@ -783,6 +785,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         : [text];
       const tags = {
         ...(options.replyTo ? { "+draft/reply": options.replyTo } : {}),
+        ...(this.capabilities.has("echo-message")&&this.capabilities.has("labeled-response")?{label:clientId}:{}),
       };
       for (const frame of frames) {
         const wire = action ? "\x01ACTION " + frame + "\x01" : frame;

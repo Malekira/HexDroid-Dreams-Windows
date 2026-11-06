@@ -57,7 +57,7 @@ async function run() {
     app = await electron.launch({ args, env, timeout:20000, ...(process.env.DREAMS_BINARY?{executablePath:process.env.DREAMS_BINARY}:{}) }); let page = await app.firstWindow({timeout:20000});
     await app.evaluate(({Notification,shell})=>{Notification.isSupported=()=>false;global.__notifyBeeps=0;shell.beep=()=>global.__notifyBeeps++;});
     const rendererErrors = []; page.on('pageerror', e => rendererErrors.push(e.message));
-    await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a Dreams');
+    await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a HexDreams IRC');
     await page.getByRole('button', { name: 'Añadir red', exact: true }).click();
     await page.locator('#profile-name').fill('Servidor de prueba'); await page.locator('#profile-host').fill('127.0.0.1');
     await page.locator('#profile-port').fill(String(server.address().port)); await page.locator('#profile-tls').uncheck();
@@ -84,6 +84,12 @@ async function run() {
     await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toHaveCount(0);
     await expect.poll(()=>app.evaluate(()=>global.__notifyBeeps)).toBe(1);
     await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+    await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
+    await page.locator('#notify-list .notify-row').filter({hasText:'Alice'}).getByRole('button',{name:'WHOIS',exact:true}).click();
+    await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');
+    await expect(page.locator('#whois-profile-dialog')).toContainText('0 h 2 min 5 s');
+    await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();
+
 
     for(const socket of sockets)socket.write(':local 332 Dreamer #dreams :\x02\x0302Bienvenidos\x0f al canal \x0304Chat\x0f 🦆\r\n');
     await expect(page.locator('#conversation-subtitle')).toHaveText('Bienvenidos al canal Chat 🦆');
@@ -109,6 +115,9 @@ async function run() {
     await page.getByRole('button',{name:'Privado Alice',exact:true}).click({button:'right'});
     await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
     await expect.poll(() => received.includes('WHOIS Alice')).toBe(true);
+    await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');
+    await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();
     await expect(page.locator('#messages')).toContainText('Alice Test');
     await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toBeVisible();
     await page.locator('#message-input').fill('/who Alice');await page.locator('#message-input').press('Enter');
@@ -367,7 +376,7 @@ async function run() {
     fs.writeFileSync(path.join(dataPath, 'settings.json'), '{broken-settings');
     console.log('Prueba Electron: '+(process.env.DREAMS_BINARY?'ejecutable empaquetado':'código fuente')+' · abrir');
     app = await electron.launch({ args, env, timeout:20000, ...(process.env.DREAMS_BINARY?{executablePath:process.env.DREAMS_BINARY}:{}) }); page = await app.firstWindow({timeout:20000});
-    await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a Dreams');
+    await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a HexDreams IRC');
     await expect(page.locator('#toast')).toContainText('No se pudo leer la configuración');
     expect(fs.readdirSync(dataPath).some(name => name.startsWith('settings.json.recovery-'))).toBe(true);
     expect(fs.readFileSync(path.join(dataPath, 'startup.log'), 'utf8')).toContain('Inicio ' + require('../package.json').version);

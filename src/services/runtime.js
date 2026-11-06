@@ -1006,14 +1006,14 @@ class Runtime {
           data.includeHistory ? this.history.query({limit:100001},100001).filter(m=>this.getConfig().profiles.some(p=>p.id===m.network)) : undefined,
         );
         const file = await this.destination({
-          defaultPath: "HexDroid-backup.json",
+          defaultPath: "HexDreams-backup.json",
         });
         if (file) fs.writeFileSync(file, contents, { mode: 0o600 });
         return { ok: !!file };
       }
       case "backup.import": {
         const file = await this.pick({
-          filters: [{ name: "Respaldo HexDroid", extensions: ["json"] }],
+          filters: [{ name: "Respaldo HexDreams IRC", extensions: ["json"] }],
         });
         if (!file) return { cancelled: true };
         if (fs.statSync(file).size > 67108864)

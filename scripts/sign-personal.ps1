@@ -62,12 +62,12 @@ if ($Action -eq 'Trust') {
 
 # Resolve defaults in the script body, never during parameter binding (-File).
 if ([string]::IsNullOrWhiteSpace($FilePath)) {
-    $besideScript = Join-Path $PSScriptRoot 'HexDroidDreams.exe'
+    $besideScript = Join-Path $PSScriptRoot 'HexDreamsIRC.exe'
     if (Test-Path -LiteralPath $besideScript) { $FilePath = $besideScript }
-    else { $FilePath = Join-Path $PSScriptRoot '..\dist\HexDroidDreams-win32-x64\HexDroidDreams.exe' }
+    else { $FilePath = Join-Path $PSScriptRoot '..\dist\HexDreamsIRC-win32-x64\HexDreamsIRC.exe' }
 }
 $resolved = (Resolve-Path -LiteralPath $FilePath).Path
-if ([IO.Path]::GetFileName($resolved) -ine 'HexDroidDreams.exe') { throw 'Selecciona el archivo HexDroidDreams.exe de la carpeta extraida.' }
+if ([IO.Path]::GetFileName($resolved) -notin @('HexDreamsIRC.exe','HexDroidDreams.exe')) { throw 'Selecciona el archivo HexDreamsIRC.exe de la carpeta extraida.' }
 if ($Action -eq 'Sign') {
     if (-not $PSCmdlet.ShouldProcess($resolved, 'Firmar el ejecutable con tu certificado personal')) { return }
     $parameters = @{ LiteralPath = $resolved; Certificate = $certificate; HashAlgorithm = 'SHA256' }

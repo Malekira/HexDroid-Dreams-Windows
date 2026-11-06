@@ -32,7 +32,14 @@
     return { dialog: d, body };
   }
   function field(parent, text, type, value) {
-    if(type==="color"&&/^#[a-f\d]{3}$/i.test(value||""))value="#"+value.slice(1).split("").map(c=>c+c).join("");
+    if (type === "color" && /^#[a-f\d]{3}$/i.test(value || ""))
+      value =
+        "#" +
+        value
+          .slice(1)
+          .split("")
+          .map((c) => c + c)
+          .join("");
     const label = el("label", "feature-field", text),
       i = el(type === "select" ? "select" : "input");
     i.setAttribute("aria-label", text);
@@ -74,12 +81,15 @@
     }
   }
   full.dialog.addEventListener("close", () => fullRequest++);
+  const whoisWindow = floating("whois-profile-dialog", "WHOIS", true);
   const userPanel = el("section", "user-profile");
   userPanel.id = "user-profile";
   userPanel.hidden = true;
   $("users-panel").append(userPanel);
   let viewing = null;
   function closeProfile() {
+    if (whoisWindow.dialog.open) whoisWindow.dialog.close();
+    $("users-panel").append(userPanel);
     viewing = null;
     userPanel.hidden = true;
     $("user-list").hidden = false;
@@ -122,6 +132,22 @@
       DreamsFormatting.render(value, details[key] || "—");
       list.append(term, value);
     }
+    const own = network(id).nick && fold(network(id).nick) === fold(nick),
+      saved = profile(id)?.realName;
+    if (
+      own &&
+      details.complete &&
+      saved &&
+      details.realName &&
+      DreamsFormatting.plain(saved) !== DreamsFormatting.plain(details.realName)
+    )
+      userPanel.append(
+        el(
+          "p",
+          "note",
+          "El nombre recibido no coincide con el guardado. Si lo acabas de cambiar, vuelve a conectar; el servidor puede aplicar su propio límite.",
+        ),
+      );
     // Put actions before long WHOIS fields so they remain easy to reach.
     button(
       "Mencionar",
@@ -177,7 +203,15 @@
       },
       userPanel,
     );
-    userPanel.append(list);
+    const actions = el("div", "profile-action-buttons");
+    for (const b of [...userPanel.children].filter(
+      (n) =>
+        n.tagName === "BUTTON" &&
+        n !== userPanel.firstElementChild &&
+        !n.classList.contains("profile-photo-button"),
+    ))
+      actions.append(b);
+    userPanel.append(actions, list);
   }
   window.refreshDreamsUserPhoto = () => {
     if (!viewing) return;
@@ -193,25 +227,38 @@
       if (img.getAttribute("src") !== src) img.src = src;
     }
   };
-  window.openDreamsUser = (id, nick) => {
-    viewing = { id, nick, details: {} };
+  window.openDreamsUser = (id, nick, options = {}) => {
+    if (!options.floating && whoisWindow.dialog.open)
+      whoisWindow.dialog.close();
+    (options.floating ? whoisWindow.body : $("users-panel")).append(userPanel);
+    viewing = { id, nick, details: {}, floating: !!options.floating };
     userPanel.hidden = false;
     $("user-list").hidden = true;
     document.querySelector(".user-search").hidden = true;
     document.querySelector(".users-hint").hidden = true;
     showProfile();
-    call("user.whois", { network: id, nick }).catch((e) => {
-      if (viewing?.id === id && viewing.nick === nick) {
-        viewing.details.error = e.message;
-        showProfile();
-      }
-    });
+    if (options.request !== false)
+      call("user.whois", { network: id, nick }).catch((e) => {
+        if (viewing?.id === id && viewing.nick === nick) {
+          viewing.details.error = e.message;
+          showProfile();
+        }
+      });
   };
+  window.openDreamsWhois = (id, nick, options = {}) => {
+    whoisWindow.dialog.querySelector("h2").textContent = "WHOIS · " + nick;
+    window.openDreamsUser(id, nick, { ...options, floating: true });
+    if (!whoisWindow.dialog.open) whoisWindow.dialog.showModal();
+  };
+  whoisWindow.dialog.addEventListener("close", () => {
+    if (viewing?.floating) closeProfile();
+  });
   const originalChoose = choose;
   choose = function (...args) {
     closeProfile();
-    const result=originalChoose(...args);
-    if(selected()?.kind === "private")window.openDreamsUser(args[0],selected().name);
+    const result = originalChoose(...args);
+    if (selected()?.kind === "private")
+      window.openDreamsUser(args[0], selected().name);
     return result;
   };
   // Keep IRC controls out of the editable surface; serialize only supported styles.
@@ -494,7 +541,11 @@
   appearance.body.prepend(preview);
   let appearanceFields = {};
   function fillAppearance() {
-    appearanceForm.replaceChildren();const grid=el("div","appearance-grid"),nickSettings=el("div","appearance-nicks"),actions=el("div","appearance-actions");appearanceForm.append(grid,nickSettings,actions);
+    appearanceForm.replaceChildren();
+    const grid = el("div", "appearance-grid"),
+      nickSettings = el("div", "appearance-nicks"),
+      actions = el("div", "appearance-actions");
+    appearanceForm.append(grid, nickSettings, actions);
     const a = config.settings.roomAppearance || {};
     appearanceFields = {};
     for (const [key, label, fallback] of [
@@ -520,12 +571,7 @@
           .trim(),
       ],
     ])
-      appearanceFields[key] = field(
-        grid,
-        label,
-        "color",
-        a[key] || fallback,
-      );
+      appearanceFields[key] = field(grid, label, "color", a[key] || fallback);
     const font = field(grid, "Fuente", "select");
     for (const name of ["Segoe UI", "Consolas", "Arial", "Cascadia Mono"])
       font.append(el("option", "", name));
@@ -559,10 +605,21 @@
       "checkbox",
       config.settings.coloredNicks !== false,
     );
-    const ownColor=field(nickSettings,"Color del propio nick","color",config.settings.ownNickColor||"#c0adf1");
+    const ownColor = field(
+      nickSettings,
+      "Color del propio nick",
+      "color",
+      config.settings.ownNickColor || "#c0adf1",
+    );
     function update() {
-      preview.style.backgroundColor=appearanceFields.background.value;
-      preview.replaceChildren(el("strong", "", "[12:34] {"+(active?network(active.id).nick:"TuNick")+"}"));
+      preview.style.backgroundColor = appearanceFields.background.value;
+      preview.replaceChildren(
+        el(
+          "strong",
+          "",
+          "[12:34] {" + (active ? network(active.id).nick : "TuNick") + "}",
+        ),
+      );
       const text = el("p");
       DreamsFormatting.render(
         text,
@@ -574,7 +631,7 @@
       preview.append(input);
       preview.style.backgroundColor = appearanceFields.background.value;
       preview.style.color = appearanceFields.text.value;
-      preview.style.fontFamily = font.value+", sans-serif";
+      preview.style.fontFamily = font.value + ", sans-serif";
       preview.style.fontSize = size.value + "px";
       preview.style.fontWeight = style.value.includes("bold") ? "700" : "400";
       preview.style.fontStyle = style.value.includes("italic")
@@ -591,8 +648,12 @@
       "Guardar apariencia",
       async () => {
         config.settings.fontFamily = font.value;
-        config.settings.fontSize = Math.max(11,Math.min(24,Number(size.value)||14));
-        config.settings.coloredNicks = appearanceFields.nicks.checked;config.settings.ownNickColor=ownColor.value;
+        config.settings.fontSize = Math.max(
+          11,
+          Math.min(24, Number(size.value) || 14),
+        );
+        config.settings.coloredNicks = appearanceFields.nicks.checked;
+        config.settings.ownNickColor = ownColor.value;
         config.settings.roomAppearance = {
           background: appearanceFields.background.value,
           inputBackground: appearanceFields.inputBackground.value,
@@ -637,15 +698,49 @@
       fontStyle: a.style?.includes("italic") ? "italic" : "",
     }))
       messages.style[k] = v;
-    const background=a.background||getComputedStyle(messages).backgroundColor;
-    messages.style.color=DreamsFormatting.readableColor(a.text||getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),background);
-    messages.style.setProperty('--room-muted',DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),background));
-    messages.style.setProperty('--room-own',DreamsFormatting.readableColor(config.settings.ownNickColor||'#c0adf1',background));
-    const composer=document.querySelector(".composer-input");
-    composer.style.backgroundColor=a.inputBackground||"";
-    composer.style.color=DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),getComputedStyle(composer).backgroundColor);
+    const background =
+      a.background || getComputedStyle(messages).backgroundColor;
+    messages.style.color = DreamsFormatting.readableColor(
+      a.text ||
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--text")
+          .trim(),
+      background,
+    );
+    messages.style.setProperty(
+      "--room-muted",
+      DreamsFormatting.readableColor(
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--muted")
+          .trim(),
+        background,
+      ),
+    );
+    messages.style.setProperty(
+      "--room-own",
+      DreamsFormatting.readableColor(
+        config.settings.ownNickColor || "#c0adf1",
+        background,
+      ),
+    );
+    const composer = document.querySelector(".composer-input");
+    composer.style.backgroundColor = a.inputBackground || "";
+    composer.style.color = DreamsFormatting.readableColor(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--text")
+        .trim(),
+      getComputedStyle(composer).backgroundColor,
+    );
     applyComposerStyle();
-    for(const [key,color] of Object.entries({join:'#6dc7a1',part:'#d8b541',quit:'#e07878'}))messages.style.setProperty('--room-'+key,DreamsFormatting.readableColor(color,background,3));
+    for (const [key, color] of Object.entries({
+      join: "#6dc7a1",
+      part: "#d8b541",
+      quit: "#e07878",
+    }))
+      messages.style.setProperty(
+        "--room-" + key,
+        DreamsFormatting.readableColor(color, background, 3),
+      );
   };
   const appearanceButton = button(
     "◐",
@@ -782,7 +877,11 @@
           p = event.params;
         switch (event.code) {
           case "311":
-            Object.assign(d, { ident: p[0], host: p[1], realName: event.realName ?? p[3] });
+            Object.assign(d, {
+              ident: p[0],
+              host: p[1],
+              realName: event.realName ?? p[3],
+            });
             break;
           case "312":
             d.server = p[0];

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>HexDroid Dreams</title>
+  <title>HexDreams IRC</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="workspace.css">
   <link rel="stylesheet" href="advanced.css">
@@ -12,12 +12,12 @@
 </head>
 <body>
   <header class="menubar">
-    <span class="mini-brand"><span class="brand-mark">H</span> HEXDROID <span>DREAMS</span></span>
+    <span class="mini-brand"><span class="brand-mark"><img class="brand-logo" src="assets/logo.png" alt=""></span> HexDreams <span>IRC</span></span>
     <nav aria-label="Menú principal">
       <details class="menu"><summary>Archivo</summary><div class="menu-popup"><button data-action="add-network">Nueva red <kbd>Ctrl+N</kbd></button><button data-action="logs">Abrir carpeta de diagnóstico</button><hr><button data-action="quit">Salir</button></div></details>
       <details class="menu"><summary>Ver</summary><div class="menu-popup"><button data-action="toggle-privates">Mostrar / ocultar panel izquierdo <kbd>Ctrl+P</kbd></button><button data-action="toggle-users">Mostrar / ocultar usuarios <kbd>Ctrl+U</kbd></button><button data-action="settings">Apariencia y disposición</button></div></details>
       <details class="menu"><summary>Red</summary><div class="menu-popup"><button data-action="connection">Conectar / desconectar</button><button data-action="join">Entrar en una sala <kbd>Ctrl+J</kbd></button><button data-action="networks">Administrar redes</button></div></details>
-      <details class="menu"><summary>Ayuda</summary><div class="menu-popup"><button data-action="help">Comandos y atajos</button><button data-action="about">Acerca de Dreams</button></div></details>
+      <details class="menu"><summary>Ayuda</summary><div class="menu-popup"><button data-action="help">Comandos y atajos</button><button data-action="about">Acerca de HexDreams IRC</button></div></details>
     </nav>
     <label class="network-picker">Red <select id="network-select" aria-label="Red activa"></select></label>
     <button class="settings-top" data-action="settings" aria-label="Abrir configuración" title="Configuración (Ctrl+,)"><span aria-hidden="true">⚙</span></button>
@@ -32,11 +32,11 @@
     </aside>
     <div id="sidebar-resizer" class="resizer" role="separator" aria-label="Ancho de conversaciones" aria-orientation="vertical" tabindex="0" aria-valuemin="160" aria-valuemax="420" aria-valuenow="240"></div>
     <main class="chat">
-      <div class="chat-heading"><div class="conversation-heading"><span class="channel-symbol" id="channel-symbol">✦</span><div><h2 id="conversation-title">Bienvenido a Dreams</h2><p id="conversation-subtitle">Un lugar para todas tus conversaciones.</p><span id="channel-modes" class="channel-modes" hidden></span></div></div><div class="chat-tools"><button id="privates-toggle" data-action="toggle-privates" class="icon-button" aria-label="Ocultar privados" aria-pressed="true" title="Mostrar u ocultar privados">◧</button><button id="server-button" data-action="server" class="icon-button" aria-label="Ver consola de la red" title="Consola de la red">◈</button><button id="connection-button" data-action="connection" class="small-button" disabled>Conectar</button><button id="join-button" data-action="join" class="icon-button" aria-label="Entrar en una sala" title="Entrar en una sala" disabled>＋</button><button id="users-toggle" data-action="toggle-users" class="icon-button" aria-label="Ocultar usuarios" aria-pressed="true" title="Mostrar u ocultar usuarios">♙</button></div></div>
+      <div class="chat-heading"><div class="conversation-heading"><span class="channel-symbol" id="channel-symbol">✦</span><div><h2 id="conversation-title">Bienvenido a HexDreams IRC</h2><p id="conversation-subtitle">Un lugar para todas tus conversaciones.</p><span id="channel-modes" class="channel-modes" hidden></span></div></div><div class="chat-tools"><button id="privates-toggle" data-action="toggle-privates" class="icon-button" aria-label="Ocultar privados" aria-pressed="true" title="Mostrar u ocultar privados">◧</button><button id="server-button" data-action="server" class="icon-button" aria-label="Ver consola de la red" title="Consola de la red">◈</button><button id="connection-button" data-action="connection" class="small-button" disabled>Conectar</button><button id="join-button" data-action="join" class="icon-button" aria-label="Entrar en una sala" title="Entrar en una sala" disabled>＋</button><button id="users-toggle" data-action="toggle-users" class="icon-button" aria-label="Ocultar usuarios" aria-pressed="true" title="Mostrar u ocultar usuarios">♙</button></div></div>
       <div id="room-tabs" class="room-tabs" role="tablist" aria-label="Salas y conversaciones"></div>
       <div class="conversation-body">
         <section class="timeline" aria-label="Conversación"><div class="chat-search" id="chat-search" hidden><input id="message-search" aria-label="Buscar mensajes en esta conversación" placeholder="Buscar texto o apodo…"><span id="search-count"></span><button class="icon-button" data-action="search-messages" aria-label="Cerrar búsqueda de mensajes">×</button></div><div class="message-toolbar"><button data-action="search-messages" title="Buscar mensajes (Ctrl+F)" aria-label="Buscar mensajes">⌕</button><button id="first-unread" data-action="first-unread" disabled>Primer mensaje sin leer</button><button data-action="latest">↓ Último mensaje</button><span id="selection-count"></span></div>
-          <div id="welcome" class="welcome"><div class="welcome-emblem">H<span>✦</span></div><div class="eyebrow">HEXDROID DREAMS · WINDOWS</div><h2>La conversación empieza aquí.</h2><p>Tus redes, tus salas, tu gente.<br>Un espacio tranquilo para conectar.</p><button class="primary" data-action="add-network">＋ Configurar mi primera red</button><div class="welcome-features"><span>◈ Conexiones TLS</span><span>▤ Varias redes</span><span>◌ Mensajes privados</span></div></div>
+          <div id="welcome" class="welcome"><img class="welcome-logo" src="assets/logo.png" alt="Logo de HexDreams IRC"><div class="eyebrow">HEXDREAMS IRC · WINDOWS</div><h2>La conversación empieza aquí.</h2><p>Tus redes, tus salas, tu gente.<br>Un espacio tranquilo para conectar.</p><button class="primary" data-action="add-network">＋ Configurar mi primera red</button><div class="welcome-features"><span>◈ Conexiones TLS</span><span>▤ Varias redes</span><span>◌ Mensajes privados</span></div></div>
           <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" hidden></div>
           <button id="new-messages" class="new-messages" hidden>↓ Hay mensajes nuevos</button>
           <form id="composer" class="composer"><div id="composer-context">Conecta una red para empezar a conversar</div><div class="format-bar"><button type="button" data-format="bold" aria-label="Negrita"><b>B</b></button><button type="button" data-format="italic" aria-label="Cursiva"><i>I</i></button><button type="button" data-format="underline" aria-label="Subrayado"><u>U</u></button><button type="button" data-format="color" aria-label="Color IRC">A</button><span>Shift+Enter: nueva línea</span></div><div id="format-preview" class="format-preview" hidden></div><div class="composer-input"><textarea id="message-input" autocomplete="off" maxlength="10000" aria-label="Escribir mensaje" placeholder="Selecciona una conversación…" rows="1" disabled></textarea><button id="send-button" type="submit" aria-label="Enviar mensaje" disabled>↑</button></div><div class="composer-hint"><span><kbd>Enter</kbd> para enviar · <kbd>/</kbd> para comandos</span><span id="transport-label">IRC · Tu próximo espacio</span></div></form>
@@ -45,7 +45,7 @@
       </div>
     </main>
   </div>
-  <footer class="statusbar"><span><i id="footer-dot" class="status-dot"></i><span id="footer-status">Listo para conectar</span></span><span id="footer-info">HexDroid Dreams <span id="version">0.2.0</span></span></footer>
+  <footer class="statusbar"><span><i id="footer-dot" class="status-dot"></i><span id="footer-status">Listo para conectar</span></span><span id="footer-info">HexDreams IRC <span id="version">0.2.0</span></span></footer>
   <div id="toast" class="toast" role="status" hidden></div>
   <dialog id="settings-dialog" class="settings-dialog">
     <header class="dialog-header"><div><span class="eyebrow">HAZLO TUYO</span><h2>Configuración</h2></div><button type="button" class="icon-button" data-close="settings-dialog" aria-label="Cerrar configuración">×</button></header>
@@ -61,6 +61,7 @@
   <dialog id="info-dialog"><header class="dialog-header"><h2 id="info-title"></h2><button class="icon-button" data-close="info-dialog" aria-label="Cerrar">×</button></header><div class="form-content" id="info-content"></div><footer class="dialog-footer"><button class="primary" data-close="info-dialog">Entendido</button></footer></dialog>
   <div id="context-menu" class="context-menu" role="menu" hidden></div>
   <dialog id="action-dialog"><form id="action-form"><header class="dialog-header"><h2 id="action-title"></h2><button type="button" class="icon-button" data-close="action-dialog" aria-label="Cerrar">×</button></header><div class="form-content"><label id="action-label"><span id="action-prompt"></span><input id="action-input" required autocomplete="off"></label><p id="action-error" class="form-error" role="alert"></p></div><footer class="dialog-footer"><button type="button" class="secondary" data-close="action-dialog">Cancelar</button><button class="primary" type="submit">Aceptar</button></footer></form></dialog>
+  <script src="themes.js"></script>
   <script src="workspace.js"></script>
   <script src="formatting.js"></script>
   <script src="desktop.js"></script>
@@ -71,5 +72,6 @@
   <script src="command-catalog.js"></script>
   <script src="desktop-layout.js"></script>
   <script src="conversation-ui.js"></script>
+  <script src="theme-ui.js"></script>
 </body>
 </html>

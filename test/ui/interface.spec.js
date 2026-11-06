@@ -85,7 +85,7 @@ test('Messages, private conversations, unread tree nodes, room closure and multi
   await page.locator('#message-input').fill('Mensaje privado'); await page.locator('#message-input').press('Enter');
   await expect(page.locator('.message-text')).toHaveText('Mensaje privado');
   await addNetwork(page, 'Otra red', 'irc.example.org', '#otra');
-  await expect(page.locator('#network-select option')).toHaveCount(2);
+  await expect(page.locator('#network-select option')).toHaveCount(3);
   await page.getByRole('button', { name: 'Cerrar nodo #otra', exact: true }).click();
   await expect(page.getByRole('button',{name:'Sala #otra',exact:true})).toHaveCount(0);
   await page.locator('#connection-button').click();
@@ -262,7 +262,7 @@ test('Topic renders IRC formatting and emoji picker inserts at the cursor',async
 });
 test('Identity editor has alternate nick, formatted real name and readable light-theme controls',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);
- await page.evaluate(()=>document.documentElement.dataset.theme='light');
+ await page.evaluate(()=>{config.settings.theme='light';applySettings();});
  await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
  await page.locator('#profile-alternateNick').fill('Dreamer2');await page.locator('#profile-realName').fill('Nombre con estilo');await page.locator('#profile-realName').selectText();
  await page.locator('#realname-tools').getByRole('button',{name:'Negrita',exact:true}).click();
@@ -348,4 +348,27 @@ test('Light room backgrounds stay readable inside a dark application, including 
  const result=await page.evaluate(()=>{const bg=getComputedStyle(document.getElementById('messages')).backgroundColor;return [...document.querySelectorAll('.message-text span,.event-nick,.message-header .message-nick')].map(n=>DreamsFormatting.contrast(getComputedStyle(n).color,bg));});
  expect(result.length).toBeGreaterThan(2);for(const contrast of result)expect(contrast).toBeGreaterThanOrEqual(4.5);
  await page.screenshot({path:'dist/Dreams-contraste-claro.png'});
+});
+test('Network picker offers Add network without changing the selected conversation',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.locator('#network-select').selectOption('__add_network__');await expect(page.locator('#network-dialog')).toBeVisible();await expect(page.locator('#profile-name')).toHaveValue('');await expect(page.locator('#conversation-title')).toHaveText('#general');
+});
+test('WHOIS query opens a compact floating profile and also keeps the query conversation',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'query',target:'*consultas*',whois:'Alice'});window.__emit({id,type:'server',target:'*consultas*',text:'Alice WHOIS recibido'});});
+ await expect(page.locator('#whois-profile-dialog')).toBeVisible();await expect(page.locator('#whois-profile-dialog .user-profile h3')).toHaveText('Alice');
+ const buttons=await page.locator('#whois-profile-dialog .profile-action-buttons button').evaluateAll(nodes=>nodes.map(n=>({x:n.getBoundingClientRect().x,y:n.getBoundingClientRect().y,width:n.getBoundingClientRect().width})));expect(buttons.length).toBe(5);expect(buttons[1].y).toBe(buttons[0].y);expect(buttons[1].x).toBeGreaterThan(buttons[0].x);
+ await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();await expect(page.locator('#messages')).toContainText('Alice WHOIS recibido');
+});
+test('Purple navy theme and a named style survive saving, switching and reopening',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=appearance]').click();
+ await page.getByRole('combobox',{name:'Tema guardado',exact:true}).selectOption('violet');await page.getByRole('button',{name:'Aplicar tema',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-theme','violet');
+ await page.locator('#setting-font').selectOption('18');await page.getByRole('textbox',{name:'Nombre del tema',exact:true}).fill('Mi morado');await page.getByRole('button',{name:'Guardar como tema',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.savedThemes?.length)).toBe(1);
+ const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.savedThemes[0].id);
+ await page.getByRole('combobox',{name:'Tema guardado',exact:true}).selectOption('light');await page.getByRole('button',{name:'Aplicar tema',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+ await page.reload();await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=appearance]').click();await page.getByRole('combobox',{name:'Tema guardado',exact:true}).selectOption(id);await page.getByRole('button',{name:'Aplicar tema',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-theme','violet');await expect(page.locator('html')).toHaveCSS('--font-size','18px');
+ await page.getByRole('button',{name:'Listo',exact:true}).click();await page.screenshot({path:'dist/HexDreams-morado.png'});
+});
+test('Opening a colored real name preserves its IRC color rather than saving a contrast-adjusted replacement',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
+ const result=await page.evaluate(()=>{const editor=document.getElementById('profile-realName');editor.value='\x0302Azul original\x0f';return editor.value;});expect(result).toBe('\x0302Azul original\x0f');
 });

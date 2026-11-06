@@ -191,6 +191,7 @@
         dialog.close();
         choose(notifyNetwork, nick);
       });
+      action(row, "WHOIS", () => {dialog.close();window.openDreamsWhois(notifyNetwork,nick);});
       action(row, "Quitar", async () => {
         await saveNames(
           notifyNetwork,

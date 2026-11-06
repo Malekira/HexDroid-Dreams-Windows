@@ -377,3 +377,19 @@ test('Own avatar publication is gated by registration and capability, follows ni
  c.receive(Buffer.from(':Me!u@h NICK :NewMe\r\n'));assert.ok(wire.at(-1).includes('/NewMe.png?v='));c.profile.publishPhoto=false;c.publishOwnAvatar(true);assert.equal(wire.at(-1),'METADATA * SET avatar');c.presence.stop();
 });
 test('IRC operator permission follows server authentication and explicit user-mode removal',()=>{const c=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),events=[];c.on('oper-state',e=>events.push(e));c.receive(Buffer.from(':s 381 Me :You are an IRC operator\r\n:Me!u@h MODE Me -o\r\n:s 221 Me +iO\r\n'));assert.deepEqual(events.map(e=>e.oper),[true,false,true]);});
+test('Styled echoes consume one pending send at a time even if the server strips IRC styles',()=>{
+ const {parseLine}=require('../src/irc'),{Workspace}=require('../src/workspace');
+ const c=new IrcClient({host:'localhost',port:6667,nick:'Me',tls:false,channels:[]});c.ready=true;c.capabilities.add('echo-message');c.sendTagged=()=>{};
+ const ws=new Workspace();c.on('message',m=>ws.addMessage('n',m.target,m));
+ for(let i=0;i<2;i++)c.sendMessage('Bob','\x02\x0313hola\x0f');
+ assert.equal(ws.conversation('n','Bob').messages.length,2);
+ for(let i=0;i<2;i++)c.handle(parseLine(':Me!u@h PRIVMSG Bob :hola'));
+ const rows=ws.conversation('n','Bob').messages;assert.equal(rows.length,2);assert.ok(rows.every(m=>!m.pending));assert.notEqual(rows[0].clientId,rows[1].clientId);assert.equal(c.pendingEcho.size,0);
+ c.handle(parseLine(':Me!u@h PRIVMSG Bob :hola'));assert.equal(ws.conversation('n','Bob').messages.length,3);
+});
+test('Echo labels confirm their own send; history and other users never consume pending sends',()=>{
+ const{parseLine}=require('../src/irc');const c=new IrcClient({host:'localhost',port:6667,nick:'Me',tls:false,channels:[]});c.ready=true;c.capabilities=new Set(['echo-message','labeled-response']);let sent;c.sendTagged=(line,tags)=>sent=tags;
+ const rows=[];c.on('message',m=>rows.push(m));c.sendMessage('#room','\x1fhello\x1f');const id=sent.label;
+ c.batches.set('old',{type:'chathistory'});c.handle(parseLine('@batch=old :Me!u@h PRIVMSG #room :hello'));c.handle(parseLine(':Alice!u@h PRIVMSG #room :hello'));assert.equal(c.pendingEcho.size,1);
+ c.handle(parseLine('@label='+id+' :Me!u@h PRIVMSG #room :server-normalized hello'));assert.equal(rows.at(-1).clientId,id);assert.equal(rows.at(-1).pending,false);assert.equal(c.pendingEcho.size,0);
+});

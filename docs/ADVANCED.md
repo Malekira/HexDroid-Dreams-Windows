@@ -77,3 +77,13 @@ La campanita junto a Red registra menciones y NOTICE incluso con la conversació
 Comandos, junto a Ver, prepara comandos en el cuadro de texto según conexión y permisos; completa sus argumentos antes de pulsar Enter. El soporte final depende del servidor. Scripts permite importar, administrar, recargar y seleccionar los alias activos.
 
 Los colores de texto se ajustan visualmente cuando no contrastan con el fondo elegido; el código IRC enviado permanece intacto. Las iniciales representan usuarios sin foto. Los metadatos codificados de la web se separan del nombre real del perfil, sin modificar la fuente de fotos.
+
+## HexDreams IRC: perfiles, temas y compatibilidad
+
+WHOIS abre un perfil flotante y deja también sus respuestas en WHOIS/WHO. Notify ofrece WHOIS por usuario; los botones del perfil se ajustan en filas según el ancho. El desplegable de redes incluye Agregar red.
+
+Configuración → Apariencia y Colores del entorno permiten guardar el estilo actual con un nombre, aplicarlo o eliminarlo. El tema Morado y azul marino incluye degradados sin dorado. Los temas contienen solo preferencias visuales; no redes, claves ni historial.
+
+El nombre real se conserva sin el antiguo recorte a 200 caracteres, dentro del límite de una línea IRC. Su contador muestra bytes UTF-8 incluyendo estilos. La red puede imponer un límite menor. Un texto que ya se había guardado recortado debe introducirse de nuevo; cambiar la identidad requiere reconectar para que se anuncie al servidor.
+
+HexDreamsIRC.exe sigue leyendo la carpeta de datos histórica y el certificado personal existente. Los formatos de respaldo y cifrado mantienen compatibilidad con las versiones anteriores y Android.

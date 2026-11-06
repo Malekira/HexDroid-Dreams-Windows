@@ -79,9 +79,9 @@ function renderSidebar() {
     const n = network(p.id), unread = [...n.conversations.values()].reduce((sum,c) => sum + c.unread,0);
     let option=existing.get(p.id);if(!option){option=el('option');option.value=p.id;picker.append(option);}option.textContent=p.name+(unread?` (${unread})`:'');existing.delete(p.id);
   }
-  for(const option of existing.values())option.remove();
-  if (!config.profiles.length) picker.append(el('option','','Sin redes')); else picker.value = active?.id || config.profiles[0].id;
-  picker.disabled = !config.profiles.length;
+  const addOption=existing.get('__add_network__');existing.delete('__add_network__');for(const option of existing.values())option.remove();
+  if(!addOption){const add=el('option','','Agregar red…');add.value='__add_network__';picker.append(add);}else if(picker.lastElementChild!==addOption)picker.append(addOption);
+  picker.value=active?.id||config.profiles[0]?.id||'__add_network__';picker.disabled=false;
   if (draggedItem) return;
   window.renderDreamsTree?.();
 }
@@ -167,7 +167,7 @@ function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.incl
 function renderHeader() {
   const p = active && profile(active.id), n = p && network(p.id), c = selected();
   const connection = n?.state !== 'disconnected' && n?.connection || p;
-  $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a Dreams';
+  $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a HexDreams IRC';
   $('channel-symbol').textContent = c ? c.name === '*' ? '◈' : /^[#&+!]/.test(c.name) ? '#' : '◌' : '✦';
   $('conversation-subtitle').hidden = !config.settings.showTopic || c?.kind !== 'channel' || !c.topic;
   const topicDivider=$('topic-height-resizer');if(topicDivider)topicDivider.hidden = $('conversation-subtitle').hidden;
@@ -187,7 +187,7 @@ function renderHeader() {
   const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=n?avatarFor(active.id,n.nick):null;if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
   $('self-nick').textContent = n?.nick || 'Tu espacio IRC'; $('connection-summary').textContent = connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}` : 'Sin conexión';
   for (const id of ['global-status','footer-dot']) $(id).className = 'status-dot' + (connected ? ' online' : n?.state === 'connecting' ? ' connecting' : '');
-  $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDroid Dreams ' + appVersion;
+  $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDreams IRC ' + appVersion;
   $('first-unread').disabled = !c?.firstUnreadId;
   $('new-messages').hidden = !c || c.follow || !c.unread;
   $('footer-status').textContent = n?.state === 'connecting' ? `Conectando a ${p.name}…` : connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}${p ? ' · ' + p.name : ''}` : 'Listo para conectar';
@@ -261,7 +261,7 @@ function conversationMenu(event,id,c) {
     ...(c.kind === 'channel' ? [
       { label:'Entrar de nuevo en el canal',disabled:c.joined || network(id).state !== 'connected',action:() => sendCommand(id,'*','/join ' + c.name) },
       { label:'Editar topic',disabled:!c.joined,action:() => askAction('Editar topic','Nuevo topic',c.topic,value => sendCommand(id,c.name,'/topic ' + value)) }
-    ] : [{ label:'WHOIS',disabled:network(id).state !== 'connected',action:async () => { await sendCommand(id,c.name,'/whois ' + c.name); choose(id,'*consultas*'); } }]),
+    ] : [{ label:'WHOIS',disabled:network(id).state !== 'connected',action:async () => { await sendCommand(id,c.name,'/whois ' + c.name); } }]),
     null,{ label:c.kind === 'channel' ? 'Cerrar canal' : 'Cerrar privado',action:() => closeConversation(id,c.name) }
   ]);
 }
@@ -275,8 +275,8 @@ function userMenu(event,id,c,nick) {
     { label:'Abrir privado',action:() => choose(id,nick) },
     ...(api.advanced?[{label:'Ignorar usuario',action:()=>sendCommand(id,c.name,'/ignore '+nick)},{label:'Dejar de ignorar',action:()=>sendCommand(id,c.name,'/unignore '+nick)}]:[]),
     ...(api.advanced&&(n.capabilities?.includes('draft/metadata-2')||config.settings.avatarUrlTemplate)?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;lastMessageView='';render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
-    { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); choose(id,'*consultas*'); } },
-    { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); choose(id,'*consultas*'); } },
+    { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); } },
+    { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); } },
     { label:'Invitar a un canal…',disabled:!connected,action:() => askAction('Invitar a ' + nick,'Canal de destino',c.name,value => { if (!/^[#&+!][^\s,:]+$/.test(value)) throw new Error('Introduce un canal válido.'); return sendCommand(id,value,'/invite ' + nick); }) },
     null,
     {label:'Consultar bans',disabled:!connected,action:()=>sendCommand(id,c.name,'/mode '+c.name+' +b')},
@@ -341,7 +341,7 @@ function openNetwork(id) {
   const p = id && profile(id); $('network-form').reset(); $('profile-id').value = p?.id || '';
   $('network-dialog-title').textContent = p ? 'Editar red' : 'Añadir una red';
   for (const key of ['name','host','nick','port','alternateNick']) $('profile-' + key).value = p?.[key] ?? (key === 'port' ? 6697 : '');
-  $('profile-publishPhoto').checked=p?.publishPhoto!==false;$('profile-photoUrl').value=p?.photoUrl||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';$('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDroid Dreams';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
+  $('profile-publishPhoto').checked=p?.publishPhoto!==false;$('profile-photoUrl').value=p?.photoUrl||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';$('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDreams IRC';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
   if(p&&api.advanced){const currentId=p.id,initialCommands=$('profile-commands').value;api.advanced('network.commands.get',{network:p.id}).then(r=>{if($('profile-id').value===currentId&&$('profile-commands').value===initialCommands&&r.commands)$('profile-commands').value=r.commands.join('\n');}).catch(e=>notify(e.message,true));}
   $('profile-channels').value = p?.channels.join(', ') || ''; $('profile-tls').checked = p?.tls ?? true; $('profile-password').value = ''; $('network-error').textContent = '';
   if (!$('network-dialog').open) $('network-dialog').showModal(); $('profile-name').focus();
@@ -374,8 +374,8 @@ const actions = {
   'first-unread': () => goFirstUnread(),
   connection: () => toggleConnection(), join: () => openJoin(),
   logs: async () => { const r = await api.logs(); if (r?.error) notify(r.error, true); }, quit: () => api.quit(),
-  help: () => info('Comandos y atajos', ['/join #sala · /part · /nick apodo · /me acción', '/msg apodo mensaje · /whois apodo · /topic texto · /quit', 'Para enviar un mensaje que empieza por /, escribe // al principio.', 'Ctrl+N: nueva red · Ctrl+J: entrar en sala · Ctrl+U: ocultar usuarios · Ctrl+,: configuración.', 'Las salas aparecen como pestañas arriba. Arrastra el borde izquierdo de la conversación para ajustar la barra lateral.']),
-  about: () => info('HexDroid Dreams', ['Versión ' + (appVersion) + ' · Cliente IRC para Windows.', 'Cliente de escritorio con IRCv3, autenticación SASL, historial opcional, DCC, cifrado y scripts .hex.', 'Las funciones dependen de las capacidades de cada servidor. Revisa Herramientas para configurarlas.'])
+  help: () => info('Comandos y atajos', ['/join #sala · /part · /nick apodo · /me acción', '/msg apodo mensaje · /whois apodo · /topic texto · /quit', 'Para enviar un mensaje que empieza por /, escribe // al principio.', 'Ctrl+N: nueva red · Ctrl+J: entrar en sala · Ctrl+U: ocultar usuarios · Ctrl+,: configuración.', 'Las salas y privados se abren desde el árbol izquierdo. Arrastra el borde izquierdo de la conversación para ajustar la barra lateral.']),
+  about: () => info('HexDreams IRC', ['Versión ' + (appVersion) + ' · Cliente IRC para Windows.', 'Cliente de escritorio con IRCv3, autenticación SASL, historial opcional, DCC, cifrado y scripts .hex.', 'Las funciones dependen de las capacidades de cada servidor. Revisa Herramientas para configurarlas.'])
 };
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-action]');
@@ -440,7 +440,7 @@ $('message-input').addEventListener('keydown', e => {
   }
 });
 $('search').addEventListener('input',renderSidebar); $('user-search').addEventListener('input',renderUsers);
-$('network-select').onchange = e => { const id = e.target.value; const n = network(id); const target = n.lastTarget && n.conversations.has(fold(n.lastTarget)) ? n.lastTarget : '*'; if (active) network(active.id).lastTarget = active.target; choose(id,target); };
+$('network-select').onchange = e => { const id = e.target.value;if(id==='__add_network__'){e.target.value=active?.id||config.profiles[0]?.id||id;openNetwork();return;} const n = network(id); const target = n.lastTarget && n.conversations.has(fold(n.lastTarget)) ? n.lastTarget : '*'; if (active) network(active.id).lastTarget = active.target; choose(id,target); };
 $('private-sort').onchange = e => { config.settings.privateSort = e.target.value; renderSidebar(); persist().catch(() => {}); };
 $('message-search').oninput = () => renderMessages();
 $('settings-search').oninput = filterSettings;
@@ -478,7 +478,7 @@ api.onEvent(event => {
       break;
     case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
     case 'server': addMessage(id,event.target||'*',{event:true,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
-    case 'query': choose(id,event.target); break;
+    case 'query': if(event.whois){conversation(id,event.target);window.openDreamsWhois?.(id,event.whois,{request:false});}else choose(id,event.target); break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
     case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
