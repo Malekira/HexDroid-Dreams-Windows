@@ -21,6 +21,7 @@ jobs:
       - run: npx install-electron --no
       - run: npm test
       - run: npm run test:desktop
+        timeout-minutes: 3
       - name: Test desktop interface
         shell: pwsh
         run: |

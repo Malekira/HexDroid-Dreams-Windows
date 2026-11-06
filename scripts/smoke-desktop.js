@@ -10,8 +10,13 @@ const { once } = require('node:events');
 const { spawn } = require('node:child_process');
 async function closeApplication(application){
   let timer;
+  // Drain the same preference queue used by the real UI before ending a scenario.
+  for(const page of application.windows())if(!page.isClosed())try{await Promise.race([page.evaluate(async()=>{if(typeof saveQueue!=='undefined')await saveQueue.catch(()=>{});}),new Promise(resolve=>{const timeout=setTimeout(resolve,3000);timeout.unref();})]);}catch{}
   try{await Promise.race([application.close(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Electron no terminó en 10 segundos.')),10000);})]);}
-  catch(error){application.process().kill();throw error;}finally{clearTimeout(timer);}
+  catch(error){
+    try{console.error(await Promise.race([application.evaluate(({app,BrowserWindow})=>({quittingProfile:app.getPath('userData'),windows:BrowserWindow.getAllWindows().length,log:process.mainModule.require('node:fs').readFileSync(process.mainModule.require('node:path').join(app.getPath('userData'),'startup.log'),'utf8')})),new Promise(resolve=>{const timeout=setTimeout(()=>resolve('El proceso no respondió al diagnóstico de cierre.'),2000);timeout.unref();})]));}catch{}
+    if(process.platform==='win32'){const killer=spawn('taskkill',['/PID',String(application.process().pid),'/T','/F'],{stdio:'ignore'});await once(killer,'exit');}else application.process().kill();throw error;
+  }finally{clearTimeout(timer);}
 }
 async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dreams-desktop-'));
@@ -315,7 +320,7 @@ async function run() {
   } catch(error){
     const log=path.join(profileDirectory,'startup.log');if(fs.existsSync(log))console.error('Registro de la aplicación de prueba:\n'+fs.readFileSync(log,'utf8'));throw error;
   } finally {
-    if (app) try{await closeApplication(app);}catch(error){console.error(error.message);} for (const socket of sockets) socket.destroy(); server.close(); tlsServer.close(); fs.rmSync(root, { recursive: true, force: true });
+    if (app) try{await closeApplication(app);}catch(error){console.error(error.message);} for (const socket of sockets) socket.destroy(); server.close(); tlsServer.close(); fs.rmSync(root, { recursive: true, force: true, maxRetries:10, retryDelay:100 });
   }
 }
 run().catch(e => { console.error(e); process.exitCode = 1; });

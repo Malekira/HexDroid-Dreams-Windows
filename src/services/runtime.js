@@ -1250,6 +1250,7 @@ class Runtime {
     }
   }
   close() {
+    if(this.closed)return;this.closed=true;
     this.sessions.close();
     this.scripts.close();
     this.dcc.close();

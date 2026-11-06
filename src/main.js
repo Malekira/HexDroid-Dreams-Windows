@@ -20,11 +20,12 @@ function log(message) {
 }
 function fatal(error) {
   log(error.stack || String(error));
+  if(quitting)return;
   dialog.showErrorBox('HexDroid Dreams — error', `${error.message || error}\n\nRegistro: ${logFile || app.getPath('userData')}`);
 }
 process.on('uncaughtException', fatal);
 process.on('unhandledRejection', error => fatal(error instanceof Error ? error : new Error(String(error))));
-function emit(id, type, data) { if (window && !window.isDestroyed()) window.webContents.send('irc:event', { ...data, id, type, subtype:data?.type, transferId:data?.id }); }
+function emit(id, type, data) { if(quitting)return;if(window&&!window.isDestroyed()&&!window.webContents.isDestroyed())try{window.webContents.send('irc:event',{...data,id,type,subtype:data?.type,transferId:data?.id});}catch(error){if(!quitting)log('Evento no entregado: '+error.message);} }
 function register(name, handler) {
   ipcMain.handle(name, async (event, ...args) => {
     if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('Solicitud no autorizada.');
@@ -41,7 +42,7 @@ function createWindow() {
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
-  window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); dialog.showErrorBox('HexDroid Dreams', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
+  window.webContents.on('render-process-gone', (_, details) => { log('Renderer terminado: ' + details.reason); if(quitting||details.reason==='clean-exit')return;dialog.showErrorBox('HexDroid Dreams', 'La interfaz se cerró inesperadamente. Vuelve a abrir la aplicación. El diagnóstico está en startup.log.'); });
   window.webContents.once('did-finish-load',()=>log('Ventana preparada'));
   window.loadFile(path.join(__dirname, 'index.html')).catch(fatal);
   if (bounds.maximized) window.maximize();
