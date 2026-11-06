@@ -114,7 +114,7 @@
     } else photo.textContent = nick.slice(0, 2);
     photo.onclick = () => run(() => showPhoto(id, nick));
     userPanel.append(photo);
-    if (!details.complete)
+    if (details.error || !details.complete)
       userPanel.append(el("p", "muted", details.error || "Consultando WHOIS…"));
     const list = el("dl", "user-details");
     for (const [key, label] of Object.entries({
