@@ -6,7 +6,7 @@ Añade la red con el formulario habitual y selecciónala. En el engranaje, **Red
 
 Guarda los cambios de perfil antes de conectar con las credenciales nuevas. Los campos de contraseña vacíos conservan la credencial existente. **Guardar credenciales** utiliza el almacén seguro de Windows; sin marcarlo solo se mantienen en memoria. Las claves de canales y los comandos con credenciales se introducen en los campos protegidos, nunca en los comandos públicos del perfil. Para EXTERNAL importa un PFX/P12 con su frase de paso. Los PEM/CRT se importan como CA de confianza. Una CA importada no omite la comprobación del nombre del servidor.
 
-TOFU fija el primer certificado que ya haya superado la validación TLS. Un certificado autofirmado se importa y verifica antes de utilizarse; no existe un modo de conexión con validación desactivada. STS anunciado por una conexión TLS se conserva y exige TLS en conexiones posteriores hasta expirar.
+TOFU fija el primer certificado que ya haya superado la validación TLS. Un certificado no validado o distinto del aprobado abre un aviso con huella SHA-256 y detalles. La aprobación explícita se guarda por red, servidor y puerto; si cambia la huella, se vuelve a solicitar. No se envían comandos ni credenciales IRC antes de validar PKI o comprobar la huella aprobada. Los certificados de cliente mantienen la validación de la cadena TLS. STS anunciado por una conexión TLS se conserva y exige TLS en conexiones posteriores hasta expirar.
 
 ## Historial
 
@@ -30,7 +30,7 @@ Selecciona un privado para enviar un archivo o iniciar CHAT. Configura la IP anu
 
 SSEND/SCHAT requieren intercambiar y verificar previamente el certificado público exportado por el emisor. Si cambias de IP anunciada o certificado, vuelve a intercambiarlo. DCC directo está bloqueado al usar proxy, salvo autorización expresa en sus ajustes. La aceptación automática está desactivada; si la habilitas, limita la lista a personas de confianza y recuerda que un apodo puede ser suplantado.
 
-Las vistas previas son manuales, con confirmación del dominio y sin SVG/HTML ejecutable. Puedes guardar la imagen cargada o abrir enlaces en el navegador. Videos, YouTube y X se abren externamente. Filehost aparece solo si la red lo anuncia y la conexión IRC utiliza TLS. Solo se comparten credenciales con el mismo hostname de la red, tras confirmación; nunca se comparte la contraseña SCRAM/EXTERNAL como contraseña SASL PLAIN.
+Las fotos usan automáticamente la plantilla HTTPS configurada, por defecto `https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png`. Puedes desactivarlas en Multimedia. Los perfiles muestran una foto ampliable y permiten guardarla. Las vistas previas de enlaces en mensajes son manuales, con confirmación del dominio y sin SVG/HTML ejecutable. Puedes guardar la imagen cargada o abrir enlaces en el navegador. Videos, YouTube y X se abren externamente. Filehost aparece solo si la red lo anuncia y la conexión IRC utiliza TLS. Solo se comparten credenciales con el mismo hostname de la red, tras confirmación; nunca se comparte la contraseña SCRAM/EXTERNAL como contraseña SASL PLAIN.
 
 ## Scripts .hex
 
@@ -52,7 +52,7 @@ La extensión Windows `state.set clave valor` y `state.delete clave` guarda pref
 
 La configuración sin secretos puede exportarse directamente. Para incluir credenciales, claves e identidades, código de scripts y preferencias protegidas se exige una frase de paso de al menos 12 caracteres; el archivo usa scrypt y AES-256-GCM. Conserva esa frase fuera del archivo.
 
-La importación muestra cuántas redes contiene, requiere confirmación y reemplaza redes/preferencias. Cierra conexiones antes de restaurar. Los scripts importados quedan desactivados y sin permisos. El historial y los archivos DCC no forman parte del respaldo de configuración.
+La importación muestra cuántas redes contiene, requiere confirmación y reemplaza redes/preferencias. Cierra conexiones antes de restaurar. Los scripts importados quedan desactivados y sin permisos. Activa **Incluir historial** para añadir mensajes y consultas al respaldo (hasta 100.000 registros/50 MB de texto). Al restaurar un respaldo con historial, este reemplaza el historial local tras confirmar. Sin esa opción se mantienen los mensajes locales existentes. Los archivos DCC no se incluyen.
 
 ## Windows
 

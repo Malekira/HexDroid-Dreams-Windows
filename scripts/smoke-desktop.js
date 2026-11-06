@@ -2,6 +2,7 @@
 // Runs the actual Electron app and IPC against a local IRC server.
 const { _electron: electron, expect } = require('@playwright/test');
 const net = require('node:net');
+const tls = require('node:tls');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -23,14 +24,18 @@ async function run() {
         const line = buffer.slice(0, i); buffer = buffer.slice(i + 2); received.push(line);
         if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\nPING :desktop-test\r\n');
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
+        if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
         if (line === 'WHO Alice') socket.write(':local 352 Dreamer #dreams ident host local Alice H :0 Alice WHO result\r\n:local 315 Dreamer Alice :End of WHO\r\n');
-        if (line === 'WHOIS Alice') socket.write(':local 311 Dreamer Alice user host * :Alice Test\r\n:local 318 Dreamer Alice :End of WHOIS\r\n');
+        if (line === 'WHOIS Alice' || line === 'WHOIS Alice Alice') socket.write(':local 311 Dreamer Alice user host * :\x02\x0313Alice Test\x0f\r\n:local 317 Dreamer Alice 125 123456 :seconds idle\r\n:local 318 Dreamer Alice :End of WHOIS\r\n');
         if (line.startsWith('PART #dreams')) socket.write(':Dreamer!u@local PART #dreams :bye\r\n');
       }
     });
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const tlsLines=[];
+  const tlsServer=tls.createServer({key:fs.readFileSync(path.join(__dirname,'../test/fixtures/server.key')),cert:fs.readFileSync(path.join(__dirname,'../test/fixtures/server.crt'))},socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));let buffer='';socket.on('data',data=>{buffer+=data;let at;while((at=buffer.indexOf('\r\n'))>=0){const line=buffer.slice(0,at);buffer=buffer.slice(at+2);tlsLines.push(line);if(line.startsWith('USER '))socket.write(':tls 001 TLSNick :Welcome over approved TLS\r\n');}});});
+  tlsServer.on('tlsClientError',()=>{});tlsServer.listen(0,'127.0.0.1');await once(tlsServer,'listening');
   const profileDirectory = path.join(root,'profile');
   const args = [...(process.platform === 'linux' ? ['--no-sandbox','--ozone-platform=headless','--disable-gpu'] : []), '--user-data-dir=' + profileDirectory, ...(process.env.DREAMS_BINARY?[]:['.'])];
   const env = { ...process.env, XDG_CONFIG_HOME: root, XDG_CACHE_HOME: path.join(root, 'cache') };
@@ -50,6 +55,14 @@ async function run() {
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
+    for(const socket of sockets)socket.write(':local 332 Dreamer #dreams :\x02\x0302Bienvenidos\x0f al canal \x0304Chat\x0f 🦆\r\n');
+    await expect(page.locator('#conversation-subtitle')).toHaveText('Bienvenidos al canal Chat 🦆');
+    await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('color','rgb(0, 0, 127)');
+    await page.getByRole('button',{name:'Abrir emojis',exact:true}).click();
+    await page.getByRole('button',{name:'Insertar 🦆',exact:true}).click();
+    await expect(page.locator('#message-input')).toHaveValue('🦆');
+    await page.locator('#message-input').fill('');
+
     await page.locator('#message-input').fill('Desktop sent a message'); await page.locator('#message-input').press('Enter');
     await expect.poll(() => received.includes('PRIVMSG #dreams :Desktop sent a message')).toBe(true);
     await expect.poll(() => received.includes('PONG :desktop-test')).toBe(true);
@@ -120,7 +133,7 @@ async function run() {
     await app.evaluate(({app})=>{
       const req=process.mainModule.require.bind(process.mainModule);
       const {WebClient}=req(app.getAppPath()+'/src/services/web.js');
-      const image=req('node:fs').readFileSync(app.getAppPath()+'/src/assets/tray.png');
+      const image=process.mainModule.require('electron').nativeImage.createFromBitmap(Buffer.alloc(80*40*4,180),{width:80,height:40}).toPNG();
       WebClient.prototype.request=async function(url){if(!url.startsWith('https://photos.example/'))throw new Error('Unexpected fixture URL');return{status:200,body:image};};
     });
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
@@ -132,6 +145,30 @@ async function run() {
     await page.locator('#settings-dialog .dialog-header button').click();
     await page.getByRole('button',{name:'Mostrar usuarios',exact:true}).click();
     await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toBeVisible();
+    expect(await page.getByRole('button',{name:'@Alice',exact:true}).locator('img').evaluate(img=>img.naturalWidth/img.naturalHeight)).toBe(2);
+    await page.getByRole('button',{name:'@Alice',exact:true}).click();
+    await expect(page.locator('#user-profile')).toContainText('Alice Test');
+    await expect(page.locator('#user-profile')).toContainText('0 h 2 min 5 s');
+    await expect(page.locator('#user-profile')).toContainText('user');
+    await expect(page.locator('#user-profile')).toContainText('host');
+    await page.getByRole('button',{name:'Mencionar',exact:true}).click();
+    await expect(page.locator('#message-input')).toHaveValue('Alice: ');
+    await page.locator('#message-input').fill('');
+    await page.getByRole('button',{name:'Silenciar notificaciones',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Activar notificaciones',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Activar notificaciones',exact:true}).click();
+    await page.getByRole('button',{name:'Ignorar',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Dejar de ignorar',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Dejar de ignorar',exact:true}).click();
+    await page.getByRole('button',{name:'Ampliar foto de Alice',exact:true}).click();
+    await expect(page.locator('#photo-dialog .full-photo')).toBeVisible();
+    const savedPhoto=path.join(root,'saved-photo.png');
+    await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},savedPhoto);
+    await page.getByRole('button',{name:'Guardar foto',exact:true}).click();
+    await expect.poll(()=>fs.existsSync(savedPhoto)).toBe(true);
+    await page.locator('#photo-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('button',{name:'← Usuarios',exact:true}).click();
+
     await page.getByRole('button',{name:'Ocultar usuarios',exact:true}).click();
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Multimedia',exact:true}).click();
@@ -144,6 +181,24 @@ async function run() {
     await page.getByRole('button',{name:'Guardar configuración multimedia',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('#settings-dialog .dialog-header button').click();
+    console.log('Prueba Electron: listado y apariencia de salas');
+    await page.getByRole('button',{name:'Entrar en una sala',exact:true}).click();
+    await expect(page.locator('.room-result>button').first()).toHaveText('#zeta · 100');
+    await page.getByLabel('Orden de salas',{exact:true}).selectOption('name');
+    await expect(page.locator('.room-result>button').first()).toHaveText('#alpha · 3');
+    await page.locator('#join-channel').fill('lph');
+    await expect(page.locator('.room-result')).toHaveCount(1);
+    await page.locator('#join-dialog .dialog-header [data-close]').click();
+    await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
+    await page.getByLabel('Fondo de sala',{exact:true}).fill('#ffffff');
+    await page.getByLabel('Texto de sala',{exact:true}).fill('#111111');
+    await page.getByLabel('Nicks coloreados',{exact:true}).uncheck();
+    await expect(page.locator('.room-live-preview')).toHaveCSS('background-color','rgb(255, 255, 255)');
+    await page.getByRole('button',{name:'Guardar apariencia',exact:true}).click();
+    await expect(page.locator('#messages')).toHaveCSS('background-color','rgb(255, 255, 255)');
+    await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
+    await page.getByRole('button',{name:'Restaurar apariencia del tema',exact:true}).click();
+    await page.locator('#room-appearance-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: historial y preferencias');
     // Edit identity and commands in the network form; use a native-decoded photo.
     const photoFile=path.join(root,'identity.png');fs.copyFileSync(path.join(__dirname,'../src/assets/tray.png'),photoFile);
@@ -197,6 +252,18 @@ async function run() {
     // Ensure all queued preference writes have reached the actual main process.
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.sidebarWidth).toBe(420);
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.usersWidth).toBe(360);
+    console.log('Prueba Electron: respaldo con historial y restauración');
+    const backupFile=path.join(root,'backup-with-history.json');
+    await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},backupFile);
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
+    await page.getByRole('button',{name:'Respaldos',exact:true}).click();
+    await page.getByLabel('Incluir historial',{exact:true}).check();
+    await page.getByRole('button',{name:'Exportar respaldo',exact:true}).click();
+    await expect.poll(()=>fs.existsSync(backupFile)).toBe(true);
+    const backup=JSON.parse(fs.readFileSync(backupFile,'utf8'));expect(backup.history.some(m=>m.text==='persisted SQLite desktop message')).toBe(true);expect(backup.history.some(m=>m.target==='*consultas*')).toBe(true);
+    await page.locator('#settings-dialog .dialog-header button').click();
+    await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});dialog.showMessageBox=async()=>({response:1});},backupFile);
+    const imported=await page.evaluate(()=>window.dreams.advanced('backup.import'));expect(imported.error).toBeUndefined();expect(imported.reload).toBe(true);
     await page.evaluate(async()=>{const c=await window.dreams.load();c.settings.autoAvatars=false;await window.dreams.save(c);});
     await closeApplication(app); app = null;
 
@@ -221,6 +288,19 @@ async function run() {
     const timer = setTimeout(() => child.kill(), 10000);
     const [code] = await once(child, 'exit'); clearTimeout(timer);
     expect(code).toBe(0); expect(await app.windows()).toHaveLength(1);
+    console.log('Prueba Electron: aprobación de certificado TLS por red');
+    await page.getByRole('button',{name:'Añadir red',exact:true}).click();
+    await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');
+    await page.getByRole('button',{name:'Guardar y conectar',exact:true}).click();
+    await expect(page.locator('#certificate-dialog')).toBeVisible();
+    await expect(page.locator('#certificate-dialog')).toContainText('Huella SHA-256');expect(tlsLines).toHaveLength(0);
+    await page.getByRole('button',{name:'Aceptar y guardar para esta red',exact:true}).click();
+    await expect(page.locator('#connection-button')).toHaveText('Desconectar');
+    expect(tlsLines.some(line=>line==='NICK TLSNick')).toBe(true);
+    const trust=JSON.parse(fs.readFileSync(path.join(dataPath,'server-certificates.json'),'utf8'));expect(Object.values(trust).some(c=>c.port===tlsServer.address().port)).toBe(true);
+    await page.locator('#connection-button').click();await expect(page.locator('#connection-button')).toHaveText('Conectar');await page.locator('#connection-button').click();
+    await expect(page.locator('#connection-button')).toHaveText('Desconectar');await expect(page.locator('#certificate-dialog')).not.toBeVisible();
+
     await closeApplication(app); app = null;
 
     fs.writeFileSync(path.join(dataPath, 'settings.json'), '{broken-settings');
@@ -235,7 +315,7 @@ async function run() {
   } catch(error){
     const log=path.join(profileDirectory,'startup.log');if(fs.existsSync(log))console.error('Registro de la aplicación de prueba:\n'+fs.readFileSync(log,'utf8'));throw error;
   } finally {
-    if (app) try{await closeApplication(app);}catch(error){console.error(error.message);} for (const socket of sockets) socket.destroy(); server.close(); fs.rmSync(root, { recursive: true, force: true });
+    if (app) try{await closeApplication(app);}catch(error){console.error(error.message);} for (const socket of sockets) socket.destroy(); server.close(); tlsServer.close(); fs.rmSync(root, { recursive: true, force: true });
   }
 }
 run().catch(e => { console.error(e); process.exitCode = 1; });

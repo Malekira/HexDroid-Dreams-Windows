@@ -77,6 +77,7 @@ function validateProfile(p) {
       /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(p.photo)
         ? p.photo
         : "",
+    photoUrl: validatePhotoUrl(p.photoUrl),
     sasl,
     saslUsername,
     encoding,
@@ -120,3 +121,8 @@ function validateProfile(p) {
   return result;
 }
 module.exports = { validateProfile };
+
+function validatePhotoUrl(value){
+ if(value==null||value==='')return '';if(typeof value!=='string'||value.length>2048)throw new Error('URL de foto no válida.');
+ const url=new URL(value.replace(/\{nick\}/gi,'test'));if(url.protocol!=='https:'||url.username||url.password)throw new Error('La foto requiere HTTPS sin credenciales.');return value;
+}

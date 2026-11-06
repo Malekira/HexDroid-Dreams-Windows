@@ -246,6 +246,29 @@ test('Network identity and slash post-connect commands stay independent per prof
  await page.locator('#profile-username').fill('ident_primera');await page.locator('#profile-realName').fill('Nombre Primera');await page.locator('#profile-commands').fill('/nick Primera\n/identify primera');await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();await page.locator('#settings-dialog .dialog-header [data-close]').click();
  await addNetwork(page,'Segunda');await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list .profile-card').nth(1).getByRole('button',{name:'Editar',exact:true}).click();
  await expect(page.locator('#profile-username')).not.toHaveValue('ident_primera');await page.locator('#profile-username').fill('ident_segunda');await page.locator('#profile-realName').fill('Nombre Segunda');await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
- await page.locator('#profile-list .profile-card').first().getByRole('button',{name:'Editar',exact:true}).click();await expect(page.locator('#profile-username')).toHaveValue('ident_primera');await expect(page.locator('#profile-realName')).toHaveValue('Nombre Primera');await expect(page.locator('#profile-commands')).toHaveValue('/nick Primera\n/identify primera');
+ await page.locator('#profile-list .profile-card').first().getByRole('button',{name:'Editar',exact:true}).click();await expect(page.locator('#profile-username')).toHaveValue('ident_primera');await expect(page.locator('#profile-realName')).toHaveText('Nombre Primera');await expect(page.locator('#profile-commands')).toHaveValue('/nick Primera\n/identify primera');
  const overflow=await page.locator('#network-dialog .form-content').evaluate(n=>n.scrollWidth>n.clientWidth);expect(overflow).toBe(false);
+});
+test('Topic renders IRC formatting and emoji picker inserts at the cursor',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'\x02\x0313Bienvenidos\x0f al canal \x0304,01Chat 🦆\x0f'});});
+ await expect(page.locator('#conversation-subtitle')).toHaveText('Bienvenidos al canal Chat 🦆');
+ await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('color','rgb(255, 0, 255)');
+ await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('font-weight','700');
+ await page.locator('#message-input').fill('Hola ');await page.locator('#message-input').press('End');
+ await page.getByRole('button',{name:'Abrir emojis',exact:true}).click();await page.getByRole('button',{name:'Insertar 🦆',exact:true}).click();
+ await expect(page.locator('#message-input')).toHaveValue('Hola 🦆');
+});
+test('Identity editor has alternate nick, formatted real name and readable light-theme controls',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>document.documentElement.dataset.theme='light');
+ await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=networks]').click();await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
+ await page.locator('#profile-alternateNick').fill('Dreamer2');await page.locator('#profile-realName').fill('Nombre con estilo');await page.locator('#profile-realName').selectText();
+ await page.locator('#realname-tools').getByRole('button',{name:'Negrita',exact:true}).click();
+ await expect(page.locator('#realname-preview span')).toHaveCSS('font-weight','700');
+ await expect(page.locator('#profile-photoUrl')).toHaveValue('https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png');
+ await expect(page.locator('#profile-host')).toHaveCSS('color','rgb(29, 41, 60)');await expect(page.locator('#profile-host')).toHaveCSS('background-color','rgb(245, 246, 250)');
+ await page.screenshot({path:'dist/Dreams-identidad-claro.png'});
+ await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).profiles[0].alternateNick)).toBe('Dreamer2');
 });

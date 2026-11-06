@@ -62,11 +62,11 @@ class SessionManager extends EventEmitter {
       "certificate",
       "sts",
       "protocol",
-      "features",
+      "features", "user-profile", "room-list",
     ];
     for (const type of events)
       client.on(type, (data) => {
-        if (s.client !== client) return;
+        if (s.client !== client || this.sessions.get(s.profile.id)!==s) return;
         if (type === "status" && data.state === "connected") {
           s.attempt = 0;
           const commands = [

@@ -33,7 +33,7 @@ function executeInput(client, target, text, emit = () => {}) {
       throw new Error("Selecciona una sala para esta acción.");
     return target;
   };
-  if (command === "join") client.join(args);
+  if (command === "join" || command === "j") { const room=/^[#&+!]/.test(args)?args:"#"+args; token(room,"Sala"); if(room.length<2)throw new Error("Indica una sala."); client.join(room); }
   else if (command === "identify") {
     if (!args)
       throw new Error(

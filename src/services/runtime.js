@@ -28,7 +28,8 @@ class Runtime {
     this.queues = new Map();
     this.sts = {};
     this.mediaCache = new Map();
-    this.avatarCache=new Map();
+    this.avatarCache=new Map();this.pendingCertificates=new Map();this.trustedCertificates={};
+    try{this.trustedCertificates=JSON.parse(fs.readFileSync(path.join(directory,'server-certificates.json'),'utf8'));}catch{}
     this.launchers = new Map();
     this.badge = 0;
     try {
@@ -140,11 +141,12 @@ class Runtime {
       .catch((e) => this.emit(null, "problem", { text: e.message }));
   }
   credentials(id) {
-    return (
+    const secrets = (
       this.memory.get(id) ||
       (this.vault.available() ? this.vault.get("network:" + id) : null) ||
       {}
     );
+    const pin=this.trustedCertificates?.[id];return pin?{...secrets,tlsPin:pin}:secrets;
   }
   connect({ id, password, credentials, remember = false } = {}) {
     const profile = this.getConfig().profiles.find((p) => p.id === id);
@@ -206,6 +208,7 @@ class Runtime {
         this.protocolLog.append(id, data.direction, data.line);
       return;
     }
+    if(type==='certificate'&&!data.trusted){this.pendingCertificates.set(id,data);const s=this.sessions.sessions.get(id);if(s){s.stopped=true;clearTimeout(s.retry);}}
     if (type === "problem") {
       this.emit(id, type, { text: String(data) });
       return;
@@ -296,6 +299,7 @@ class Runtime {
     const ws = this.getConfig().workspace;
     const record = ws?.networks?.find((n) => n.id === id);
     const focused=!!w?.isFocused(),viewing=focused&&this.activeConversation?.id===id&&require('../irc').fold(this.activeConversation.target)===require('../irc').fold(data.target);
+    if((settings.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick||'')))return;
     if(!settings.notifications||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
     const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^a-z0-9_{}|~\-]+/),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
     const sound=mention?settings.mentionSound!==false:privateMessage?settings.privateSound!==false:settings.channelSound===true;
@@ -534,6 +538,24 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'tls.accept':{
+        const cert=this.pendingCertificates.get(id),p=this.getConfig().profiles.find(p=>p.id===id);
+        if(!cert||!p||cert.fingerprint!==data.fingerprint||cert.host!==p.host||cert.port!==p.port||!p.tls)throw new Error('La solicitud de certificado ya no corresponde a esta red.');
+        this.trustedCertificates[id]={host:cert.host,port:cert.port,fingerprint:cert.fingerprint,pem:cert.pem};
+        fs.writeFileSync(path.join(this.directory,'server-certificates.json'),JSON.stringify(this.trustedCertificates),{mode:0o600});this.pendingCertificates.delete(id);this.sessions.disconnect(id);this.connect({id});return{ok:true};}
+      case 'user.whois':
+        if(!client?.ready)throw new Error('Conecta esta red.');require('../irc').token(data.nick,'Apodo');client.request('WHOIS '+data.nick+' '+data.nick,'*consultas*');return{ok:true};
+      case 'rooms.list':
+        if(!client?.ready)throw new Error('Conecta esta red.');client.sendRaw('LIST');return{ok:true};
+      case 'photo.load':{
+        require('../irc').token(data.nick,'Apodo');
+        const profile=this.getConfig().profiles.find(p=>p.id===id),template=data.url||(require('../irc').fold(client?.nick||profile?.nick||'')===require('../irc').fold(data.nick)?profile?.photoUrl:'')||this.getConfig().settings.avatarUrlTemplate;
+        const url=/\{nick\}|\{nickLower\}|%nick%|%s/i.test(template)?require('./avatar-policy').avatarUrl(template,data.nick):template;
+        const endpoint=new URL(url);if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password)throw new Error('La foto requiere HTTPS.');
+        const r=await this.web.request(endpoint.toString(),{domains:[endpoint.hostname],maxBytes:5242880});if(r.status!==200)throw new Error('Foto no encontrada (HTTP '+r.status+').');const mime=imageMime(r.body);if(!mime)throw new Error('La dirección no devolvió una imagen.');
+        const picture=this.electron.nativeImage.createFromBuffer(r.body);if(picture.isEmpty()||picture.getSize().width*picture.getSize().height>32000000)throw new Error('Imagen no válida o demasiado grande.');
+        const cacheId=require('node:crypto').randomUUID();if(this.mediaCache.size>=10)this.mediaCache.delete(this.mediaCache.keys().next().value);this.mediaCache.set(cacheId,{bytes:r.body,mime});return{cacheId,image:'data:'+mime+';base64,'+r.body.toString('base64')};}
+
       case "bouncer.list":
         if (!client?.capabilities.has("soju.im/bouncer-networks"))
           throw new Error("El servidor no admite gestionar redes soju.");
@@ -601,7 +623,7 @@ class Runtime {
           throw new Error("La foto tiene demasiados píxeles.");
         return {
           image: image
-            .resize({ width: 128, height: 128, quality: "good" })
+            .resize({ width: Math.max(1,Math.round(size.width*Math.min(128/size.width,128/size.height))), height: Math.max(1,Math.round(size.height*Math.min(128/size.width,128/size.height))), quality: "good" })
             .toDataURL(),
         };
       }
@@ -959,6 +981,7 @@ class Runtime {
           this.getConfig(),
           secrets,
           data.password,
+          data.includeHistory ? this.history.query({limit:100001},100001).filter(m=>this.getConfig().profiles.some(p=>p.id===m.network)) : undefined,
         );
         const file = await this.destination({
           defaultPath: "HexDroid-backup.json",
@@ -971,7 +994,7 @@ class Runtime {
           filters: [{ name: "Respaldo HexDroid", extensions: ["json"] }],
         });
         if (!file) return { cancelled: true };
-        if (fs.statSync(file).size > 5242880)
+        if (fs.statSync(file).size > 67108864)
           throw new Error("Respaldo demasiado grande.");
         const backup = await readBackup(
           fs.readFileSync(file, "utf8"),
@@ -1009,7 +1032,7 @@ class Runtime {
         if (
           !(await this.confirm(
             "¿Restaurar el respaldo?",
-            `${backup.config.profiles.length} redes. Reemplazará las preferencias actuales; las conexiones se cerrarán.`,
+            `${backup.config.profiles.length} redes. Reemplazará las preferencias actuales${backup.history ? ' y el historial ('+backup.history.length+' registros)' : ''}; las conexiones se cerrarán.`,
           ))
         )
           return { cancelled: true };
@@ -1035,6 +1058,7 @@ class Runtime {
             await this.scripts.restart();
           }
         }
+        if(backup.history){this.history.open();this.history.db.exec('BEGIN IMMEDIATE');try{this.history.db.exec('DELETE FROM messages');for(const m of backup.history)this.history.append(m.network,m);this.history.db.exec('COMMIT');}catch(e){this.history.db.exec('ROLLBACK');throw e;}}
         this.saveConfig(backup.config);
         return { ok: true, reload: true };
       }
@@ -1121,9 +1145,10 @@ class Runtime {
         });
       }
       case 'avatar.load':{
+        require('../irc').token(data.nick,'Apodo');
         const settings=this.getConfig().settings;if(settings.mediaEnabled===false||settings.showAvatars===false||!settings.autoAvatars)return{disabled:true};
-        const url=require('./avatar-policy').avatarUrl(settings.avatarUrlTemplate,data.nick),saved=this.avatarCache.get(url);if(saved&&Date.now()-saved.time<600000)return{image:saved.image};
-        const response=await this.web.request(url,{domains:[new URL(url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');const picture=this.electron.nativeImage.createFromBuffer(response.body);if(picture.isEmpty())throw new Error('No se pudo decodificar la foto.');const size=picture.getSize();if(size.width*size.height>32000000)throw new Error('Foto demasiado grande.');const image=picture.resize({width:96,height:96,quality:'good'}).toDataURL();if(this.avatarCache.size>=64)this.avatarCache.delete(this.avatarCache.keys().next().value);this.avatarCache.set(url,{image,time:Date.now()});return{image};}
+        const p=this.getConfig().profiles.find(p=>p.id===id),own=require('../irc').fold(client?.nick||p?.nick||'')===require('../irc').fold(data.nick),template=own&&p?.photoUrl||settings.avatarUrlTemplate;const url=/\{nick\}|\{nickLower\}|%nick%|%s/i.test(template)?require('./avatar-policy').avatarUrl(template,data.nick):template,saved=this.avatarCache.get(url);if(saved&&Date.now()-saved.time<600000)return{image:saved.image};
+        const response=await this.web.request(url,{domains:[new URL(url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');const picture=this.electron.nativeImage.createFromBuffer(response.body);if(picture.isEmpty())throw new Error('No se pudo decodificar la foto.');const size=picture.getSize();if(size.width*size.height>32000000)throw new Error('Foto demasiado grande.');const image=picture.resize({width:Math.max(1,Math.round(size.width*Math.min(96/size.width,96/size.height))),height:Math.max(1,Math.round(size.height*Math.min(96/size.width,96/size.height))),quality:'good'}).toDataURL();if(this.avatarCache.size>=64)this.avatarCache.delete(this.avatarCache.keys().next().value);this.avatarCache.set(url,{image,time:Date.now()});return{image};}
       case "avatar.preview": {
         if(this.getConfig().settings.avatarUrlTemplate)return this.action('media.preview',{url:require('./avatar-policy').avatarUrl(this.getConfig().settings.avatarUrlTemplate,data.nick)});
         if (!client?.capabilities.has("draft/metadata-2"))

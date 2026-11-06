@@ -96,13 +96,15 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         );
         this.capTimer.unref();
       };
-      const pin = this.secrets.tlsPin,
+      this.tlsAccepted=false;
+      const pin = this.secrets.tlsPin && (!this.secrets.tlsPin.host || this.secrets.tlsPin.host===p.host&&this.secrets.tlsPin.port===p.port) ? this.secrets.tlsPin : null,
         material = this.secrets.clientCertificate || {};
       const options = {
         host: p.host,
         port: p.port,
         servername: net.isIP(p.host) ? undefined : p.host,
-        rejectUnauthorized: true,
+        // Registration stays gated below until PKI validation or an explicit endpoint pin succeeds.
+        rejectUnauthorized: !!(material.pfx || material.cert),
         minVersion: "TLSv1.2",
         ...(tunnel ? { socket: tunnel } : {}),
         ...(this.secrets.ca
@@ -123,6 +125,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
             }
           : {}),
         checkServerIdentity: (host, cert) => {
+          if(pin?.fingerprint && cert.fingerprint256?.replace(/:/g,'').toLowerCase()===pin.fingerprint)return;
           const error = tls.checkServerIdentity(host, cert);
           if (error) return error;
           if (
@@ -138,6 +141,14 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.socket = p.tls
         ? tls.connect(options, () => {
             const cert = this.socket.getPeerCertificate();
+            const fingerprint=cert.raw&&crypto.createHash('sha256').update(cert.raw).digest('hex');
+            const pinned=!!pin?.fingerprint&&pin.fingerprint===fingerprint;
+            const identityError=cert.raw?tls.checkServerIdentity(p.host,cert):new Error('Certificado ausente');
+            if(!pinned&&(!this.socket.authorized||identityError)||pin&&!pinned){
+              if(cert.raw)this.emit('certificate',{host:p.host,port:p.port,trusted:false,pem:new crypto.X509Certificate(cert.raw).toString(),fingerprint,subject:cert.subject,issuer:cert.issuer,validFrom:cert.valid_from,validTo:cert.valid_to,reason:pin?'El certificado cambió respecto al aprobado.':identityError?.message||String(this.socket.authorizationError)});
+              this.emit('problem','TLS: '+(this.socket.authorizationError||identityError?.message||'certificate changed')+'. Revisa y aprueba el certificado de esta red.');this.socket.destroy();return;
+            }
+            this.tlsAccepted=true;
             if (p.tofu && !pin && cert.raw)
               this.emit("certificate", {
                 host: p.host,
@@ -158,7 +169,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.socket.on("timeout", () =>
         this.fail("Se agotó el tiempo de conexión."),
       );
-      this.socket.on("data", (data) => this.receive(data));
+      this.socket.on("data", (data) => {if(!p.tls||this.tlsAccepted)this.receive(data);});
       this.socket.on("error", (e) => {
         if (p.tls && p.tofu) {
           let cert;
@@ -417,6 +428,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     handle(m) {
       const { command: c, params: p } = m;
+      if(['311','312','313','317','318','319','330','301','401'].includes(c)){
+        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),complete:c==='318',error:c==='401'});
+      }
+      if(c==='321')this.emit('room-list',{reset:true});
+      if(c==='322')this.emit('room-list',{name:p[1],members:Number(p[2])||0,topic:p[3]||''});
+      if(c==='323')this.emit('room-list',{complete:true});
       if (c === "005") {
         for (const item of p.slice(1, -1)) {
           const at = item.indexOf("="),

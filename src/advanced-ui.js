@@ -752,8 +752,10 @@
       note(
         "La importación requiere confirmación y reemplaza las redes y preferencias. Conserva un respaldo antes de restaurar.",
       );
+      const includeHistory=input('Incluir historial',false,'checkbox');
       button("Exportar respaldo", () =>
         call("backup.export", {
+          includeHistory:includeHistory.checked,
           includeSecrets: secrets.checked,
           password: password.value,
         }),
@@ -790,30 +792,7 @@
           }
           return r;
         });
-      const url = input("URL HTTPS para vista previa",config.settings.mediaPreviewUrl||""),
-        preview = el("div", "media-preview");
-      body.append(preview);
-      note(
-        "Las vistas previas solo se descargan al solicitarlas y requieren confirmación.",
-      );
-      button("Cargar vista previa", async () => {
-        await settings({mediaPreviewUrl:url.value});const r = await call("media.preview", { url: url.value });
-        preview.replaceChildren();
-        if (r.image) {
-          const img = el("img");
-          img.src = r.image;
-          img.alt = "Vista previa solicitada";
-          preview.append(img);
-          button(
-            "Guardar imagen",
-            () => call("media.save", { cacheId: r.cacheId }),
-            preview,
-          );
-        } else if (r.title) note(r.title, preview);
-        return r;
-      });
-      button('Guardar dirección de vista previa',()=>settings({mediaPreviewUrl:url.value}));
-      button("Abrir en navegador", () => call("link.open", { url: url.value }));
+
     }
   }
   function open(key) {
@@ -1029,8 +1008,9 @@
     }
   };
   const avatarRequests=new Map(),avatarQueue=[];let avatarRunning=0;
-  function drainAvatars(){while(avatarRunning<3&&avatarQueue.length){const task=avatarQueue.shift();if(config.settings.mediaEnabled===false||!config.settings.autoAvatars||config.settings.showAvatars===false)continue;avatarRunning++;call('avatar.load',{network:task.id,nick:task.nick}).then(r=>{if(r.image&&config.settings.avatarUrlTemplate===task.template&&config.settings.mediaEnabled!==false&&config.settings.showAvatars!==false){const n=network(task.id);n.avatars||={};n.avatars[fold(task.nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;scheduleRender();}}).catch(()=>{}).finally(()=>{avatarRunning--;drainAvatars();});}}
-  window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||config.settings.showAvatars===false||!config.settings.autoAvatars||!config.settings.avatarUrlTemplate)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(c?.users||[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const key=active.id+'|'+fold(nick)+'|'+config.settings.avatarUrlTemplate;if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);if(avatarQueue.length<200)avatarQueue.push({id:active.id,nick,template:config.settings.avatarUrlTemplate});}drainAvatars();};
+  function drainAvatars(){while(avatarRunning<3&&avatarQueue.length){const task=avatarQueue.shift();if(config.settings.mediaEnabled===false||!config.settings.autoAvatars||config.settings.showAvatars===false)continue;avatarRunning++;call('avatar.load',{network:task.id,nick:task.nick}).then(r=>{if(r.image&&config.settings.avatarUrlTemplate===task.template&&(profile(task.id)?.photoUrl||'')===task.photoUrl&&config.settings.mediaEnabled!==false&&config.settings.showAvatars!==false){const n=network(task.id);n.avatars||={};n.avatars[fold(task.nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;scheduleRender();}}).catch(()=>{}).finally(()=>{avatarRunning--;drainAvatars();});}}
+  window.resetDreamsAvatars=()=>{avatarRequests.clear();for(const n of networks.values()){n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}};
+  window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||config.settings.showAvatars===false||!config.settings.autoAvatars||!config.settings.avatarUrlTemplate)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(c?.users||[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const key=active.id+'|'+fold(nick)+'|'+config.settings.avatarUrlTemplate+'|'+(profile(active.id)?.photoUrl||'');if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);if(avatarQueue.length<200)avatarQueue.push({id:active.id,nick,template:config.settings.avatarUrlTemplate,photoUrl:profile(active.id)?.photoUrl||''});}drainAvatars();};
   api.onEvent(event=>{if(event.type==='attention'&&event.flash){const workspace=document.querySelector('.workspace');workspace.classList.remove('mention-flash');void workspace.offsetWidth;workspace.classList.add('mention-flash');setTimeout(()=>workspace.classList.remove('mention-flash'),2200);}if(event.type==='attention'){const c=conversation(event.id,event.target);c.mentionUntil=Date.now()+4000;renderTabs();}});
   setTimeout(async()=>{if(config.settings.queryHistoryEnabled===false)return;for(const p of config.profiles){try{const rows=await call('history.search',{network:p.id,target:'*consultas*',limit:200});if(rows.length){for(const m of rows){const c=conversation(p.id,'*consultas*');if(!c.messages.some(live=>live.text===m.text&&live.time===m.time))workspace.addMessage(p.id,'*consultas*',{...m,event:true,historical:true});}render();}}catch{}}},500);
   const historyLoaded = new Set(),

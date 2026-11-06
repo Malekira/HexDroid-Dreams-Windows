@@ -20,3 +20,4 @@ test('Query opens a private locally and raw remains available without faking uns
 test('Login, nick and identify work directly without raw',()=>{
  const lines=[],messages=[],client={ready:true,nick:'Me',sendRaw:line=>lines.push(line),sendMessage:(target,text)=>messages.push({target,text})};executeInput(client,'*','/login account password');executeInput(client,'*','/nick NewNick');executeInput(client,'*','/identify account password');assert.deepEqual(lines,['LOGIN account password','NICK NewNick']);assert.deepEqual(messages,[{target:'NickServ',text:'IDENTIFY account password'}]);assert.throws(()=>executeInput(client,'*','/identify'),/Uso/);
 });
+test('/j and /join accept room names with and without a channel prefix',()=>{const c=client();for(const command of ['/j sala','/j #sala','/join sala','/join &local'])executeInput(c,'*',command);assert.deepEqual(c.lines,['JOIN #sala','JOIN #sala','JOIN #sala','JOIN &local']);assert.throws(()=>executeInput(c,'*','/j'));});

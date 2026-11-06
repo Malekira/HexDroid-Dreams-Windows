@@ -123,3 +123,9 @@ test("Protocol diagnostics redact credentials and all message content before enc
   }
   assert.equal(redactProtocol("PING :keepalive"), "PING :keepalive");
 });
+test('Backups optionally include validated conversation and query history and remain compatible with old backups',async()=>{
+ const config={settings:{...DEFAULTS},profiles:[{id:'net',name:'Test',host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}]};
+ const rows=[{network:'net',target:'#room',nick:'Alice',text:'\x0313Hola 🦆',time:new Date().toISOString(),own:false},{network:'net',target:'*consultas*',nick:'Servidor',text:'Alice user host',time:new Date().toISOString()}];
+ const text=await createBackup(config,null,null,rows),restored=await readBackup(text);assert.equal(restored.history.length,2);assert.equal(restored.history[0].text,rows[0].text);assert.equal(restored.history[1].target,'*consultas*');assert.equal((await readBackup(await createBackup(config))).history,undefined);
+ const invalid=JSON.parse(text);invalid.history[0].network='unknown';await assert.rejects(()=>readBackup(JSON.stringify(invalid)),/Historial/);invalid.history=rows.map(m=>({...m,time:'bad'}));await assert.rejects(()=>readBackup(JSON.stringify(invalid)),/Historial/);
+});

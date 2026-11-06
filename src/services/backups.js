@@ -11,13 +11,14 @@ async function derive(password, salt) {
     maxmem: 64 * 1024 * 1024,
   });
 }
-async function createBackup(config, secrets, password) {
+async function createBackup(config, secrets, password, history) {
   const result = {
     format: "hexdroid-dreams-backup",
     version: 1,
     created: new Date().toISOString(),
     config: sanitizeData(config),
   };
+  if(history)result.history=validateHistory(history,result.config);
   if (secrets) {
     if (typeof password !== "string" || password.length < 12)
       throw new Error(
@@ -44,12 +45,13 @@ async function createBackup(config, secrets, password) {
   return JSON.stringify(result, null, 2);
 }
 async function readBackup(text, password) {
-  if (typeof text !== "string" || Buffer.byteLength(text) > 5 * 1024 * 1024)
+  if (typeof text !== "string" || Buffer.byteLength(text) > 64 * 1024 * 1024)
     throw new Error("Respaldo demasiado grande.");
   const parsed = JSON.parse(text);
   if (parsed.format !== "hexdroid-dreams-backup" || parsed.version !== 1)
     throw new Error("Formato de respaldo no reconocido.");
   const result = { config: sanitizeData(parsed.config) };
+  if(parsed.history)result.history=validateHistory(parsed.history,result.config);
   if (parsed.secrets) {
     const s = parsed.secrets;
     if (s.kdf !== "scrypt-32768-8-1" || typeof password !== "string")
@@ -77,5 +79,10 @@ async function readBackup(text, password) {
     }
   }
   return result;
+}
+function validateHistory(rows,config){
+ if(!Array.isArray(rows)||rows.length>100000)throw new Error('Historial de respaldo demasiado grande.');
+ const ids=new Set(config.profiles.map(p=>p.id));let bytes=0;
+ return rows.map(m=>{if(!ids.has(m.network)||typeof m.target!=='string'||!m.target||m.target.length>200||/[\s\0\r\n:,]/.test(m.target)||typeof m.text!=='string'||m.text.length>10000||typeof m.nick!=='string'||m.nick.length>200||!Number.isFinite(Date.parse(m.time)))throw new Error('Historial de respaldo no válido.');bytes+=Buffer.byteLength(m.text);if(bytes>52428800)throw new Error('Historial de respaldo demasiado grande.');return{network:m.network,target:m.target,nick:m.nick,text:m.text,time:new Date(m.time).toISOString(),messageId:typeof m.messageId==='string'?m.messageId.slice(0,500):null,clientId:typeof m.clientId==='string'?m.clientId.slice(0,500):null,own:!!m.own,action:!!m.action};});
 }
 module.exports = { createBackup, readBackup };
