@@ -51,7 +51,7 @@ class Runtime {
       credentials: (id) => this.credentials(id),
       policy: (host) => this.sts[host],
       clientFactory: (profile, secrets) => {
-        const c = new IrcClient(profile, secrets);
+        const c = new IrcClient({...profile,avatarDiscovery:this.getConfig().settings.mediaEnabled!==false&&this.getConfig().settings.autoAvatars===true&&this.getConfig().settings.showAvatars!==false}, secrets);
         this.cryptoAdapters.set(profile.id, this.crypto.attach(profile.id, c));
         return c;
       },
@@ -533,6 +533,10 @@ class Runtime {
       (type, data) => this.emit(id, type, data),
     );
   }
+  resolvePhoto(id,nick,options={}){
+    const client=this.sessions.get(id),p=this.getConfig().profiles.find(p=>p.id===id),own=require('../irc').fold(client?.nick||p?.nick||'')===require('../irc').fold(nick),state=client?.userStates?.get(require('../irc').fold(nick))||{};
+    return{...require('./avatar-policy').resolveAvatar({state,nick,template:own&&p?.photoUrl||this.getConfig().settings.avatarUrlTemplate,...options}),client,version:state.avatarVersion||0};
+  }
   async action(name, data = {}) {
     const id = data.network,
       client = this.sessions.get(id),
@@ -549,9 +553,9 @@ class Runtime {
         if(!client?.ready)throw new Error('Conecta esta red.');client.sendRaw('LIST');return{ok:true};
       case 'photo.load':{
         require('../irc').token(data.nick,'Apodo');
-        const profile=this.getConfig().profiles.find(p=>p.id===id),template=data.url||(require('../irc').fold(client?.nick||profile?.nick||'')===require('../irc').fold(data.nick)?profile?.photoUrl:'')||this.getConfig().settings.avatarUrlTemplate;
-        const url=/\{nick\}|\{nickLower\}|%nick%|%s/i.test(template)?require('./avatar-policy').avatarUrl(template,data.nick):template;
-        const endpoint=new URL(url);if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password)throw new Error('La foto requiere HTTPS.');
+        const resolved=this.resolvePhoto(id,data.nick,{explicit:data.url,refresh:true});if(!resolved.url)throw new Error('Este usuario no anuncia una foto válida.');
+        const endpoint=new URL(resolved.url);
+        if(!data.url&&this.resolvePhoto(id,data.nick,{automatic:true}).blocked&&!(await this.confirm('¿Cargar la foto de '+endpoint.hostname+'?','El servidor web recibirá tu dirección IP.')))return{cancelled:true};
         const r=await this.web.request(endpoint.toString(),{domains:[endpoint.hostname],maxBytes:5242880});if(r.status!==200)throw new Error('Foto no encontrada (HTTP '+r.status+').');const mime=imageMime(r.body);if(!mime)throw new Error('La dirección no devolvió una imagen.');
         const picture=this.electron.nativeImage.createFromBuffer(r.body);if(picture.isEmpty()||picture.getSize().width*picture.getSize().height>32000000)throw new Error('Imagen no válida o demasiado grande.');
         const cacheId=require('node:crypto').randomUUID();if(this.mediaCache.size>=10)this.mediaCache.delete(this.mediaCache.keys().next().value);this.mediaCache.set(cacheId,{bytes:r.body,mime});return{cacheId,image:'data:'+mime+';base64,'+r.body.toString('base64')};}
@@ -1144,57 +1148,18 @@ class Runtime {
           url: client.networkIcon.replace(/\{size\}/g, "64"),
         });
       }
+      case 'avatars.sync':{
+        this.avatarCache.clear();const s=this.getConfig().settings;
+        for(const session of this.sessions.sessions.values()){const c=session.client;if(!c)continue;c.avatarDiscovery=s.mediaEnabled!==false&&s.autoAvatars===true&&s.showAvatars!==false;if(!c.ready||!c.avatarDiscovery)continue;c.avatarSubscribed=false;c.syncAvatars();for(const channel of c.joined.values())c.sendRaw('WHO '+channel+(c.whox?' %tcuhnfar,152':''));}return{ok:true};}
       case 'avatar.load':{
         require('../irc').token(data.nick,'Apodo');
         const settings=this.getConfig().settings;if(settings.mediaEnabled===false||settings.showAvatars===false||!settings.autoAvatars)return{disabled:true};
-        const p=this.getConfig().profiles.find(p=>p.id===id),own=require('../irc').fold(client?.nick||p?.nick||'')===require('../irc').fold(data.nick),template=own&&p?.photoUrl||settings.avatarUrlTemplate;const url=/\{nick\}|\{nickLower\}|%nick%|%s/i.test(template)?require('./avatar-policy').avatarUrl(template,data.nick):template,saved=this.avatarCache.get(url);if(saved&&Date.now()-saved.time<600000)return{image:saved.image};
-        const response=await this.web.request(url,{domains:[new URL(url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');const picture=this.electron.nativeImage.createFromBuffer(response.body);if(picture.isEmpty())throw new Error('No se pudo decodificar la foto.');const size=picture.getSize();if(size.width*size.height>32000000)throw new Error('Foto demasiado grande.');const image=picture.resize({width:Math.max(1,Math.round(size.width*Math.min(96/size.width,96/size.height))),height:Math.max(1,Math.round(size.height*Math.min(96/size.width,96/size.height))),quality:'good'}).toDataURL();if(this.avatarCache.size>=64)this.avatarCache.delete(this.avatarCache.keys().next().value);this.avatarCache.set(url,{image,time:Date.now()});return{image};}
-      case "avatar.preview": {
-        if(this.getConfig().settings.avatarUrlTemplate)return this.action('media.preview',{url:require('./avatar-policy').avatarUrl(this.getConfig().settings.avatarUrlTemplate,data.nick)});
-        if (!client?.capabilities.has("draft/metadata-2"))
-          throw new Error("El servidor no admite metadatos de avatar.");
-        if (typeof data.nick !== "string" || /[\s\r\n\0,:]/.test(data.nick))
-          throw new Error("Apodo inválido.");
-        const meta = client.userStates.get(
-          require("../irc").fold(data.nick),
-        )?.metadata;
-        let url = meta?.avatar || meta?.["avatar-url"];
-        if (!url) {
-          url = await new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
-              client.off("user-state", listener);
-              reject(
-                new Error(
-                  "El servidor no devolvió una URL de foto para este usuario.",
-                ),
-              );
-            }, 8000);
-            const listener = (state) => {
-              if (
-                require("../irc").fold(state.nick) ===
-                  require("../irc").fold(data.nick) &&
-                ["avatar", "avatar-url"].includes(state.key) &&
-                state.value
-              ) {
-                clearTimeout(timer);
-                client.off("user-state", listener);
-                resolve(state.value);
-              }
-            };
-            client.on("user-state", listener);
-            try {
-              client.sendRaw(
-                "METADATA " + data.nick + " GET avatar avatar-url",
-              );
-            } catch (e) {
-              clearTimeout(timer);
-              client.off("user-state", listener);
-              reject(e);
-            }
-          });
-        }
-        return this.action("media.preview", { url });
-      }
+        const now=Date.now(),resolved=this.resolvePhoto(id,data.nick,{automatic:true,now});if(!resolved.url)return{empty:true,blocked:resolved.blocked};
+        const key=id+'|'+resolved.version+'|'+resolved.url,saved=this.avatarCache.get(key);if(saved&&now-saved.time<60000)return{image:saved.image};
+        const response=await this.web.request(resolved.url,{domains:[new URL(resolved.url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');
+        const current=this.resolvePhoto(id,data.nick,{automatic:true,now});if(current.client!==resolved.client||current.version!==resolved.version||current.url!==resolved.url)return{stale:true};
+        const picture=this.electron.nativeImage.createFromBuffer(response.body);if(picture.isEmpty())throw new Error('No se pudo decodificar la foto.');const size=picture.getSize();if(size.width*size.height>32000000)throw new Error('Foto demasiado grande.');const image=picture.resize({width:Math.max(1,Math.round(size.width*Math.min(96/size.width,96/size.height))),height:Math.max(1,Math.round(size.height*Math.min(96/size.width,96/size.height))),quality:'good'}).toDataURL();if(this.avatarCache.size>=64)this.avatarCache.delete(this.avatarCache.keys().next().value);this.avatarCache.set(key,{image,time:now});return{image};}
+      case "avatar.preview":return this.action('photo.load',{network:id,nick:data.nick});
       case "media.preview": {
         const u = new URL(data.url);
         if (

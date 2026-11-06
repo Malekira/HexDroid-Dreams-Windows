@@ -122,6 +122,12 @@ async function closeConversation(id, target) {
   if (cWasActive) { active = null; choose(id,'*'); } else render();
   persist().catch(() => {});
 }
+function avatarFor(id,nick){
+  if(config.settings.mediaEnabled===false||config.settings.showAvatars===false)return null;
+  const n=network(id),state=n.userStates?.[fold(nick)]||{},photo=n.avatars?.[fold(nick)];
+  if(Object.hasOwn(state.metadata||{},'avatar')||Object.hasOwn(state.metadata||{},'avatar-url'))return photo||null;
+  return photo||(fold(n.nick)===fold(nick)?profile(id)?.photo:null);
+}
 function renderMessages(preserveScroll = false) {
   const list = $('messages'), c = selected(), query = fold($('message-search').value);
   list.hidden = !c; $('welcome').hidden = !!c;
@@ -144,7 +150,7 @@ function renderMessages(preserveScroll = false) {
     row.dataset.messageId = m.id;
     if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted); }
     else {
-      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:(m.own?profile(active.id)?.photo:null)||network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
+      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick);if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
       const nick = el('button','message-nick','{'+m.nick+'}');nick.setAttribute('aria-label',m.nick);if(!m.own&&config.settings.coloredNicks!==false){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${document.documentElement.dataset.theme==='light'?38:72}%)`;} nick.onclick = () => choose(active.id,m.nick); if (config.settings.timestamps)header.append(time,document.createTextNode(' '));header.append(nick,document.createTextNode(' '));
       const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced&&config.settings.mediaEnabled!==false){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
@@ -172,7 +178,7 @@ function renderUsers() {
   for (const user of users.filter(user => fold(user).includes(query))) {
     const bare = bareNick(user,n), b = el('button','user-button' + (rank(user) < 999 ? ' operator' : ''));
     b.setAttribute('aria-label',statusPrefix(user,n)+bare);
-    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:(fold(bare)===fold(n.nick)?profile(active.id)?.photo:null)||n.avatars?.[fold(bare)];if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',statusPrefix(user,n)+bare));
+    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=avatarFor(active.id,bare);if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',statusPrefix(user,n)+bare));
     b.setAttribute('aria-label',user); b.title = 'Doble clic para abrir un privado con ' + bare;
     const id = active.id; let profileTimer; b.onclick=()=>{clearTimeout(profileTimer);profileTimer=setTimeout(()=>window.openDreamsUser?.(id,bare),220);}; b.ondblclick = () => {clearTimeout(profileTimer);choose(id,bare);}; b.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); choose(id,bare); } };
     b.oncontextmenu = e => userMenu(e,id,c,bare); list.append(b);
@@ -199,7 +205,7 @@ function renderHeader() {
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;
-  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:p?.photo||n?.avatars?.[fold(n.nick)];if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
+  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=n?avatarFor(active.id,n.nick):null;if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
   $('self-nick').textContent = n?.nick || 'Tu espacio IRC'; $('connection-summary').textContent = connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}` : 'Sin conexión';
   for (const id of ['global-status','footer-dot']) $(id).className = 'status-dot' + (connected ? ' online' : n?.state === 'connecting' ? ' connecting' : '');
   $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDroid Dreams ' + appVersion;
@@ -510,6 +516,7 @@ api.onEvent(event => {
     case 'nick': {
       if (event.own) n.nick = event.nick;
       for(const c of n.conversations.values())c.users=c.users.map(user=>fold(bareNick(user,n))===fold(event.old)?statusPrefix(user,n)+event.nick:user);
+      if(fold(event.old)!==fold(event.nick)&&n.userStates?.[fold(event.old)]){n.userStates[fold(event.nick)]=n.userStates[fold(event.old)];delete n.userStates[fold(event.old)];}
       if(n.avatars){delete n.avatars[fold(event.old)];delete n.avatars[fold(event.nick)];n.avatarRevision=(n.avatarRevision||0)+1;}
       const old = n.conversations.get(fold(event.old));
       if (old && !/^[#&+!]/.test(old.name)) {

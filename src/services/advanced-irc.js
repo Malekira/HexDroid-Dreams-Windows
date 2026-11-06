@@ -18,6 +18,8 @@ const SUPPORTED = [
   "multi-prefix",
   "userhost-in-names",
   "chghost",
+  "setname",
+  "standard-replies",
   "draft/chathistory",
   "chathistory",
   "draft/multiline",
@@ -52,12 +54,20 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.byteBuffer = Buffer.alloc(0);
       this.nickAttempts = 0;
       this.userStates = new Map();
-      this.pendingWhois = new Map();
+      this.pendingWhois = new Map();this.avatarDiscovery=profile.avatarDiscovery!==false;this.avatarSequence=0;
     }
+    updateAvatar(nick,patch){
+      nick=nick==='*'?this.nick:String(nick||'').split('!')[0];if(!nick||/^[#&+!]/.test(nick))return;
+      const old=this.userStates.get(fold(nick))||{},next={...old,...patch,avatarVersion:++this.avatarSequence};
+      if(patch.metadata)next.metadata={...old.metadata,...patch.metadata};
+      this.userStates.set(fold(nick),next);this.emit('user-state',{nick,...next,avatarVersion:next.avatarVersion,key:patch.metadata?'avatar':undefined,value:patch.metadata?.avatar});
+    }
+    learnPhoto(nick,realName){const photo=require('./avatar-policy').legacyPhoto(realName);this.updateAvatar(nick,{legacyPhoto:photo});}
+    syncAvatars(){if(!this.capabilities.has('draft/metadata-2'))this.avatarSubscribed=false;if(!this.ready||!this.avatarDiscovery||!this.capabilities.has('draft/metadata-2')||this.avatarSubscribed)return;this.avatarSubscribed=true;this.sendRaw('METADATA * SUB avatar');this.sendRaw('METADATA * GET avatar');for(const channel of this.joined.values())this.sendRaw('METADATA '+channel+' SYNC');}
     connect() {
       if (this.socket && !this.socket.destroyed)
         throw new Error("La red ya está conectada.");
-      this.closed = false;
+      this.closed = false;this.avatarSubscribed=false;this.userStates.clear();
       this.open().catch((e) => this.fail(e.message));
     }
     async open() {
@@ -448,6 +458,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
                     );
           if (["SOJU.IM/FILEHOST", "DRAFT/FILEHOST", "FILEHOST"].includes(name))
             this.filehost = value;
+          if(name==="WHOX")this.whox=true;
           if (["ICON", "DRAFT/ICON"].includes(name)) this.networkIcon = value;
         }
         this.emit("features", {
@@ -455,20 +466,21 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           networkIcon: this.networkIcon,
         });
       }
-      if (c === "761" && p.length >= 5) {
-        const nick = p[1],
-          key = p[2],
-          value = p.at(-1),
-          old = this.userStates.get(fold(nick)) || {};
-        this.userStates.set(fold(nick), {
-          ...old,
-          metadata: { ...old.metadata, [key]: value },
-        });
-        this.emit("user-state", { nick, key, value });
-        return;
+      if(c==='761'&&p.length>=5){
+        const nick=String(p[1]).split('!')[0],key=p[2],value=p[4];
+        if(key==='avatar'||key==='avatar-url')this.updateAvatar(nick,{metadata:{[key]:value}});
+        else{const old=this.userStates.get(fold(nick))||{};this.userStates.set(fold(nick),{...old,metadata:{...old.metadata,[key]:value}});this.emit('user-state',{nick,key,value});}return;
       }
+      if(c==='METADATA'){const key=p[1];if(key==='avatar'||key==='avatar-url')this.updateAvatar(p[0],{metadata:{[key]:p[3]||''}});return;}
+      if(c==='JOIN'&&p.length>=3)this.learnPhoto(m.nick,p[2]);
+      if(c==='SETNAME')this.learnPhoto(m.nick,p[0]);
+      if(c==='311'&&p.length>=6)this.learnPhoto(p[1],p[5]);
+      if(c==='352'&&p.length>=8)this.learnPhoto(p[5],p[7].replace(/^\d+ /,''));
+      if(c==='354'&&p[1]==='152'&&p.length>=9)this.learnPhoto(p[5],p.at(-1));
+      if(c==='QUIT')this.userStates.delete(fold(m.nick));
+      if(c==='NICK'){const old=this.userStates.get(fold(m.nick));this.userStates.delete(fold(m.nick));if(old)this.userStates.set(fold(p[0]),old);}
       if (c === "CAP") {
-        this.capabilitiesMessage(m);
+        this.capabilitiesMessage(m);this.syncAvatars();
         return;
       }
       if (c === "421" && p.includes("CAP")) {
@@ -691,6 +703,8 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.currentMessage = m;
       try {
         super.handle(m);
+        if(c==='001')this.syncAvatars();
+        if(c==='JOIN'&&fold(m.nick)===fold(this.nick)&&this.avatarDiscovery){this.syncAvatars();if(this.capabilities.has('draft/metadata-2'))this.sendRaw('METADATA '+p[0]+' SYNC');this.sendRaw('WHO '+p[0]+(this.whox?' %tcuhnfar,152':''));}
       } finally {
         this.currentMessage = previous;
       }

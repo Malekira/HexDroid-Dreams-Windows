@@ -357,3 +357,17 @@ test('Per-network post-connect slash commands run in order and stop after discon
 test('Avatar metadata numeric replies update the network user state',()=>{
  const client=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),events=[];client.on('user-state',e=>events.push(e));client.receive(Buffer.from(':server 761 Me Alice avatar * :https://example.org/avatar.png\r\n'));assert.equal(client.userStates.get('alice').metadata.avatar,'https://example.org/avatar.png');assert.equal(events[0].nick,'Alice');
 });
+test('Avatar discovery subscribes after registration and learns legacy photos through WHO, WHOX, JOIN and SETNAME',()=>{
+ const client=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),wire=[],events=[];client.sendRaw=line=>wire.push(line);client.on('user-state',e=>events.push(e));
+ client.receive(Buffer.from(':s CAP Me ACK :draft/metadata-2 batch standard-replies\r\n'));assert.equal(wire.some(l=>l.startsWith('METADATA')),false);
+ client.receive(Buffer.from(':s 001 Me :welcome\r\n:s 005 Me WHOX :supported\r\n:Me!u@h JOIN :#room\r\n'));
+ assert.ok(wire.includes('METADATA * SUB avatar'));assert.ok(wire.includes('METADATA * GET avatar'));assert.ok(wire.includes('METADATA #room SYNC'));assert.ok(wire.includes('WHO #room %tcuhnfar,152'));
+ const encoded=Buffer.from('#|female|42|/avatar/Chat/Other.png').toString('base64');
+ for(const line of [':Alice!u@h JOIN #room account :'+encoded,':Bob!u@h SETNAME :'+encoded,':s 352 Me #room u h s Carol H :0 '+encoded,':s 354 Me 152 #room u h Dave H account :'+encoded])client.receive(Buffer.from(line+'\r\n'));
+ for(const nick of ['alice','bob','carol','dave'])assert.equal(client.userStates.get(nick).legacyPhoto,'https://chat-avatars.chateagratis.net/avatar/Chat/Other.png');
+ client.receive(Buffer.from(':s METADATA Alice!u@h avatar * :https://chat-avatars.chateagratis.net/new.png?v=2\r\n'));
+ assert.equal(client.userStates.get('alice').metadata.avatar,'https://chat-avatars.chateagratis.net/new.png?v=2');
+ client.receive(Buffer.from(':Alice!u@h SETNAME :'+encoded+'\r\n'));assert.equal(events.at(-1).metadata.avatar,'https://chat-avatars.chateagratis.net/new.png?v=2');
+ client.receive(Buffer.from(':s METADATA Alice avatar *\r\n'));assert.equal(client.userStates.get('alice').metadata.avatar,'');
+ client.receive(Buffer.from(':Alice!u@h QUIT :bye\r\n:Alice!new@host JOIN #room new :'+encoded+'\r\n'));assert.equal(client.userStates.get('alice').metadata,undefined);
+});

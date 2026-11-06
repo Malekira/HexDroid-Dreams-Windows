@@ -43,11 +43,7 @@
     return i;
   }
   function photoSource(id, nick) {
-    const p = profile(id),
-      n = network(id);
-    return fold(n.nick) === fold(nick) && p?.photo
-      ? p.photo
-      : n.avatars?.[fold(nick)];
+    return avatarFor(id, nick);
   }
   const full = floating("photo-dialog", "Foto completa", true);
   let fullRequest = 0;
@@ -58,6 +54,10 @@
     try {
       const r = await call("photo.load", { network: id, nick, url });
       if (request !== fullRequest || !full.dialog.open) return;
+      if (r.cancelled) {
+        full.dialog.close();
+        return;
+      }
       const img = el("img", "full-photo");
       img.src = r.image;
       img.alt = "Foto de " + nick;

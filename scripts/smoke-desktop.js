@@ -139,7 +139,8 @@ async function run() {
       const req=process.mainModule.require.bind(process.mainModule);
       const {WebClient}=req(app.getAppPath()+'/src/services/web.js');
       const image=process.mainModule.require('electron').nativeImage.createFromBitmap(Buffer.alloc(80*40*4,180),{width:80,height:40}).toPNG();
-      WebClient.prototype.request=async function(url){if(!url.startsWith('https://photos.example/'))throw new Error('Unexpected fixture URL');return{status:200,body:image};};
+      const published=process.mainModule.require('electron').nativeImage.createFromBitmap(Buffer.alloc(40*80*4,120),{width:40,height:80}).toPNG();global.__photoRequests=[];
+      WebClient.prototype.request=async function(url){if(!url.startsWith('https://photos.example/')&&!url.startsWith('https://chat-avatars.chateagratis.net/'))throw new Error('Unexpected fixture URL');global.__photoRequests.push(url);return{status:200,body:url.includes('published')?published:image};};
     });
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Multimedia',exact:true}).click();
@@ -151,6 +152,20 @@ async function run() {
     await page.getByRole('button',{name:'Mostrar usuarios',exact:true}).click();
     await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toBeVisible();
     expect(await page.getByRole('button',{name:'@Alice',exact:true}).locator('img').evaluate(img=>img.naturalWidth/img.naturalHeight)).toBe(2);
+    console.log('Prueba Electron: fotos del chat mediante GECOS y METADATA');
+    const legacy=Buffer.from('#|female|42|/legacy/Alice.png').toString('base64');
+    for(const socket of sockets)socket.write(':Alice!u@host SETNAME :'+legacy+'\r\n');
+    await expect.poll(()=>app.evaluate(()=>global.__photoRequests.some(url=>url.includes('/legacy/Alice.png?v=')))).toBe(true);
+    for(const socket of sockets)socket.write(':s METADATA Alice avatar * :https://photos.example/published.png?v=100\r\n');
+    await expect.poll(()=>page.getByRole('button',{name:'@Alice',exact:true}).locator('img').evaluate(img=>img.naturalWidth/img.naturalHeight)).toBe(0.5);
+    for(const socket of sockets)socket.write(':Alice!u@host SETNAME :'+legacy+'\r\n');
+    await expect.poll(()=>app.evaluate(()=>global.__photoRequests.at(-1))).toBe('https://photos.example/published.png?v=100');
+    for(const socket of sockets)socket.write(':s METADATA Alice avatar *\r\n');
+    await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toHaveCount(0);
+    for(const socket of sockets)socket.write(':s 761 Dreamer Alice avatar * :https://photos.example/published.png?v=200\r\n');
+    await expect.poll(()=>app.evaluate(()=>global.__photoRequests.includes('https://photos.example/published.png?v=200'))).toBe(true);
+    await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toBeVisible();
+
     await page.getByRole('button',{name:'@Alice',exact:true}).click();
     await expect(page.locator('#user-profile')).toContainText('Alice Test');
     await expect(page.locator('#user-profile')).toContainText('0 h 2 min 5 s');

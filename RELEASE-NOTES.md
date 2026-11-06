@@ -1,18 +1,13 @@
-# HexDroid Dreams 0.6.0 — perfiles, salas y edición visual
+# HexDroid Dreams 0.6.1 — fotos compatibles con Chat v92
 
-Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva una copia del perfil antes de actualizar. Tus redes, preferencias y certificado de firma personal se mantienen.
+Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva tu perfil y las preferencias de la versión anterior.
 
-- El tema de la sala y los resultados WHOIS interpretan los colores y estilos IRC. El tema admite varios renglones. Los mensajes muestran hora, nick y texto en la misma línea, con fotos redondas y sin deformación.
-- Un clic en un usuario abre su perfil dentro del panel derecho: nombre real, ident, host, servidor, salas, cuenta e inactividad cuando el servidor los proporciona. Incluye mencionar, ignorar, silenciar notificaciones y abrir privado. El doble clic sigue abriendo un privado.
-- Las fotos se cargan automáticamente desde `https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png`, conservando las mayúsculas del nick. La actualización activa este valor una vez; después puedes cambiarlo o desactivarlo en Multimedia. Las miniaturas mantienen la proporción original. Al pulsar la foto del perfil se abre la imagen completa, con opción de guardarla.
-- Identidad por red: nick alternativo, nombre real amplio con editor visual de negrita/cursiva/subrayado y colores de texto/fondo, URL de foto, vista previa, ampliación y reintento. Se conserva el guardado por red y la alternativa de foto local.
-- Certificados TLS: un certificado no validado o distinto del aprobado abre un aviso con servidor, emisor, vigencia y huella SHA-256. Aceptar guarda la aprobación para ese servidor y puerto; cancelar mantiene la conexión cerrada. Las credenciales IRC se envían después de validar la conexión.
-- Respaldos: opción «Incluir historial» para exportar y restaurar mensajes y consultas. Al restaurar un respaldo con historial, se reemplaza el historial local después de confirmar. Los respaldos anteriores siguen siendo compatibles.
-- Modo claro: fondos de campos, etiquetas, botones, menús y vistas previas con colores del tema. Se elimina el formulario de URL para vistas previas manuales de Multimedia; las imágenes enlazadas en mensajes siguen teniendo su acción de carga.
-- Panel de emojis junto a las herramientas del chat.
-- Acceso «Apariencia de sala» junto a Conectar/Desconectar: vista previa, fondo, cuadro de texto, fuente, tamaño, estilo y nicks coloreados.
-- «Unirse a sala» muestra la lista de la red con orden por miembros o nombre y búsqueda por nombre parcial/completo. `/j sala` y `/join sala` agregan `#` cuando falta.
+- Las fotos anunciadas mediante METADATA tienen prioridad sobre la plantilla por nick.
+- Se leen también las rutas de foto codificadas por el chat web en GECOS: WHO, WHOX, JOIN extendido, WHOIS y SETNAME. Las rutas del dominio antiguo se normalizan al servidor actual de avatares.
+- La plantilla configurada se usa cuando no existe una foto anunciada ni una ruta del chat. Una retirada explícita de avatar se respeta y no se sustituye por una imagen antigua.
+- Se negocian las capacidades necesarias, se solicitan los avatares al entrar y se reciben las actualizaciones. Al activar fotos en Multimedia se sincronizan las conexiones abiertas, sin exigir reiniciar.
+- Las miniaturas y la ventana de foto completa usan el mismo criterio para elegir la imagen. Una descarga antigua no puede reemplazar una foto anunciada más recientemente.
+- Se respetan las versiones de las URLs publicadas y se versionan las peticiones de la plantilla y las rutas del servidor de fotos para evitar caché antigua. El reintento manual solicita una versión fresca.
+- La carga automática utiliza los servidores de avatares oficiales o el dominio de la plantilla configurada. Las fotos anunciadas en otros dominios HTTPS pueden cargarse al ampliar, tras confirmar. Se conservan las comprobaciones TLS, los límites de imagen y el bloqueo de descargas directas al usar proxy IRC.
 
-Las consultas WHOIS y LIST dependen de los datos y permisos del servidor. Las fotos requieren HTTPS accesible y las descargas directas se mantienen bloqueadas al utilizar proxy IRC.
-
-Para firmar el EXE nuevo, usa Sign y Verify con tu certificado existente; no hace falta recrearlo. El ZIP incluye el script y las instrucciones en docs/FIRMA-PERSONAL.md.
+Se mantienen las funciones de la versión 0.6.0. Para firmar el EXE nuevo reutiliza tu certificado existente con Sign y Verify; no hace falta recrearlo.
