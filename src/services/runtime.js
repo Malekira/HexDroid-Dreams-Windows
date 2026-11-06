@@ -51,7 +51,7 @@ class Runtime {
       credentials: (id) => this.credentials(id),
       policy: (host) => this.sts[host],
       clientFactory: (profile, secrets) => {
-        const c = new IrcClient({...profile,avatarDiscovery:this.getConfig().settings.mediaEnabled!==false&&this.getConfig().settings.autoAvatars===true&&this.getConfig().settings.showAvatars!==false}, secrets);
+        const c = new IrcClient({...profile,ownAvatarTemplate:profile.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png',avatarDiscovery:this.getConfig().settings.mediaEnabled!==false&&this.getConfig().settings.autoAvatars===true&&this.getConfig().settings.showAvatars!==false}, secrets);
         this.cryptoAdapters.set(profile.id, this.crypto.attach(profile.id, c));
         return c;
       },
@@ -203,6 +203,7 @@ class Runtime {
     return { ok: true };
   }
   async receive(id, type, data) {
+    if(this.closed)return;
     if (type === "protocol") {
       if (this.getConfig().settings.protocolLogging)
         this.protocolLog.append(id, data.direction, data.line);
@@ -220,6 +221,7 @@ class Runtime {
         JSON.stringify(this.sts),
       );
     }
+    if(type==='presence'&&!data.initial){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
     if (type === "message") {
       if (
         !data.own &&
@@ -542,6 +544,10 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'identity.publish':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Guarda la red antes de publicar.');const session=this.sessions.sessions.get(id);if(session){session.profile.publishPhoto=p.publishPhoto;session.profile.photoUrl=p.photoUrl;}if(!client?.ready)return{pending:true};client.profile.publishPhoto=p.publishPhoto;client.ownAvatarTemplate=p.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';return client.publishOwnAvatar(true);}
+      case 'presence.sync':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Red no válida.');const session=this.sessions.sessions.get(id);if(session)session.profile.notifyNicks=[...p.notifyNicks];if(client){client.profile.notifyNicks=[...p.notifyNicks];client.presence.names=[...p.notifyNicks];if(client.ready)client.presence.start();}return{ok:true};}
+      case 'presence.status':return client?.ready?client.presence.snapshot():(this.getConfig().profiles.find(p=>p.id===id)?.notifyNicks||[]).map(nick=>({nick,online:null}));
+
       case 'tls.accept':{
         const cert=this.pendingCertificates.get(id),p=this.getConfig().profiles.find(p=>p.id===id);
         if(!cert||!p||cert.fingerprint!==data.fingerprint||cert.host!==p.host||cert.port!==p.port||!p.tls)throw new Error('La solicitud de certificado ya no corresponde a esta red.');

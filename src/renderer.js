@@ -363,7 +363,7 @@ function openNetwork(id) {
   const p = id && profile(id); $('network-form').reset(); $('profile-id').value = p?.id || '';
   $('network-dialog-title').textContent = p ? 'Editar red' : 'Añadir una red';
   for (const key of ['name','host','nick','port','alternateNick']) $('profile-' + key).value = p?.[key] ?? (key === 'port' ? 6697 : '');
-  $('profile-photoUrl').value=p?.photoUrl||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';$('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDroid Dreams';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
+  $('profile-publishPhoto').checked=p?.publishPhoto!==false;$('profile-photoUrl').value=p?.photoUrl||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';$('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDroid Dreams';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
   if(p&&api.advanced){const currentId=p.id,initialCommands=$('profile-commands').value;api.advanced('network.commands.get',{network:p.id}).then(r=>{if($('profile-id').value===currentId&&$('profile-commands').value===initialCommands&&r.commands)$('profile-commands').value=r.commands.join('\n');}).catch(e=>notify(e.message,true));}
   $('profile-channels').value = p?.channels.join(', ') || ''; $('profile-tls').checked = p?.tls ?? true; $('profile-password').value = ''; $('network-error').textContent = '';
   if (!$('network-dialog').open) $('network-dialog').showModal(); $('profile-name').focus();
@@ -414,12 +414,12 @@ $('network-form').addEventListener('submit', async event => {
   if (channels.some(c => !/^[#&+!][^\s:,]+$/.test(c)) || channels.length > 30) { $('network-error').textContent = 'Introduce hasta 30 salas, empezando por #, &, + o !.'; return; }
   if (!$('profile-id').value && config.profiles.length >= 30) { $('network-error').textContent = 'Esta versión admite hasta 30 redes.'; return; }
   const id = $('profile-id').value || crypto.randomUUID();
-  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels,username:$("profile-username").value.trim()||nick,realName:$("profile-realName").value.replace(/\r?\n/g,' '),alternateNick:$('profile-alternateNick').value.trim()||nick+'_',photoUrl:$('profile-photoUrl').value.trim(),photo:editingPhoto,commandDelay:Number($("profile-commandDelay").value),commands:[] };
+  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels,username:$("profile-username").value.trim()||nick,realName:$("profile-realName").value.replace(/\r?\n/g,' '),alternateNick:$('profile-alternateNick').value.trim()||nick+'_',photoUrl:$('profile-photoUrl').value.trim(),photo:editingPhoto,publishPhoto:$('profile-publishPhoto').checked,commandDelay:Number($("profile-commandDelay").value),commands:[] };
   const previousProfiles=[...config.profiles];
   const previous = config.profiles.findIndex(p => p.id === id); if (previous < 0) config.profiles.push(p); else config.profiles[previous] = p;
   const password = $('profile-password').value;
   try { const commands=$('profile-commands').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(api.advanced){const r=await api.advanced('network.commands.save',{network:id,commands});if(r.error)throw new Error(r.error);p.commands=r.publicCommands||[];}else p.commands=commands;await persist(); } catch (e) { config.profiles=previousProfiles;$('network-error').textContent = e.message; return; }
-  window.resetDreamsAvatars?.();if (password) passwords.set(id, password); $('profile-password').value = '';
+  window.resetDreamsAvatars?.();if(api.advanced){try{const r=await api.advanced('identity.publish',{network:id});if(r?.error)notify(r.error,true);else if(r?.unsupported)notify('Esta red no admite publicar fotos mediante METADATA.');}catch(e){notify(e.message,true);}}if (password) passwords.set(id, password); $('profile-password').value = '';
   if (network(id).state === 'disconnected') network(id).nick = nick;
   $('network-dialog').close(); choose(id, previous>=0&&active?.id===id?active.target:'*'); if ($('settings-dialog').open) renderProfiles();
   if (event.submitter?.value === 'connect') { if (network(id).state === 'disconnected') await toggleConnection(id); else notify('Red guardada. Desconecta y vuelve a conectar para aplicar los cambios.'); }

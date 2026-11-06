@@ -1,13 +1,13 @@
-# HexDroid Dreams 0.6.1 — fotos compatibles con Chat v92
+# HexDroid Dreams 0.6.2 — foto propia, topic ajustable y Notify
 
-Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva tu perfil y las preferencias de la versión anterior.
+Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Se conservan las redes, preferencias y el certificado personal existente.
 
-- Las fotos anunciadas mediante METADATA tienen prioridad sobre la plantilla por nick.
-- Se leen también las rutas de foto codificadas por el chat web en GECOS: WHO, WHOX, JOIN extendido, WHOIS y SETNAME. Las rutas del dominio antiguo se normalizan al servidor actual de avatares.
-- La plantilla configurada se usa cuando no existe una foto anunciada ni una ruta del chat. Una retirada explícita de avatar se respeta y no se sustituye por una imagen antigua.
-- Se negocian las capacidades necesarias, se solicitan los avatares al entrar y se reciben las actualizaciones. Al activar fotos en Multimedia se sincronizan las conexiones abiertas, sin exigir reiniciar.
-- Las miniaturas y la ventana de foto completa usan el mismo criterio para elegir la imagen. Una descarga antigua no puede reemplazar una foto anunciada más recientemente.
-- Se respetan las versiones de las URLs publicadas y se versionan las peticiones de la plantilla y las rutas del servidor de fotos para evitar caché antigua. El reintento manual solicita una versión fresca.
-- La carga automática utiliza los servidores de avatares oficiales o el dominio de la plantilla configurada. Las fotos anunciadas en otros dominios HTTPS pueden cargarse al ampliar, tras confirmar. Se conservan las comprobaciones TLS, los límites de imagen y el bloqueo de descargas directas al usar proxy IRC.
+- La foto propia se anuncia mediante METADATA al conectar y al guardar la identidad. Se utiliza la dirección HTTPS de esa red o, si está vacía, la plantilla común con el nick actual. Así los clientes web compatibles pueden cargar la imagen. Los cambios se mantienen al reconectar automáticamente.
+- Identidad incluye «Publicar mi foto en esta red». Desactivarlo retira el anuncio. La foto local no se sube: para que otros clientes la vean debe existir una imagen accesible mediante HTTPS. La publicación requiere soporte METADATA en la red.
+- Botón «Topic» junto a los controles de conexión para ocultar o volver a mostrar el tema y aprovechar más altura para los mensajes.
+- Separador horizontal debajo del encabezado para ajustar la altura del topic arrastrándolo hacia arriba o abajo. También admite flechas arriba/abajo, Home/End y doble clic para recuperar el tamaño automático. Se guarda la altura elegida.
+- Botón «Notify»: lista independiente por red de apodos cuyo estado se sigue aunque no estén en la sala actual. Se pueden añadir o quitar apodos, abrir privados y configurar avisos, desconexiones y sonido.
+- El perfil de usuario incorpora «Seguir conexión» / «Dejar de seguir conexión».
+- Notify utiliza MONITOR cuando la red lo permite e ISON cada 30 segundos como alternativa. La primera consulta establece el estado sin emitir sonidos repetidos. Las entradas y desconexiones observadas directamente también actualizan el estado; salir de una sala no se interpreta como desconectarse.
 
-Se mantienen las funciones de la versión 0.6.0. Para firmar el EXE nuevo reutiliza tu certificado existente con Sign y Verify; no hace falta recrearlo.
+Se mantienen las mejoras de fotos de 0.6.1. Para firmar el EXE nuevo reutiliza tu certificado con Sign y Verify; no hace falta recrearlo.

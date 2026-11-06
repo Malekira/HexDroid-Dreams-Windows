@@ -57,3 +57,11 @@ La importación muestra cuántas redes contiene, requiere confirmación y reempl
 ## Windows
 
 Minimizar/cerrar a bandeja mantiene conexiones mientras el proceso continúa abierto. **Salir** termina realmente el programa. No hay recepción WebPush al cerrar el proceso. El binario sin firma puede seguir sujeto al bloqueo ASR de reputación; compilar y empaquetar no elimina esa política.
+
+## Foto propia, topic y Notify (0.6.2)
+
+En la identidad de cada red, **Publicar mi foto en esta red** anuncia la dirección HTTPS mediante METADATA al conectar y guardar. Dejar la dirección vacía utiliza la plantilla común con el nick actual. Desactivar la opción retira el anuncio. La imagen debe estar alojada previamente; elegir una foto local no la sube. El servidor y el cliente receptor deben admitir metadatos de avatar.
+
+**Topic** oculta o muestra el tema desde la conversación. El separador debajo del encabezado ajusta su altura, incluida la reducción hacia arriba para dejar más espacio al chat. Las flechas arriba/abajo y Home/End ajustan el separador por teclado; doble clic vuelve al tamaño automático.
+
+**Notify** conserva hasta 100 apodos por red y permite consultar su estado, abrir privados o dejar de seguirlos. El perfil ofrece el mismo seguimiento. MONITOR proporciona cambios inmediatos; si no está disponible se consulta ISON cada 30 segundos. La primera respuesta fija el estado inicial sin generar sonidos. Los avisos de cambios, las desconexiones y el sonido se pueden desactivar en el panel Notify; la preferencia general de notificaciones y los usuarios silenciados también se respetan.

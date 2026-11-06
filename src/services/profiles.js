@@ -78,6 +78,8 @@ function validateProfile(p) {
         ? p.photo
         : "",
     photoUrl: validatePhotoUrl(p.photoUrl),
+    publishPhoto:p.publishPhoto!==false,
+    notifyNicks:require("./presence").normalizeNotify(p.notifyNicks||[]),
     sasl,
     saslUsername,
     encoding,

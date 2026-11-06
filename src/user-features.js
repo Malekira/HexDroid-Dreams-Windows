@@ -166,6 +166,16 @@
       userPanel,
     );
     button("Abrir privado", () => choose(id, nick), userPanel);
+    button(
+      (profile(id)?.notifyNicks || []).some((n) => fold(n) === fold(nick))
+        ? "Dejar de seguir conexión"
+        : "Seguir conexión",
+      async () => {
+        await window.followDreamsUser?.(id, nick);
+        showProfile();
+      },
+      userPanel,
+    );
   }
   window.refreshDreamsUserPhoto = () => {
     if (!viewing) return;

@@ -371,3 +371,8 @@ test('Avatar discovery subscribes after registration and learns legacy photos th
  client.receive(Buffer.from(':s METADATA Alice avatar *\r\n'));assert.equal(client.userStates.get('alice').metadata.avatar,'');
  client.receive(Buffer.from(':Alice!u@h QUIT :bye\r\n:Alice!new@host JOIN #room new :'+encoded+'\r\n'));assert.equal(client.userStates.get('alice').metadata,undefined);
 });
+test('Own avatar publication is gated by registration and capability, follows nick changes and can be removed',()=>{
+ const c=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[],ownAvatarTemplate:'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png'}),wire=[];c.sendRaw=line=>wire.push(line);
+ assert.equal(c.publishOwnAvatar().pending,true);c.ready=true;assert.equal(c.publishOwnAvatar().unsupported,true);c.capabilities.add('draft/metadata-2');c.publishOwnAvatar();assert.match(wire.at(-1),/^METADATA \* SET avatar :https:\/\/chat-avatars.chateagratis.net\/avatar\/Chat\/Me.png\?v=/);const count=wire.length;c.publishOwnAvatar();assert.equal(wire.length,count);
+ c.receive(Buffer.from(':Me!u@h NICK :NewMe\r\n'));assert.ok(wire.at(-1).includes('/NewMe.png?v='));c.profile.publishPhoto=false;c.publishOwnAvatar(true);assert.equal(wire.at(-1),'METADATA * SET avatar');c.presence.stop();
+});

@@ -54,6 +54,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.byteBuffer = Buffer.alloc(0);
       this.nickAttempts = 0;
       this.userStates = new Map();
+      this.presence=new (require("./presence").Presence)(this,this.profile.notifyNicks);this.ownAvatarTemplate=profile.ownAvatarTemplate||this.profile.photoUrl;
       this.pendingWhois = new Map();this.avatarDiscovery=profile.avatarDiscovery!==false;this.avatarSequence=0;
     }
     updateAvatar(nick,patch){
@@ -63,11 +64,20 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.userStates.set(fold(nick),next);this.emit('user-state',{nick,...next,avatarVersion:next.avatarVersion,key:patch.metadata?'avatar':undefined,value:patch.metadata?.avatar});
     }
     learnPhoto(nick,realName){const photo=require('./avatar-policy').legacyPhoto(realName);this.updateAvatar(nick,{legacyPhoto:photo});}
-    syncAvatars(){if(!this.capabilities.has('draft/metadata-2'))this.avatarSubscribed=false;if(!this.ready||!this.avatarDiscovery||!this.capabilities.has('draft/metadata-2')||this.avatarSubscribed)return;this.avatarSubscribed=true;this.sendRaw('METADATA * SUB avatar');this.sendRaw('METADATA * GET avatar');for(const channel of this.joined.values())this.sendRaw('METADATA '+channel+' SYNC');}
+    publishOwnAvatar(force=false){
+      if(!this.ready)return{pending:true};if(this.profile.publishPhoto&&!this.ownAvatarTemplate)return{missing:true};if(!this.capabilities.has('draft/metadata-2'))return{unsupported:true};
+      const url=this.profile.publishPhoto?require('./avatar-policy').resolveAvatar({nick:this.nick,explicit:this.ownAvatarTemplate,refresh:true}).url||'':'';
+      const base=url?new URL(url):null;if(base&&base.hostname==='chat-avatars.chateagratis.net')base.searchParams.delete('v');const key=base?.toString()||'';
+      if(!force&&this.lastPublishedAvatar===key)return{unchanged:true};
+      const line='METADATA * SET avatar'+(url?' :'+url:'');if(Buffer.byteLength(line)>510)throw new Error('La dirección de foto es demasiado larga para publicarla por IRC.');
+      this.sendRaw(line);this.lastPublishedAvatar=key;this.emit('avatar-publish',{state:'sent',url});return{ok:true,url};
+    }
+    syncAvatars(){if(!this.capabilities.has('draft/metadata-2'))this.avatarSubscribed=false;if(!this.ready||!this.capabilities.has('draft/metadata-2'))return;try{this.publishOwnAvatar();}catch(e){this.emit('problem',e.message);}if(!this.avatarDiscovery||this.avatarSubscribed)return;this.avatarSubscribed=true;this.sendRaw('METADATA * SUB avatar');this.sendRaw('METADATA * GET avatar');for(const channel of this.joined.values())this.sendRaw('METADATA '+channel+' SYNC');}
+
     connect() {
       if (this.socket && !this.socket.destroyed)
         throw new Error("La red ya está conectada.");
-      this.closed = false;this.avatarSubscribed=false;this.userStates.clear();
+      this.lastPublishedAvatar=undefined;this.closed = false;this.avatarSubscribed=false;this.userStates.clear();
       this.open().catch((e) => this.fail(e.message));
     }
     async open() {
@@ -203,7 +213,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       });
       this.socket.on("close", () => {
         clearTimeout(this.capTimer);
-        clearInterval(this.nickRecovery);
+        clearInterval(this.nickRecovery);this.presence.stop();
         clearTimeout(this.registrationTimer);
         clearTimeout(this.closeTimer);
         this.socket = null;
@@ -307,7 +317,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         throw new Error("Mensaje demasiado largo para IRC.");
       if (!this.socket || this.socket.destroyed || !this.socket.writable)
         throw new Error("La red no está conectada.");
-      this.socket.write(Buffer.concat([b, Buffer.from("\r\n")]));
+      this.socket.write(Buffer.concat([b, Buffer.from("\r\n")]));this.presence.observe(command);
       this.emit("protocol", {
         direction: "out",
         line: redactProtocol(command),
@@ -437,7 +447,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       }
     }
     handle(m) {
-      const { command: c, params: p } = m;
+      const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);
       if(['311','312','313','317','318','319','330','301','401'].includes(c)){
         this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),complete:c==='318',error:c==='401'});
       }
@@ -458,6 +468,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
                     );
           if (["SOJU.IM/FILEHOST", "DRAFT/FILEHOST", "FILEHOST"].includes(name))
             this.filehost = value;
+          if(name==="MONITOR")this.presence.setMonitor(true);if(name==="-MONITOR")this.presence.setMonitor(false);
           if(name==="WHOX")this.whox=true;
           if (["ICON", "DRAFT/ICON"].includes(name)) this.networkIcon = value;
         }
@@ -477,6 +488,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       if(c==='311'&&p.length>=6)this.learnPhoto(p[1],p[5]);
       if(c==='352'&&p.length>=8)this.learnPhoto(p[5],p[7].replace(/^\d+ /,''));
       if(c==='354'&&p[1]==='152'&&p.length>=9)this.learnPhoto(p[5],p.at(-1));
+      if((c==='900'&&this.ready)||(c==='ACCOUNT'&&fold(m.nick)===fold(this.nick)&&p[0]!=='*')||(c==='MODE'&&fold(p[0])===fold(this.nick)&&/\+[^-]*r/.test(p[1]||'')))try{this.publishOwnAvatar(true);}catch(e){this.emit('problem',e.message);}
       if(c==='QUIT')this.userStates.delete(fold(m.nick));
       if(c==='NICK'){const old=this.userStates.get(fold(m.nick));this.userStates.delete(fold(m.nick));if(old)this.userStates.set(fold(p[0]),old);}
       if (c === "CAP") {
@@ -673,28 +685,6 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.joined.set(fold(p[0]), p[0]);
       if (
         c === "001" &&
-        this.profile.recoverNick &&
-        fold(this.nick) !== fold(this.profile.nick)
-      ) {
-        clearInterval(this.nickRecovery);
-        this.nickRecovery = setInterval(() => {
-          if (this.ready && fold(this.nick) !== fold(this.profile.nick))
-            this.sendRaw("ISON " + this.profile.nick);
-        }, 30000);
-        this.nickRecovery.unref();
-      }
-      if (
-        c === "303" &&
-        this.profile.recoverNick &&
-        fold(this.nick) !== fold(this.profile.nick) &&
-        !p
-          .at(-1)
-          .split(" ")
-          .some((n) => fold(n) === fold(this.profile.nick))
-      )
-        this.sendRaw("NICK " + this.profile.nick);
-      if (
-        c === "001" &&
         this.profile.bouncerNetwork &&
         this.capabilities.has("soju.im/bouncer-networks")
       )
@@ -703,7 +693,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.currentMessage = m;
       try {
         super.handle(m);
-        if(c==='001')this.syncAvatars();
+        if(c==='001'){this.syncAvatars();this.presence.start();}if(ownNickChange)try{this.publishOwnAvatar();}catch(e){this.emit('problem',e.message);}
         if(c==='JOIN'&&fold(m.nick)===fold(this.nick)&&this.avatarDiscovery){this.syncAvatars();if(this.capabilities.has('draft/metadata-2'))this.sendRaw('METADATA '+p[0]+' SYNC');this.sendRaw('WHO '+p[0]+(this.whox?' %tcuhnfar,152':''));}
       } finally {
         this.currentMessage = previous;

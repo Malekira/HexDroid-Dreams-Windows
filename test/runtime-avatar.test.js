@@ -93,3 +93,37 @@ test("An unconfigured metadata domain never starts an automatic download", async
   assert.equal((await f.load()).blocked, true);
   assert.equal(f.requests.length, 0);
 });
+test("Saving photo publication updates the active client and the profile used for automatic reconnect", async () => {
+  const p = {
+      id: "net",
+      nick: "Me",
+      publishPhoto: true,
+      photoUrl: "https://photos.example/new.png",
+    },
+    session = {
+      profile: {
+        publishPhoto: false,
+        photoUrl: "https://photos.example/old.png",
+      },
+    },
+    client = {
+      ready: true,
+      profile: {},
+      publishOwnAvatar(force) {
+        return { ok: force, url: this.ownAvatarTemplate };
+      },
+    },
+    context = {
+      getConfig: () => ({ profiles: [p], settings: {} }),
+      sessions: { get: () => client, sessions: new Map([["net", session]]) },
+    };
+  const result = await Runtime.prototype.action.call(
+    context,
+    "identity.publish",
+    { network: "net" },
+  );
+  assert.equal(result.url, p.photoUrl);
+  assert.equal(session.profile.photoUrl, p.photoUrl);
+  assert.equal(session.profile.publishPhoto, true);
+  assert.equal(client.profile.publishPhoto, true);
+});

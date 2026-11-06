@@ -272,3 +272,18 @@ test('Identity editor has alternate nick, formatted real name and readable light
  await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).profiles[0].alternateNick)).toBe('Dreamer2');
 });
+test('Topic can be hidden, resized upward and restored after reloading',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:Array(12).fill('Un tema largo con varias líneas').join('\n')});});
+ const before=await page.locator('#messages').evaluate(n=>n.clientHeight);await page.getByRole('button',{name:'Ocultar topic',exact:true}).click();await expect(page.locator('#conversation-subtitle')).toBeHidden();expect(await page.locator('#messages').evaluate(n=>n.clientHeight)).toBeGreaterThan(before);
+ await page.reload();await expect(page.locator('#conversation-subtitle')).toBeHidden();await page.getByRole('button',{name:'Mostrar topic',exact:true}).click();
+ const separator=page.getByRole('separator',{name:'Altura del topic',exact:true});await separator.focus();await page.keyboard.press('End');
+ const bounds=await separator.boundingBox(),top=await page.locator('#conversation-subtitle').evaluate(n=>n.getBoundingClientRect().top);
+ await page.mouse.move(bounds.x+40,bounds.y+2);await page.mouse.down();await page.mouse.move(bounds.x+40,top+60);await page.mouse.up();await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
+ await page.reload();await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
+});
+test('Notify lists are saved independently for each network',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Primera');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+ await addNetwork(page,'Segunda');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).not.toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+ const ids=await page.locator('#network-select option').evaluateAll(nodes=>nodes.map(n=>n.value));await page.locator('#network-select').selectOption(ids[0]);await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');
+});

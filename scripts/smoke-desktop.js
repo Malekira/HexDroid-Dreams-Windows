@@ -22,12 +22,17 @@ async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dreams-desktop-'));
   const sockets = new Set(), received = [];
   const server = net.createServer(socket => {
-    sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.setEncoding('utf8'); let buffer = '';
+    let avatar='';sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.setEncoding('utf8'); let buffer = '';
     socket.on('data', data => {
       buffer += data; let i;
       while ((i = buffer.indexOf('\r\n')) >= 0) {
         const line = buffer.slice(0, i); buffer = buffer.slice(i + 2); received.push(line);
-        if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\nPING :desktop-test\r\n');
+        if(line==='CAP LS 302')socket.write(':local CAP * LS :batch draft/metadata-2 standard-replies extended-join\r\n');
+        if(line.startsWith('CAP REQ :'))socket.write(':local CAP Dreamer ACK :'+line.slice(9)+'\r\n');
+        if(line.startsWith('METADATA * SET avatar')){avatar=line.includes(' :')?line.split(' :')[1]:'';socket.write(':local METADATA Dreamer avatar * :'+avatar+'\r\n');}
+        if(line==='METADATA * GET avatar')socket.write(':local 761 Dreamer Dreamer avatar * :'+avatar+'\r\n');
+        if(line.startsWith('MONITOR + '))socket.write(':local 730 Dreamer :'+line.slice(10).split(',').map(nick=>nick+'!ident@host').join(',')+'\r\n');
+        if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\n:local 005 Dreamer MONITOR=100 :supported\r\nPING :desktop-test\r\n');
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
@@ -50,6 +55,7 @@ async function run() {
   try {
     console.log('Prueba Electron: '+(process.env.DREAMS_BINARY?'ejecutable empaquetado':'código fuente')+' · abrir');
     app = await electron.launch({ args, env, timeout:20000, ...(process.env.DREAMS_BINARY?{executablePath:process.env.DREAMS_BINARY}:{}) }); let page = await app.firstWindow({timeout:20000});
+    await app.evaluate(({Notification,shell})=>{Notification.isSupported=()=>false;global.__notifyBeeps=0;shell.beep=()=>global.__notifyBeeps++;});
     const rendererErrors = []; page.on('pageerror', e => rendererErrors.push(e.message));
     await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a Dreams');
     await page.getByRole('button', { name: 'Añadir red', exact: true }).click();
@@ -60,6 +66,23 @@ async function run() {
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
+    await expect.poll(()=>received.some(line=>line.startsWith('METADATA * SET avatar :https://chat-avatars.chateagratis.net/avatar/Chat/Dreamer.png?v='))).toBe(true);
+    const beforeHidden=await page.locator('#messages').evaluate(n=>n.clientHeight);
+    await page.getByRole('button',{name:'Ocultar topic',exact:true}).click();
+    await expect(page.locator('#conversation-subtitle')).toBeHidden();
+    await expect.poll(()=>page.locator('#messages').evaluate(n=>n.clientHeight)).toBeGreaterThan(beforeHidden);
+    await page.getByRole('button',{name:'Mostrar topic',exact:true}).click();
+    await page.getByRole('separator',{name:'Altura del topic',exact:true}).focus();await page.keyboard.press('Home');
+    await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','32px');
+    await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
+    await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
+    await expect(page.locator('#notify-list')).toContainText('En línea');
+    expect(await app.evaluate(()=>global.__notifyBeeps)).toBe(0);
+    for(const socket of sockets)socket.write(':local 731 Dreamer :Alice\r\n');
+    await expect(page.locator('#notify-list')).toContainText('Desconectado');
+    await expect.poll(()=>app.evaluate(()=>global.__notifyBeeps)).toBe(1);
+    await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+
     for(const socket of sockets)socket.write(':local 332 Dreamer #dreams :\x02\x0302Bienvenidos\x0f al canal \x0304Chat\x0f 🦆\r\n');
     await expect(page.locator('#conversation-subtitle')).toHaveText('Bienvenidos al canal Chat 🦆');
     await expect(page.locator('#conversation-subtitle span').filter({hasText:/^Bienvenidos$/})).toHaveCSS('color','rgb(0, 0, 127)');
