@@ -28,6 +28,7 @@ class Runtime {
     this.queues = new Map();
     this.sts = {};
     this.mediaCache = new Map();
+    this.avatarCache=new Map();
     this.launchers = new Map();
     this.badge = 0;
     try {
@@ -259,6 +260,7 @@ class Runtime {
       });
       if (r.halted) return;
       data = { ...data, text: r.text };
+      if(data.target==='*consultas*'&&this.getConfig().settings.queryHistoryEnabled!==false){this.history.append(id,{...data,target:'*consultas*',nick:'Servidor'});this.history.prune(this.getConfig().settings.historyDays);}
     }
     if (
       type === "certificate" &&
@@ -293,22 +295,13 @@ class Runtime {
       w = this.getWindow();
     const ws = this.getConfig().workspace;
     const record = ws?.networks?.find((n) => n.id === id);
-    if (
-      !settings.notifications ||
-      w?.isFocused() ||
-      record?.conversations?.some(
-        (c) => c.name.toLowerCase() === data.target.toLowerCase() && c.muted,
-      )
-    )
-      return;
-    const nick = this.sessions.get(id)?.nick || "",
-      privateMessage = !/^[#&+!]/.test(data.target),
-      mention =
-        (nick && data.text.toLowerCase().includes(nick.toLowerCase())) ||
-        (settings.highlightWords || []).some((word) =>
-          data.text.toLowerCase().includes(word.toLowerCase()),
-        );
-    if (!privateMessage && !mention) return;
+    const focused=!!w?.isFocused(),viewing=focused&&this.activeConversation?.id===id&&require('../irc').fold(this.activeConversation.target)===require('../irc').fold(data.target);
+    if(!settings.notifications||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
+    const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^a-z0-9_{}|~\-]+/),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
+    const sound=mention?settings.mentionSound!==false:privateMessage?settings.privateSound!==false:settings.channelSound===true;
+    if(sound)this.electron.shell.beep();
+    if(mention||privateMessage)this.emit(id,'attention',{target:data.target,mention,flash:settings.flashOnMention});
+    if(!privateMessage&&!mention)return;
     this.badge++;
     this.electron.app.setBadgeCount(this.badge);
     if (process.platform === "win32")
@@ -318,13 +311,13 @@ class Runtime {
         ),
         this.badge + " mensajes nuevos",
       );
-    if (this.electron.Notification.isSupported()) {
+    if (!focused && this.electron.Notification.isSupported()) {
       const n = new this.electron.Notification({
         title: `${data.nick} · ${data.target}`,
         body: settings.notificationPreview
           ? data.text.slice(0, 200)
           : "Nuevo mensaje",
-        silent: !settings.notificationSound,
+        silent: true,
       });
       n.on("click", () => {
         w?.show();
@@ -336,6 +329,7 @@ class Runtime {
     if (settings.flashOnMention) w?.flashFrame(true);
   }
   async send({ id, target, text }) {
+    if(target==='*consultas*'&&!text.startsWith('/'))throw new Error('Usa /whois nick o /who nick en la conversación de consultas.');
     const ignore = /^\/(ignore|unignore) +([^\s,]+)$/i.exec(text);
     if (ignore) {
       const cfg = structuredClone(this.getConfig());
@@ -716,6 +710,7 @@ class Runtime {
         client.redact(target, data.messageId);
         return { ok: true };
       case "read":
+        this.activeConversation={id,target};
         client.markRead(target);
         return { ok: true };
       case "crypto.export": {
@@ -1125,7 +1120,12 @@ class Runtime {
           url: client.networkIcon.replace(/\{size\}/g, "64"),
         });
       }
+      case 'avatar.load':{
+        const settings=this.getConfig().settings;if(settings.mediaEnabled===false||settings.showAvatars===false||!settings.autoAvatars)return{disabled:true};
+        const url=require('./avatar-policy').avatarUrl(settings.avatarUrlTemplate,data.nick),saved=this.avatarCache.get(url);if(saved&&Date.now()-saved.time<600000)return{image:saved.image};
+        const response=await this.web.request(url,{domains:[new URL(url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');const picture=this.electron.nativeImage.createFromBuffer(response.body);if(picture.isEmpty())throw new Error('No se pudo decodificar la foto.');const size=picture.getSize();if(size.width*size.height>32000000)throw new Error('Foto demasiado grande.');const image=picture.resize({width:96,height:96,quality:'good'}).toDataURL();if(this.avatarCache.size>=64)this.avatarCache.delete(this.avatarCache.keys().next().value);this.avatarCache.set(url,{image,time:Date.now()});return{image};}
       case "avatar.preview": {
+        if(this.getConfig().settings.avatarUrlTemplate)return this.action('media.preview',{url:require('./avatar-policy').avatarUrl(this.getConfig().settings.avatarUrlTemplate,data.nick)});
         if (!client?.capabilities.has("draft/metadata-2"))
           throw new Error("El servidor no admite metadatos de avatar.");
         if (typeof data.nick !== "string" || /[\s\r\n\0,:]/.test(data.nick))

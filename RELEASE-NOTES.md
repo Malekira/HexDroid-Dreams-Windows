@@ -1,16 +1,15 @@
-# HexDroid Dreams 0.4.0 — identidad, configuración, fotos y colores
+# HexDroid Dreams 0.5.0 — colores, fotos y avisos
 
-Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Conserva una copia de tus datos antes de actualizar. El perfil de Windows y el certificado personal existente se mantienen.
+Extrae toda la carpeta del ZIP y abre HexDroidDreams.exe. Se conservan tus redes y preferencias del perfil de Windows. Guarda una copia antes de actualizar.
 
-- Editar red incluye identidad propia (nick, ident/usuario IRC, nombre real y foto), comandos posteriores a la conexión y separación entre comandos.
-- Comandos directos `/login`, `/nick`, `/identify`, servicios y otros comandos IRC sin exigir `/raw`. En la secuencia de conexión se usa el mismo intérprete que en el chat, manteniendo el orden y los retrasos. `/identify` envía IDENTIFY a NickServ; `/login` envía LOGIN al servidor, que debe admitirlo.
-- Los comandos guardados en Windows se protegen con el almacén seguro del usuario; las credenciales no se escriben en settings.json ni en el registro de protocolo.
-- Configuración general con categorías desplegables a la izquierda y contenido a la derecha, navegación por teclado y desplazamiento vertical.
-- Diálogos de la aplicación con dimensiones uniformes y contenido adaptable, evitando desplazamiento horizontal. Los selectores nativos de Windows conservan su disposición del sistema.
-- Foto local de identidad por red mediante selector de archivos: vista previa, cambio y eliminación; se muestra en tus mensajes, lista de usuarios y pie del panel. No se publica automáticamente en IRC: para otros usuarios hacen falta una URL pública y metadatos compatibles del servidor.
-- Fotos remotas: se procesan respuestas METADATA 761 y se espera la URL solicitada en una sola acción. La vista del chat se actualiza al cargar el avatar, sin esperar a otro mensaje. Las imágenes enlazadas HTTPS compatibles tienen un botón de carga manual, con confirmación del dominio.
-- Colores IRC extendidos 0–98, fondos, hexadecimal, ANSI de 256 colores y RGB; colores visibles en la vista previa y muestras en el selector.
+- Color, negrita, cursiva y subrayado permanentes entre mensajes. El editor muestra el formato sin insertar cuadraditos; al enviar utiliza los controles IRC. Se mantienen los colores extendidos, los fondos y los emojis.
+- Lista de usuarios con nick y rango, sin ident ni host. Las acciones WHOIS/WHO usan solamente el nick y los cambios de apodo actualizan la lista automáticamente.
+- Configuración → Multimedia: activar multimedia, mostrar miniaturas y guardar una plantilla HTTPS común, por ejemplo `https://tu-servidor/fotos/{nickLower}.jpg`. También admite `{nick}`, `%nick%` y `%s`. La carga automática se activa explícitamente; el servidor de fotos recibe los nicks solicitados. La foto local de identidad sigue disponible por red.
+- WHOIS y WHO abren la conversación «WHOIS / WHO», donde se acumulan los resultados. Su historial local se guarda por defecto y se puede desactivar en Historial.
+- Pestañas con actividad por mensajes y entradas/salidas. Avisos visuales y sonidos configurables para menciones, privados y mensajes de sala, incluyendo la ventana y la sala activas. El sonido usa Windows, sin depender de la reproducción automática del navegador.
+- Acceso rápido sol/luna junto al selector de red. Configuración → Colores del entorno permite guardar fondos, paneles, texto y selección, o restaurar los del tema.
+- Menú superior compacto, sin el acceso duplicado «Herramientas». Configuración sigue en la esquina superior derecha.
 
-El ZIP incluye el script de firma personal y sus instrucciones. Para esta versión nueva repite Sign y Verify con el certificado ya creado; no hace falta volver a crear ni instalar el certificado. La distribución sigue sin firma comercial, y la política ASR puede seguir requiriendo la excepción puntual que ya configuraste.
+Las fotos requieren una URL de imagen válida y accesible; las descargas directas siguen bloqueadas si utilizas proxy. Los resultados de consultas dependen de lo que permita y devuelva el servidor IRC.
 
-Se conserva la funcionalidad IRC, DCC, cifrado, historial, scripts y respaldos de 0.3.0. Las extensiones dependen de las capacidades del servidor; AGE aún requiere validación cruzada Windows–Android. Véanse docs/ADVANCED.md y docs/FIRMA-PERSONAL.md.
+El ZIP incluye el script de firma personal. Para el EXE nuevo repite Sign y Verify con el certificado existente; no hace falta volver a crearlo. La firma personal no garantiza evitar ASR o SmartScreen. Véase docs/FIRMA-PERSONAL.md.

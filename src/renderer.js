@@ -30,6 +30,7 @@ function persist() {
   return saveQueue;
 }
 function applySettings() {
+  lastMessageView='';
   const s = config.settings, sizes = DreamsWorkspace.panelSizes(innerWidth,s);
   const root = document.documentElement.style;
   root.setProperty('--sidebar-width', sizes.left + 'px'); root.setProperty('--users-width', sizes.right + 'px');
@@ -58,10 +59,11 @@ function choose(id,target,focus = true) {
   render(); previewFormat(); if (focus && !$('message-input').disabled) $('message-input').focus();
   persist().catch(() => {});
 }
+let activityTimer;
 function addMessage(id,target,message) {
   workspace.active = active;
   if (!config.settings.autoScroll && !message.own && active?.id === id && fold(active.target) === fold(target)) conversation(id,target).follow = false;
-  workspace.addMessage(id,target,message);
+  workspace.addMessage(id,target,message);clearTimeout(activityTimer);activityTimer=setTimeout(renderTabs,4100);
 }
 function dragOrder(node,id,target) {
   node.draggable = true;
@@ -87,7 +89,7 @@ function renderSidebar() {
   if (config.settings.privateSort === 'unread') entries.sort((a,b) => b.unread - a.unread || a.name.localeCompare(b.name));
   if (!entries.length) list.append(el('p','empty-networks',query ? 'No hay privados que coincidan.' : 'Los mensajes privados aparecerán aquí. Doble clic en un usuario para iniciar uno.'));
   for (const c of entries) {
-    const id = active.id, row = el('div','conversation' + (fold(active.target) === fold(c.name) ? ' active' : '') + (c.unread && !c.muted ? ' has-activity' : '') + (c.mentions && !c.muted ? ' has-mention' : '') + (c.muted ? ' is-muted' : ''));
+    const id = active.id, row = el('div','conversation' + (fold(active.target) === fold(c.name) ? ' active' : '') + ((c.mentions||c.mentionUntil>Date.now()) && !c.muted ? ' has-mention' : '') + (config.settings.highlightActivity!==false&&(c.unread||c.activityUntil>Date.now())&&!c.muted?' has-activity':'') + (c.muted ? ' is-muted' : ''));
     const b = el('button','conversation-name'); b.setAttribute('aria-label','Privado ' + c.name); b.append(el('span','symbol','◌'),el('span','label',c.name));
     if (c.muted) b.append(el('span','muted-symbol','◦'));
     if (c.unread) b.append(el('span','badge' + (c.mentions && !c.muted ? ' mention' : ''),c.unread > 99 ? '99+' : String(c.unread)));
@@ -99,11 +101,11 @@ function renderSidebar() {
 function renderTabs() {
   if (draggedItem) return;
   const tabs = $('room-tabs'); tabs.replaceChildren();
-  const channels = active ? [...network(active.id).conversations.values()].filter(c => c.kind === 'channel') : [];
+  const channels = active ? [...network(active.id).conversations.values()].filter(c => c.kind === 'channel'||c.kind==='queries') : [];
   if (!channels.length) tabs.append(el('span','empty-tabs','Sin canales abiertos · usa + para entrar en una sala'));
   for (const c of channels) {
-    const id = active.id, selected = fold(c.name) === fold(active.target), tab = el('div','room-tab' + (selected ? ' selected' : '') + (c.mentions && !c.muted ? ' has-mention' : '') + (c.muted ? ' is-muted' : ''));
-    const button = el('button','',c.name); button.setAttribute('role','tab'); button.setAttribute('aria-label',c.name); button.setAttribute('aria-selected',String(selected)); button.tabIndex = selected ? 0 : -1;
+    const id = active.id, selected = fold(c.name) === fold(active.target), tab = el('div','room-tab' + (selected ? ' selected' : '') + ((c.mentions||c.mentionUntil>Date.now()) && !c.muted ? ' has-mention' : '') + (config.settings.highlightActivity!==false&&(c.unread||c.activityUntil>Date.now())&&!c.muted?' has-activity':'') + (c.muted ? ' is-muted' : ''));
+    const button = el('button','',c.kind==='queries'?'WHOIS / WHO':c.name); button.setAttribute('role','tab'); button.setAttribute('aria-label',c.kind==='queries'?'WHOIS / WHO':c.name); button.setAttribute('aria-selected',String(selected)); button.tabIndex = selected ? 0 : -1;
     if (c.unread) button.append(el('span','badge' + (c.mentions && !c.muted ? ' mention' : ''),String(c.unread)));
     button.onclick = () => choose(id,c.name); tab.append(button);
     const close = el('button','close-tab','×'); close.setAttribute('aria-label','Cerrar ' + c.name); close.onclick = () => closeConversation(id,c.name); tab.append(close);
@@ -129,7 +131,7 @@ function renderMessages(preserveScroll = false) {
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
   lastMessageView = signature; list.replaceChildren();
-  const visible = c.messages.filter(m => (!m.event || config.settings.showEvents || m.error) && (!query || fold(DreamsFormatting.plain(m.text) + ' ' + (m.nick || '')).includes(query)));
+  const visible = c.messages.filter(m => (!m.event || c.kind==='queries' || config.settings.showEvents || m.error) && (!query || fold(DreamsFormatting.plain(m.text) + ' ' + (m.nick || '')).includes(query)));
   $('search-count').textContent = query ? `${visible.length} resultados` : '';
   if (!visible.length) list.append(el('div','event-message',query ? 'No hay mensajes que coincidan.' : c.kind === 'server' ? 'Conecta esta red para ver su actividad.' : 'Este es el comienzo de la conversación.'));
   let day = '';
@@ -142,10 +144,10 @@ function renderMessages(preserveScroll = false) {
     row.dataset.messageId = m.id;
     if (m.event) { if (config.settings.timestamps) row.append(time); row.append(document.createTextNode(m.text)); }
     else {
-      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=m.own?profile(active.id)?.photo:network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
+      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:(m.own?profile(active.id)?.photo:null)||network(active.id).avatars?.[fold(m.nick)];if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
       const nick = el('button','message-nick',m.nick);if(!m.own){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${document.documentElement.dataset.theme==='light'?38:72}%)`;} nick.onclick = () => choose(active.id,m.nick); header.append(nick); if (config.settings.timestamps) header.append(time);
-      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
+      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced&&config.settings.mediaEnabled!==false){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
     row.addEventListener('click',e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleMessageSelection(m.id,row); } },true);
@@ -169,33 +171,35 @@ function renderUsers() {
   if (!users.length) { list.append(el('div','empty-users',c?.kind === 'channel' ? 'Los usuarios aparecerán al entrar en la sala.' : 'Selecciona una sala para ver sus usuarios.')); return; }
   for (const user of users.filter(user => fold(user).includes(query))) {
     const bare = bareNick(user,n), b = el('button','user-button' + (rank(user) < 999 ? ' operator' : ''));
-    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=fold(bare)===fold(n.nick)?profile(active.id)?.photo:n.avatars?.[fold(bare)];if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',user));
+    b.setAttribute('aria-label',statusPrefix(user,n)+bare);
+    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:(fold(bare)===fold(n.nick)?profile(active.id)?.photo:null)||n.avatars?.[fold(bare)];if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',statusPrefix(user,n)+bare));
     b.setAttribute('aria-label',user); b.title = 'Doble clic para abrir un privado con ' + bare;
     const id = active.id; b.ondblclick = () => choose(id,bare); b.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); choose(id,bare); } };
     b.oncontextmenu = e => userMenu(e,id,c,bare); list.append(b);
   }
 }
-function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.includes(user[i])) i++; return user.slice(i); }
+function statusPrefix(user,n){let i=0;while(i<user.length&&n.prefixes.includes(user[i]))i++;return user.slice(0,i);}
+function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.includes(user[i])) i++; return user.slice(i).split("!")[0]; }
 function renderHeader() {
   const p = active && profile(active.id), n = p && network(p.id), c = selected();
   const connection = n?.state !== 'disconnected' && n?.connection || p;
-  $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.name : 'Bienvenido a Dreams';
+  $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a Dreams';
   $('channel-symbol').textContent = c ? c.name === '*' ? '◈' : /^[#&+!]/.test(c.name) ? '#' : '◌' : '✦';
   $('conversation-subtitle').hidden = !config.settings.showTopic;
   $('channel-modes').hidden = !c?.modes; $('channel-modes').textContent = c?.modes || '';
   $('server-button').disabled = !p;
-  $('conversation-subtitle').textContent = c ? c.topic || (c.name === '*' ? `${connection.host}:${connection.port} · ${connection.tls ? 'TLS' : 'Sin TLS'}` : /^[#&+!]/.test(c.name) ? p.name + ' · Sala IRC' : p.name + ' · Mensaje privado') : 'Un lugar para todas tus conversaciones.';
+  $('conversation-subtitle').textContent = c ? c.kind==='queries'?'Resultados de consultas al servidor · Historial':c.topic || (c.name === '*' ? `${connection.host}:${connection.port} · ${connection.tls ? 'TLS' : 'Sin TLS'}` : /^[#&+!]/.test(c.name) ? p.name + ' · Sala IRC' : p.name + ' · Mensaje privado') : 'Un lugar para todas tus conversaciones.';
   $('connection-button').disabled = !p;
   $('connection-button').textContent = n?.state === 'connected' ? 'Desconectar' : n?.state === 'connecting' ? 'Cancelar' : 'Conectar';
   $('join-button').disabled = n?.state !== 'connected';
   const canSend = n?.state === 'connected' && c && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
   $('message-input').disabled = !canSend; $('send-button').disabled = !canSend;
   for (const button of document.querySelectorAll('.format-bar button')) button.disabled = !canSend;
-  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : !canSend ? 'Conecta la red y entra en la sala para escribir…' : c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
+  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : !canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;
-  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');if(p?.photo){const img=el('img');img.src=p.photo;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
+  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=config.settings.mediaEnabled===false||config.settings.showAvatars===false?null:p?.photo||n?.avatars?.[fold(n.nick)];if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
   $('self-nick').textContent = n?.nick || 'Tu espacio IRC'; $('connection-summary').textContent = connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}` : 'Sin conexión';
   for (const id of ['global-status','footer-dot']) $(id).className = 'status-dot' + (connected ? ' online' : n?.state === 'connecting' ? ' connecting' : '');
   $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDroid Dreams ' + appVersion;
@@ -203,7 +207,7 @@ function renderHeader() {
   $('new-messages').hidden = !c || c.follow || !c.unread;
   $('footer-status').textContent = n?.state === 'connecting' ? `Conectando a ${p.name}…` : connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}${p ? ' · ' + p.name : ''}` : 'Listo para conectar';
 }
-function render(preserveScroll = false) { renderSidebar(); renderTabs(); renderHeader(); renderMessages(preserveScroll); renderUsers(); }
+function render(preserveScroll = false) { renderSidebar(); renderTabs(); renderHeader(); renderMessages(preserveScroll); renderUsers();window.loadDreamsAvatars?.(); }
 function scheduleRender() { if (!framePending) { framePending = true; requestAnimationFrame(() => { framePending = false; render(true); }); } }
 function togglePanel(key) { config.settings[key] = !config.settings[key]; applySettings(); persist().catch(() => {}); }
 function goLatest() {
@@ -220,7 +224,7 @@ function goFirstUnread() {
 }
 function cycleChannel(direction) {
   if (!active) return;
-  const channels = [...network(active.id).conversations.values()].filter(c => c.kind === 'channel'); if (!channels.length) return;
+  const channels = [...network(active.id).conversations.values()].filter(c => c.kind === 'channel'||c.kind==='queries'); if (!channels.length) return;
   const i = channels.findIndex(c => fold(c.name) === fold(active.target));
   choose(active.id,channels[i < 0 ? direction > 0 ? 0 : channels.length - 1 : (i + direction + channels.length) % channels.length].name);
 }
@@ -273,22 +277,22 @@ function conversationMenu(event,id,c) {
     ...(c.kind === 'channel' ? [
       { label:'Entrar de nuevo en el canal',disabled:c.joined || network(id).state !== 'connected',action:() => sendCommand(id,'*','/join ' + c.name) },
       { label:'Editar topic',disabled:!c.joined,action:() => askAction('Editar topic','Nuevo topic',c.topic,value => sendCommand(id,c.name,'/topic ' + value)) }
-    ] : [{ label:'WHOIS',disabled:network(id).state !== 'connected',action:async () => { await sendCommand(id,c.name,'/whois ' + c.name); choose(id,'*'); } }]),
+    ] : [{ label:'WHOIS',disabled:network(id).state !== 'connected',action:async () => { await sendCommand(id,c.name,'/whois ' + c.name); choose(id,'*consultas*'); } }]),
     null,{ label:c.kind === 'channel' ? 'Cerrar canal' : 'Cerrar privado',action:() => closeConversation(id,c.name) }
   ]);
 }
 function userMenu(event,id,c,nick) {
   const n = network(id), connected = n.state === 'connected';
   const own = c.users.find(user => fold(bareNick(user,n)) === fold(n.nick)) || '';
-  const ownSymbols = own.slice(0,own.length - bareNick(own,n).length);
+  const ownSymbols = statusPrefix(own,n);
   const hasMode = modes => [...ownSymbols].some(symbol => modes.includes(n.prefixModes[n.prefixes.indexOf(symbol)]));
   const operator = connected && hasMode('oaq'), moderator = connected && hasMode('hoaq');
   contextMenu.show(event,nick,[
     { label:'Abrir privado',action:() => choose(id,nick) },
     ...(api.advanced?[{label:'Ignorar usuario',action:()=>sendCommand(id,c.name,'/ignore '+nick)},{label:'Dejar de ignorar',action:()=>sendCommand(id,c.name,'/unignore '+nick)}]:[]),
-    ...(api.advanced&&n.capabilities?.includes('draft/metadata-2')?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;lastMessageView='';render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
-    { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); choose(id,'*'); } },
-    { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); choose(id,'*'); } },
+    ...(api.advanced&&(n.capabilities?.includes('draft/metadata-2')||config.settings.avatarUrlTemplate)?[{label:'Cargar avatar publicado',action:async()=>{const r=await api.advanced('avatar.preview',{network:id,nick});if(r?.error)throw new Error(r.error);if(r.image){n.avatars||={};n.avatars[fold(nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;lastMessageView='';render();}else if(r.pending)notify('Avatar solicitado. Vuelve a elegir Cargar avatar cuando llegue la respuesta.');}}]:[]),
+    { label:'WHOIS',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/whois ' + nick); choose(id,'*consultas*'); } },
+    { label:'WHO',disabled:!connected,action:async () => { await sendCommand(id,c.name,'/who ' + nick); choose(id,'*consultas*'); } },
     { label:'Invitar a un canal…',disabled:!connected,action:() => askAction('Invitar a ' + nick,'Canal de destino',c.name,value => { if (!/^[#&+!][^\s,:]+$/.test(value)) throw new Error('Introduce un canal válido.'); return sendCommand(id,value,'/invite ' + nick); }) },
     null,
     {label:'Consultar bans',disabled:!connected,action:()=>sendCommand(id,c.name,'/mode '+c.name+' +b')},
@@ -307,19 +311,10 @@ function userMenu(event,id,c,nick) {
     ] : [])
   ]);
 }
-function previewFormat() {
-  const input = $('message-input'), preview = $('format-preview'); preview.hidden = !/[\x02\x03\x04\x0f\x11\x16\x1b\x1d-\x1f]/.test(input.value);
-  if (!preview.hidden) DreamsFormatting.render(preview,input.value);
-}
-function insertFormat(open,close = open) {
-  const input = $('message-input'); if (input.disabled) return;
-  const start = input.selectionStart, end = input.selectionEnd;
-  input.setRangeText(open + input.value.slice(start,end) + close,start,end,'end'); input.setSelectionRange(start + open.length,end + open.length); input.focus(); input.dispatchEvent(new Event('input'));
-}
-document.querySelectorAll('[data-format]').forEach(button => button.onclick = event => {
-  if (button.dataset.format === 'color') contextMenu.show(event,'Color IRC',['Blanco','Negro','Azul oscuro','Verde','Rojo','Granate','Violeta','Naranja','Amarillo','Lima','Turquesa oscuro','Turquesa','Azul','Rosa','Gris','Gris claro'].map((name,i) => ({ label:name,color:DreamsFormatting.colors[i],action:() => insertFormat('\x03' + String(i).padStart(2,'0'),'\x03') })));
-  else insertFormat({ bold:'\x02',italic:'\x1d',underline:'\x1f' }[button.dataset.format]);
-});
+function composeText(text){const s=config.settings,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(Number.isInteger(s.composerColor)?'\x03'+String(s.composerColor).padStart(2,'0'):'');if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
+function applyComposerStyle(){const s=config.settings,i=$('message-input');i.style.color=Number.isInteger(s.composerColor)?DreamsFormatting.colors[s.composerColor]:'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
+function previewFormat(){applyComposerStyle();const input=$('message-input'),preview=$('format-preview'),formatted=composeText(input.value);preview.hidden=!formatted||formatted===input.value&&!/[\x02\x03\x04\x0f\x11\x16\x1b\x1d-\x1f]/.test(input.value);if(!preview.hidden)DreamsFormatting.render(preview,formatted);}
+document.querySelectorAll('[data-format]').forEach(button=>button.onclick=event=>{const type=button.dataset.format;if(type==='color'){contextMenu.show(event,'Color permanente para escribir',[{label:'Sin color',action:()=>{config.settings.composerColor=null;previewFormat();persist().catch(()=>{});}},...DreamsFormatting.colors.map((color,i)=>({label:'Color '+String(i).padStart(2,'0'),color,action:()=>{config.settings.composerColor=i;config.settings.ownNickColor=color;applySettings();previewFormat();persist().catch(()=>{});$('message-input').focus();}}))]);}else{const key={bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[type];config.settings[key]=!config.settings[key];previewFormat();persist().catch(()=>{});$('message-input').focus();}});
 function filterSettings() {
   const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const query = normalize($('settings-search').value.trim());
@@ -437,7 +432,7 @@ $('composer').addEventListener('submit', async event => {
   const id = active.id, target = active.target, c = selected(), text = $('message-input').value;
   if (!text.trim()) return;
   if (text.trim() === '/markread') { c.unread = 0; c.mentions = 0; c.firstUnreadId = null; c.draft = ''; $('message-input').value = ''; render(); return; }
-  const result = await api.send({ id,target,text });
+  const result = await api.send({ id,target,text:composeText(text) });
   if (result?.error) notify(result.error,true);
   else {
     c.history.push(text); if (c.history.length > 100) c.history.shift(); c.historyIndex = -1;
@@ -497,23 +492,25 @@ api.onEvent(event => {
       if (event.state === 'disconnected') for (const c of n.conversations.values()) { c.joined = false; c.users = []; }
       break;
     case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
-    case 'server': addMessage(id, '*', { event: true, text: event.text }); break;
+    case 'server': addMessage(id,event.target||'*',{event:true,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
     case 'query': choose(id,event.target); break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
-    case 'users': conversation(id,event.target).users = event.users; if (event.prefixes) n.prefixes = event.prefixes; if (event.prefixModes) n.prefixModes = event.prefixModes; break;
+    case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
     case 'topic': conversation(id, event.target).topic = event.text; break;
     case 'channel': {
       if (!n.conversations.has(fold(event.target)) && event.action !== 'join') break;
       const c = conversation(id, event.target);
       if (event.own) { c.joined = event.action === 'join'; if (!c.joined) c.users = []; }
       const verb = { join: 'ha entrado en la sala', part: 'ha salido de la sala', quit: 'se ha desconectado', kick: 'ha sido expulsado' }[event.action];
-      addMessage(id, event.target, { event: true, text: event.nick + ' ' + verb });
+      addMessage(id, event.target, { event: true, own:event.own, activity:config.settings.highlightEvents!==false, text: event.nick + ' ' + verb });
       if (event.own && event.action === 'join') choose(id,event.target,false);
       break;
     }
     case 'nick': {
       if (event.own) n.nick = event.nick;
+      for(const c of n.conversations.values())c.users=c.users.map(user=>fold(bareNick(user,n))===fold(event.old)?statusPrefix(user,n)+event.nick:user);
+      if(n.avatars){delete n.avatars[fold(event.old)];delete n.avatars[fold(event.nick)];n.avatarRevision=(n.avatarRevision||0)+1;}
       const old = n.conversations.get(fold(event.old));
       if (old && !/^[#&+!]/.test(old.name)) {
         const existing = n.conversations.get(fold(event.nick)); n.conversations.delete(fold(event.old));
@@ -535,7 +532,7 @@ api.onEvent(event => {
     workspace = new DreamsWorkspace.Workspace(config.profiles,result.workspace); networks = workspace.networks; active = workspace.active;
     appVersion = result.version || '0.4.0';
     if (active) $('message-input').value = selected().draft;
-    applySettings(); render();
+    applySettings(); previewFormat();render();
     if (result.warnings?.length) notify(result.warnings.join(' '), true);
   } catch (error) { notify('No se pudo iniciar la interfaz: ' + error.message, true); }
 })();

@@ -1,7 +1,7 @@
 {
   "name": "hexdroid-dreams",
   "productName": "HexDroid Dreams",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Cliente IRC de escritorio para Windows",
   "private": true,
   "main": "src/main.js",

@@ -680,6 +680,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     emit(type, data, ...rest) {
       const m = this.currentMessage;
+      if(type==='problem'&&m&&this.pendingWhois.has(fold(m.params[1]||''))){type='server';data={text:String(data),error:true};}
       if (type === "server" && m)
         data = {
           ...data,
@@ -731,7 +732,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           target:
             context?.target ||
             this.pendingWhois.get(fold(m.params[1] || ""))?.target ||
-            "*",
+            (['352','354','315'].includes(m.command)&&this.pendingWho&&Date.now()-this.pendingWho.time<30000?this.pendingWho.target:null) || "*",
           time: m.tags.time,
         };
         if (/^4|^5/.test(m.command) && context?.clientId)
@@ -870,6 +871,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.emit("message", message);
     }
     request(command, target) {
+      if(/^WHO /i.test(command))this.pendingWho={target,time:Date.now()};
       if (/^WHOIS /i.test(command)) {
         const nick = command.split(" ").at(-1);
         this.pendingWhois.set(fold(nick), { target, time: Date.now() });
@@ -896,6 +898,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       );
     }
     sendTyping(target, state) {
+      if(target==="*"||target==="*consultas*")return;
       if (!this.capabilities.has("message-tags")) return;
       token(target, "Destino");
       if (!["active", "paused", "done"].includes(state)) return;
@@ -923,7 +926,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.sendRaw(`REDACT ${target} ${messageId} :Eliminado por su autor`);
     }
     markRead(target) {
-      if (target === "*") return;
+      if (target === "*" || target === "*consultas*") return;
       if (this.capabilities.has("draft/read-marker")) {
         token(target, "Destino");
         this.sendRaw(

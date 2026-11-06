@@ -62,6 +62,7 @@
     networks: "Autenticación y proxy",
     history: "Historial",
     notifications: "Notificaciones y tema",
+    palette:"Colores del entorno",
     dcc: "Transferencias DCC",
     crypto: "Cifrado",
     scripts: "Scripts .hex",
@@ -77,7 +78,7 @@
     groups[
       key === "networks" || key === "crypto"
         ? "net"
-        : key === "notifications"
+        : ["notifications","palette"].includes(key)
           ? "look"
           : "tools"
     ].append(b);
@@ -158,6 +159,8 @@
         ? "light"
         : "dark";
     document.documentElement.dataset.theme = theme;
+    for(const key of ['bg','sidebar','surface','raised','border','text','muted','accent']){document.documentElement.style.removeProperty('--'+key);if(config.settings.customColors?.[key])document.documentElement.style.setProperty('--'+key,config.settings.customColors[key]);}
+    if(themeButton){themeButton.textContent=theme==='light'?'☾':'☀';themeButton.setAttribute('aria-label',theme==='light'?'Cambiar a tema oscuro':'Cambiar a tema claro');}
   }
   async function show() {
     body.replaceChildren();
@@ -387,8 +390,9 @@
       note(
         "El historial guarda el contenido de las conversaciones en este equipo. Está desactivado por defecto.",
       );
+      const queries=input('Guardar historial de consultas WHOIS y WHO',config.settings.queryHistoryEnabled!==false,'checkbox');
       button("Guardar preferencias", () =>
-        settings({
+        settings({queryHistoryEnabled:queries.checked,
           historyEnabled: enabled.checked,
           historyDays: Number(days.value),
           protocolLogging: protocol.checked,
@@ -451,6 +455,9 @@
         call("history.server", requireContext()),
       );
       button("Eliminar historial local", () => call("history.clear"));
+    } else if(section==='palette'){
+      const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
+      button('Guardar colores del entorno',()=>settings({customColors:Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]))}));button('Restaurar colores del tema',()=>settings({customColors:{}}));
     } else if (section === "notifications") {
       const theme = select(
           "Tema",
@@ -472,11 +479,6 @@
           config.settings.notificationPreview,
           "checkbox",
         ),
-        sound = input(
-          "Sonido de notificación",
-          config.settings.notificationSound,
-          "checkbox",
-        ),
         flash = input(
           "Destacar la ventana",
           config.settings.flashOnMention,
@@ -496,8 +498,9 @@
           "Palabras destacadas (separadas por comas)",
           (config.settings.highlightWords || []).join(", "),
         );
+      const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Iluminar pestañas con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Iluminar pestañas por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
       button("Guardar", () =>
-        settings({
+        settings({notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
           minimizeToTray: minimize.checked,
           closeToTray: closeTray.checked,
           highlightWords: highlights.value
@@ -507,7 +510,6 @@
           theme: theme.value,
           notifications: enabled.checked,
           notificationPreview: preview.checked,
-          notificationSound: sound.checked,
           flashOnMention: flash.checked,
         }),
       );
@@ -762,6 +764,9 @@
         return r;
       });
     } else if (section === "media") {
+      const enabled=input('Activar multimedia',config.settings.mediaEnabled!==false,'checkbox'),avatars=input('Mostrar miniaturas de usuarios',config.settings.showAvatars!==false,'checkbox'),automatic=input('Cargar automáticamente fotos desde mi plantilla',config.settings.autoAvatars===true,'checkbox'),template=input('URL común de fotos (usa {nick} o {nickLower})',config.settings.avatarUrlTemplate||'');
+      note('Ejemplo: https://tu-servidor/fotos/{nickLower}.jpg. Al activar la carga automática, ese sitio verá tu IP y los nicks consultados. Con proxy se mantienen bloqueadas las descargas directas.');
+      button('Guardar configuración multimedia',async()=>{await settings({mediaEnabled:enabled.checked,showAvatars:avatars.checked,autoAvatars:automatic.checked,avatarUrlTemplate:template.value.trim()});for(const n of networks.values()){n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}avatarRequests.clear();render();});
       if (active && network(active.id).filehost)
         button("Subir archivo al filehost de la red", async () => {
           const r = await call("filehost.upload", requireContext());
@@ -785,14 +790,14 @@
           }
           return r;
         });
-      const url = input("URL HTTPS para vista previa"),
+      const url = input("URL HTTPS para vista previa",config.settings.mediaPreviewUrl||""),
         preview = el("div", "media-preview");
       body.append(preview);
       note(
         "Las vistas previas solo se descargan al solicitarlas y requieren confirmación.",
       );
       button("Cargar vista previa", async () => {
-        const r = await call("media.preview", { url: url.value });
+        await settings({mediaPreviewUrl:url.value});const r = await call("media.preview", { url: url.value });
         preview.replaceChildren();
         if (r.image) {
           const img = el("img");
@@ -807,6 +812,7 @@
         } else if (r.title) note(r.title, preview);
         return r;
       });
+      button('Guardar dirección de vista previa',()=>settings({mediaPreviewUrl:url.value}));
       button("Abrir en navegador", () => call("link.open", { url: url.value }));
     }
   }
@@ -828,9 +834,8 @@
     e.stopImmediatePropagation();
     openSettings("networks");
   });
-  const launch = el("button", "advanced-launch", "Herramientas");
-  launch.onclick = () => open("networks");
-  document.querySelector(".menubar nav").append(launch);
+  const themeButton=el('button','theme-toggle','☀');themeButton.id='theme-toggle';themeButton.type='button';themeButton.onclick=()=>run(()=>settings({theme:document.documentElement.dataset.theme==='light'?'dark':'light'}));document.querySelector('.network-picker').after(themeButton);
+  const baseApplySettings=applySettings;applySettings=function(){baseApplySettings();applyComposerStyle();applyTheme();};
   const typing = el("span", "typing-status");
   document.querySelector(".composer").prepend(typing);
   let typingTimer,
@@ -1023,6 +1028,11 @@
       notify(e.message, true);
     }
   };
+  const avatarRequests=new Map(),avatarQueue=[];let avatarRunning=0;
+  function drainAvatars(){while(avatarRunning<3&&avatarQueue.length){const task=avatarQueue.shift();if(config.settings.mediaEnabled===false||!config.settings.autoAvatars||config.settings.showAvatars===false)continue;avatarRunning++;call('avatar.load',{network:task.id,nick:task.nick}).then(r=>{if(r.image&&config.settings.avatarUrlTemplate===task.template&&config.settings.mediaEnabled!==false&&config.settings.showAvatars!==false){const n=network(task.id);n.avatars||={};n.avatars[fold(task.nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;scheduleRender();}}).catch(()=>{}).finally(()=>{avatarRunning--;drainAvatars();});}}
+  window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||config.settings.showAvatars===false||!config.settings.autoAvatars||!config.settings.avatarUrlTemplate)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(c?.users||[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const key=active.id+'|'+fold(nick)+'|'+config.settings.avatarUrlTemplate;if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);if(avatarQueue.length<200)avatarQueue.push({id:active.id,nick,template:config.settings.avatarUrlTemplate});}drainAvatars();};
+  api.onEvent(event=>{if(event.type==='attention'&&event.flash){const workspace=document.querySelector('.workspace');workspace.classList.remove('mention-flash');void workspace.offsetWidth;workspace.classList.add('mention-flash');setTimeout(()=>workspace.classList.remove('mention-flash'),2200);}if(event.type==='attention'){const c=conversation(event.id,event.target);c.mentionUntil=Date.now()+4000;renderTabs();}});
+  setTimeout(async()=>{if(config.settings.queryHistoryEnabled===false)return;for(const p of config.profiles){try{const rows=await call('history.search',{network:p.id,target:'*consultas*',limit:200});if(rows.length){for(const m of rows){const c=conversation(p.id,'*consultas*');if(!c.messages.some(live=>live.text===m.text&&live.time===m.time))workspace.addMessage(p.id,'*consultas*',{...m,event:true,historical:true});}render();}}catch{}}},500);
   const historyLoaded = new Set(),
     originalChoose = choose;
   choose = function (id, target) {
@@ -1031,7 +1041,7 @@
     originalChoose(id, target);
     call("read", { network: id, target }).catch(() => {});
     const key = id + "\0" + fold(target);
-    if (!config.settings.historyEnabled || historyLoaded.has(key)) return;
+    if (target === "*consultas*" || !config.settings.historyEnabled || historyLoaded.has(key)) return;
     historyLoaded.add(key);
     call("history.search", { network: id, target, limit: 300 })
       .then((rows) => {

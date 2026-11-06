@@ -3,11 +3,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { validateProfile } = require('./irc');
 const { sanitizeWorkspace } = require('./workspace');
-const DEFAULTS = { fontSize: 14, sidebarWidth: 240, usersWidth: 192, showPrivates: true, showUsers: true, showTopic: true, timestamps: true, showEvents: true, compact: false, autoScroll: true, fontFamily: 'Segoe UI', lineHeight: 1.65, messageSpacing: 9, ownNickColor: '#c0adf1', privateSort: 'manual', ignoredUsers:{}, protocolLogging:false, historyEnabled:false, historyDays:30, notifications:true, notificationPreview:false, notificationSound:false, flashOnMention:true, theme:'dark', minimizeToTray:false, closeToTray:false, highlightWords:[], historyDays:30, dccAutoAccept:false,dccAllowlist:[],dccAllowDirect:false, dccAddress:'127.0.0.1', dccBind:'0.0.0.0', dccPortMin:0, dccPortMax:0, dccMaxBytes:1073741824 };
+const DEFAULTS = { fontSize: 14, sidebarWidth: 240, usersWidth: 192, showPrivates: true, showUsers: true, showTopic: true, timestamps: true, showEvents: true, compact: false, autoScroll: true, fontFamily: 'Segoe UI', lineHeight: 1.65, messageSpacing: 9, ownNickColor: '#c0adf1', privateSort: 'manual', composerBold:false, composerItalic:false, composerUnderline:false, composerColor:null, mediaEnabled:true, showAvatars:true, autoAvatars:false, avatarUrlTemplate:'', mediaPreviewUrl:'', customColors:{}, notifyWhileFocused:true, notifyInCurrentRoom:true, mentionSound:true, privateSound:true, channelSound:false, queryHistoryEnabled:true, highlightActivity:true, highlightEvents:true, ignoredUsers:{}, protocolLogging:false, historyEnabled:false, historyDays:30, notifications:true, notificationPreview:false, notificationSound:false, flashOnMention:true, theme:'dark', minimizeToTray:false, closeToTray:false, highlightWords:[], historyDays:30, dccAutoAccept:false,dccAllowlist:[],dccAllowDirect:false, dccAddress:'127.0.0.1', dccBind:'0.0.0.0', dccPortMin:0, dccPortMax:0, dccMaxBytes:1073741824 };
 function validateSettings(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
-  for (const key of ['showPrivates','showUsers','showTopic','timestamps','showEvents','compact','autoScroll','historyEnabled','protocolLogging','notifications','notificationPreview','notificationSound','flashOnMention','dccAllowDirect','dccAutoAccept','minimizeToTray','closeToTray']) if (typeof input[key] === 'boolean') s[key] = input[key];
+  for (const key of ['queryHistoryEnabled','composerBold','composerItalic','composerUnderline','mediaEnabled','showAvatars','autoAvatars','notifyWhileFocused','notifyInCurrentRoom','mentionSound','privateSound','channelSound','highlightActivity','highlightEvents','showPrivates','showUsers','showTopic','timestamps','showEvents','compact','autoScroll','historyEnabled','protocolLogging','notifications','notificationPreview','notificationSound','flashOnMention','dccAllowDirect','dccAutoAccept','minimizeToTray','closeToTray']) if (typeof input[key] === 'boolean') s[key] = input[key];
   if (Number.isFinite(input.fontSize)) s.fontSize = Math.max(11, Math.min(24, Math.round(input.fontSize)));
   if (Number.isFinite(input.sidebarWidth)) s.sidebarWidth = Math.max(160, Math.min(420, Math.round(input.sidebarWidth)));
   if (Number.isFinite(input.usersWidth)) s.usersWidth = Math.max(140, Math.min(360, Math.round(input.usersWidth)));
@@ -24,6 +24,9 @@ function validateSettings(input) {
   for(const key of ['dccAddress','dccBind']) if(typeof input[key]==='string'&&require('node:net').isIP(input[key]))s[key]=input[key];
   for(const key of ['dccPortMin','dccPortMax']) if(Number.isInteger(input[key])&&input[key]>=0&&input[key]<=65535)s[key]=input[key];
   if(Number.isSafeInteger(input.dccMaxBytes)&&input.dccMaxBytes>0)s.dccMaxBytes=Math.min(1099511627776,input.dccMaxBytes);
+  if(Number.isInteger(input.composerColor)&&input.composerColor>=0&&input.composerColor<=98)s.composerColor=input.composerColor;
+  for(const key of ['avatarUrlTemplate','mediaPreviewUrl'])if(typeof input[key]==='string'&&input[key].length<=2048){if(input[key]){let url;try{url=new URL(input[key].replace(/\{nickLower\}|\{nick\}|%nick%|%s/gi,'test'));}catch{throw new Error('URL de multimedia no válida.');}if(url.protocol!=='https:'||url.username||url.password)throw new Error('Usa una URL HTTPS sin credenciales.');}if(key==='avatarUrlTemplate'&&input[key])require('./services/avatar-policy').avatarUrl(input[key],'test');s[key]=input[key];}
+  s.customColors={};for(const key of ['bg','sidebar','surface','raised','border','text','muted','accent'])if(/^#[a-f\d]{6}$/i.test(input.customColors?.[key]||''))s.customColors[key]=input.customColors[key];
   return s;
 }
 function sanitizeData(data) {

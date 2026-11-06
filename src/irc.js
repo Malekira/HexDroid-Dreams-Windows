@@ -129,7 +129,7 @@ class IrcClient extends EventEmitter {
       const channel = p[2]; if (!channel) return;
       const key = fold(channel); if (!this.members.has(key)) this.members.set(key, new Map());
       for (const user of (p[3] || '').split(' ').filter(Boolean)) {
-        const bare = this.bareNick(user); this.members.get(key).set(fold(bare), user);
+        const bare = this.bareNick(user); let i=0;while(i<user.length&&this.prefixes.includes(user[i]))i++;this.members.get(key).set(fold(bare), user.slice(0,i)+bare);
       }
       this.userList(channel);
     } else if (c === 'PART' || c === 'KICK') {
@@ -147,7 +147,7 @@ class IrcClient extends EventEmitter {
       const own = fold(nick) === fold(this.nick); if (own) this.nick = next;
       for (const [channel, members] of this.members) if (members.has(fold(nick))) {
         const old = members.get(fold(nick)); members.delete(fold(nick));
-        members.set(fold(next), old.slice(0, old.length - this.bareNick(old).length) + next); this.userList(channel);
+        members.set(fold(next), old.match(/^[~&@%+]*/)[0] + next); this.userList(channel);
       }
       this.emit('nick', { old: nick, nick: next, own });
     } else if (c === 'MODE' && this.members.has(fold(p[0]))) {

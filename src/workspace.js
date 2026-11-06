@@ -4,8 +4,9 @@
   else root.DreamsWorkspace = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
+  const plain=typeof module==='object'&&module.exports?require('./formatting').plain:text=>globalThis.DreamsFormatting?.plain(text)??text;
   const fold = s => String(s).toLowerCase().replace(/[\[\]\\^]/g, c => ({ '[':'{', ']':'}', '\\':'|', '^':'~' })[c]);
-  const kind = name => name === '*' ? 'server' : /^[#&+!]/.test(name) ? 'channel' : 'private';
+  const kind = name => name === '*' ? 'server' : name==='*consultas*'?'queries': /^[#&+!]/.test(name) ? 'channel' : 'private';
   function sanitizeWorkspace(input, profiles = []) {
     const output = { networks: [], active: null };
     for (const p of profiles) {
@@ -41,16 +42,17 @@
       if (!n.conversations.has(key)) n.conversations.set(key, { name, kind:kind(name), messages:[], users:[], topic:'', modes:'', unread:0, mentions:0, joined:false, muted:false, draft:'', scrollTop:0, follow:true, history:[], historyIndex:-1 });
       return n.conversations.get(key);
     }
-    choose(id, target) { this.active = { id, target }; const c = this.conversation(id, target); this.network(id).lastTarget = target; c.unread = 0; c.mentions = 0; return c; }
+    choose(id, target) { this.active = { id, target }; const c = this.conversation(id, target); this.network(id).lastTarget = target; c.unread = 0; c.mentions = 0;c.activityUntil=0;c.mentionUntil=0; return c; }
     addMessage(id, target, message) {
       const n = this.network(id), c = this.conversation(id, target);
       const existing=c.messages.find(m=>(message.messageId&&m.messageId===message.messageId)||(message.clientId&&m.clientId===message.clientId));
       if(existing){c.revision=(c.revision||0)+1;Object.assign(existing,message,{id:existing.id});return existing;}
-      const nick = fold(n.nick), words = fold(message.text || '').split(/[^a-z0-9_\-{}|~]+/);
+      const nick = fold(n.nick), words = fold(plain(message.text || '')).split(/[^a-z0-9_\-{}|~]+/);
       const mention = !message.own && !message.event && !!nick && words.includes(nick);
       const m = { time:new Date().toISOString(), ...message, mention, id: `${Date.now()}-${++Workspace.sequence}` };
       c.messages.push(m); if (c.messages.length > 600) c.messages.splice(0, c.messages.length - 600);
-      if (!m.event && !m.own && !m.historical && (!this.active || this.active.id !== id || fold(this.active.target) !== fold(target) || !c.follow)) {
+      if(!m.own&&!m.historical&&(!m.event||m.activity)){c.activityUntil=Date.now()+4000;if(m.mention)c.mentionUntil=Date.now()+4000;}
+      if ((!m.event||m.activity) && !m.own && !m.historical && (!this.active || this.active.id !== id || fold(this.active.target) !== fold(target) || !c.follow)) {
         if (!c.unread) c.firstUnreadId = m.id;
         c.unread++; if (mention) c.mentions++;
       }

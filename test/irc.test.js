@@ -79,3 +79,4 @@ test('TLS refuses an untrusted certificate instead of silently disabling verific
   assert.match(message, /self.signed|certificate/i);
   await waitFor(() => client.socket === null); assert.equal(client.ready, false);
 });
+test('Userhost-in-names preserves rank but never leaks masks into nick lists or renames',()=>{const c=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),updates=[];c.on('users',data=>updates.push(data));c.receive(Buffer.from(':s 353 Me = #room :@Alice!ident@192.0.2.4 Me!u@host\r\n'));assert.deepEqual(updates.at(-1).users,['@Alice','Me']);c.receive(Buffer.from(':Alice!ident@192.0.2.4 NICK :NewAlice\r\n'));assert.deepEqual(updates.at(-1).users,['@NewAlice','Me']);c.receive(Buffer.from(':Me!u@host NICK :NewMe\r\n'));assert.equal(c.nick,'NewMe');assert.ok(updates.at(-1).users.includes('NewMe'));});

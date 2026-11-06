@@ -84,7 +84,7 @@ class HistoryStore {
     args.push(Math.max(1, Math.min(maximum, Number(limit) || 100)));
     return this.db
       .prepare(
-        "SELECT m.*,m.msgid AS messageId,m.clientid AS clientId FROM messages m" +
+        "SELECT m.*,m.msgid AS messageId,m.clientid AS clientId,(m.target='*consultas*') AS event FROM messages m" +
           (where.length ? " WHERE " + where.join(" AND ") : "") +
           " ORDER BY m.time DESC,m.id DESC LIMIT ?",
       )
