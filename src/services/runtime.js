@@ -648,6 +648,7 @@ class Runtime {
           secureStorage: this.vault.available(),
           scripts: this.scripts.list(),
           scriptRunning: !!this.scripts.worker,
+          aliases:this.scripts.worker?(this.scripts.aliasNames||[]):[],
           launchers: [...this.launchers.values()].filter((l) =>
             this.scripts.scripts.some((s) => s.id === l.script && s.enabled),
           ),
@@ -803,6 +804,7 @@ class Runtime {
             .age()
             .confirm(data.nick, data.fingerprint);
         return { ok: true };
+      case "script.reload":await this.scripts.restart();return{ok:true};
       case "script.import": {
         const file = await this.pick({
           filters: [{ name: "Hex scripts", extensions: ["hex"] }],

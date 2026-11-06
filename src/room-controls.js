@@ -124,6 +124,7 @@
   tools.append(trigger);
   let notifyNetwork = null;
   const states = new Map();
+  window.getDreamsNotify=id=>(profile(id)?.notifyNicks||[]).map(nick=>({nick,online:(states.get(id)||{})[fold(nick)]??null}));
   function action(parent, text, fn) {
     const b = el("button", "secondary", text);
     b.type = "button";
@@ -158,6 +159,7 @@
     );
   };
   function renderList() {
+    window.renderDreamsNotify?.();
     const list = $("notify-list");
     if (!list) return;
     list.replaceChildren();
@@ -275,12 +277,12 @@
       if (event.type === "presence") {
         const current = states.get(event.id) || {};
         current[fold(event.nick)] = event.online;
-        states.set(event.id, current);
+        states.set(event.id, current);window.renderDreamsNotify?.();
         if (event.id === notifyNetwork && dialog.open) renderList();
       }
       if (event.type === "presence-alert") notify(event.text);
       if (event.type === "status" && event.state === "disconnected") {
-        states.delete(event.id);
+        states.delete(event.id);window.renderDreamsNotify?.();
         if (event.id === notifyNetwork && dialog.open) renderList();
       }
     });

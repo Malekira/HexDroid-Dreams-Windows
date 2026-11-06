@@ -65,3 +65,11 @@ En la identidad de cada red, **Publicar mi foto en esta red** anuncia la direcci
 **Topic** oculta o muestra el tema desde la conversación. El separador debajo del encabezado ajusta su altura, incluida la reducción hacia arriba para dejar más espacio al chat. Las flechas arriba/abajo y Home/End ajustan el separador por teclado; doble clic vuelve al tamaño automático.
 
 **Notify** conserva hasta 100 apodos por red y permite consultar su estado, abrir privados o dejar de seguirlos. El perfil ofrece el mismo seguimiento. MONITOR proporciona cambios inmediatos; si no está disponible se consulta ISON cada 30 segundos. La primera respuesta fija el estado inicial sin generar sonidos. Los avisos de cambios, las desconexiones y el sonido se pueden desactivar en el panel Notify; la preferencia general de notificaciones y los usuarios silenciados también se respetan.
+
+## Interfaz compacta y menús
+
+Las salas aparecen antes de los privados en las pestañas; los privados se ordenan alfabéticamente. El panel izquierdo muestra Notify en línea y un árbol desplegable de salas y privados. Topic permite ocultar el tema, conservando el encabezado pequeño y los modos junto al nombre.
+
+Comandos, junto a Ver, organiza los comandos en Usuario, Operador de sala (@) e IRC oper. Elegir uno prepara el cuadro de texto para revisar sus argumentos antes de pulsar Enter. Las opciones se habilitan según conexión y permisos conocidos; el soporte final depende del servidor. Scripts permite importar, administrar, recargar y seleccionar los alias activos.
+
+Apariencia de sala reúne vista previa, fondos, color de texto, fuente, tamaño, estilo y color del propio nick. En Chat y mensajes se puede activar ident y host para entradas y salidas; estos eventos no muestran miniaturas y sus nicks abren el perfil.

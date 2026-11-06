@@ -32,6 +32,7 @@
     return { dialog: d, body };
   }
   function field(parent, text, type, value) {
+    if(type==="color"&&/^#[a-f\d]{3}$/i.test(value||""))value="#"+value.slice(1).split("").map(c=>c+c).join("");
     const label = el("label", "feature-field", text),
       i = el(type === "select" ? "select" : "input");
     i.setAttribute("aria-label", text);
@@ -487,10 +488,10 @@
     appearanceForm = el("form");
   appearance.body.append(appearanceForm);
   const preview = el("div", "room-live-preview");
-  appearance.body.append(preview);
+  appearance.body.prepend(preview);
   let appearanceFields = {};
   function fillAppearance() {
-    appearanceForm.replaceChildren();
+    appearanceForm.replaceChildren();const grid=el("div","appearance-grid"),nickSettings=el("div","appearance-nicks"),actions=el("div","appearance-actions");appearanceForm.append(grid,nickSettings,actions);
     const a = config.settings.roomAppearance || {};
     appearanceFields = {};
     for (const [key, label, fallback] of [
@@ -510,25 +511,25 @@
       ],
       [
         "text",
-        "Texto de sala",
+        "Color del texto",
         getComputedStyle(document.documentElement)
           .getPropertyValue("--text")
           .trim(),
       ],
     ])
       appearanceFields[key] = field(
-        appearanceForm,
+        grid,
         label,
         "color",
         a[key] || fallback,
       );
-    const font = field(appearanceForm, "Fuente", "select");
+    const font = field(grid, "Fuente", "select");
     for (const name of ["Segoe UI", "Consolas", "Arial", "Cascadia Mono"])
       font.append(el("option", "", name));
     font.value = config.settings.fontFamily;
     appearanceFields.font = font;
     const size = field(
-      appearanceForm,
+      grid,
       "Tamaño de letra",
       "number",
       config.settings.fontSize,
@@ -536,7 +537,7 @@
     size.min = 11;
     size.max = 24;
     appearanceFields.size = size;
-    const style = field(appearanceForm, "Estilo", "select");
+    const style = field(grid, "Estilo", "select");
     for (const [v, t] of [
       ["normal", "Normal"],
       ["bold", "Negrita"],
@@ -550,13 +551,14 @@
     style.value = a.style || "normal";
     appearanceFields.style = style;
     appearanceFields.nicks = field(
-      appearanceForm,
+      nickSettings,
       "Nicks coloreados",
       "checkbox",
       config.settings.coloredNicks !== false,
     );
+    const ownColor=field(nickSettings,"Color del propio nick","color",config.settings.ownNickColor||"#c0adf1");
     function update() {
-      preview.replaceChildren(el("strong", "", "[12:34] {DramatiiK}"));
+      preview.replaceChildren(el("strong", "", "[12:34] {"+(active?network(active.id).nick:"TuNick")+"}"));
       const text = el("p");
       DreamsFormatting.render(
         text,
@@ -568,7 +570,7 @@
       preview.append(input);
       preview.style.backgroundColor = appearanceFields.background.value;
       preview.style.color = appearanceFields.text.value;
-      preview.style.fontFamily = font.value;
+      preview.style.fontFamily = font.value+", sans-serif";
       preview.style.fontSize = size.value + "px";
       preview.style.fontWeight = style.value.includes("bold") ? "700" : "400";
       preview.style.fontStyle = style.value.includes("italic")
@@ -576,7 +578,7 @@
         : "normal";
       preview.querySelector("strong").style.color = appearanceFields.nicks
         .checked
-        ? "#9c009c"
+        ? ownColor.value
         : "inherit";
     }
     appearanceForm.oninput = update;
@@ -585,8 +587,8 @@
       "Guardar apariencia",
       async () => {
         config.settings.fontFamily = font.value;
-        config.settings.fontSize = Number(size.value);
-        config.settings.coloredNicks = appearanceFields.nicks.checked;
+        config.settings.fontSize = Math.max(11,Math.min(24,Number(size.value)||14));
+        config.settings.coloredNicks = appearanceFields.nicks.checked;config.settings.ownNickColor=ownColor.value;
         config.settings.roomAppearance = {
           background: appearanceFields.background.value,
           inputBackground: appearanceFields.inputBackground.value,
@@ -598,7 +600,7 @@
         render();
         appearance.dialog.close();
       },
-      appearanceForm,
+      actions,
     );
     button(
       "Restaurar apariencia del tema",
@@ -612,7 +614,7 @@
         render();
         fillAppearance();
       },
-      appearanceForm,
+      actions,
     );
   }
   const baseApply = applySettings;

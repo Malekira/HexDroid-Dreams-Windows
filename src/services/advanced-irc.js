@@ -54,6 +54,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.byteBuffer = Buffer.alloc(0);
       this.nickAttempts = 0;
       this.userStates = new Map();
+      this.userModes=new Set();
       this.presence=new (require("./presence").Presence)(this,this.profile.notifyNicks);this.ownAvatarTemplate=profile.ownAvatarTemplate||this.profile.photoUrl;
       this.pendingWhois = new Map();this.avatarDiscovery=profile.avatarDiscovery!==false;this.avatarSequence=0;
     }
@@ -448,6 +449,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     handle(m) {
       const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);
+      if(c==='381'||c==='221'||c==='MODE'&&fold(p[0])===fold(this.nick)){
+        if(c==='381')this.userModes.add('o');else{if(c==='221')this.userModes.clear();let adding=true;for(const mode of (c==='221'?p.at(-1):p[1])||''){if(mode==='+')adding=true;else if(mode==='-')adding=false;else if(adding)this.userModes.add(mode);else this.userModes.delete(mode);}}
+        this.emit('oper-state',{oper:this.userModes.has('o')||this.userModes.has('O'),modes:[...this.userModes].join('')});
+      }
       if(['311','312','313','317','318','319','330','301','401'].includes(c)){
         this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),complete:c==='318',error:c==='401'});
       }

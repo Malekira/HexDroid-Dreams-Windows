@@ -80,7 +80,7 @@ test('Messages, private conversations, unread tabs, room closure and multiple ne
   await expect(page.locator('.message-text img')).toHaveCount(0);
   await page.getByRole('button', { name: '@Luna', exact: true }).dblclick();
   await expect(page.getByRole('button', { name: 'Privado Luna', exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Luna', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Luna', exact: true })).toHaveCount(1);
   await page.locator('#message-input').fill('Mensaje privado'); await page.locator('#message-input').press('Enter');
   await expect(page.locator('.message-text')).toHaveText('Mensaje privado');
   await addNetwork(page, 'Otra red', 'irc.example.org', '#otra');
@@ -124,7 +124,7 @@ test('Private drafts, channels and conversations with identical names stay isola
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click();
   await expect(page.locator('#message-input')).toHaveValue('private draft');
   await expect(page.locator('#private-panel .conversation')).toHaveCount(1);
-  await expect(page.getByRole('tab',{name:'Luna',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('tab',{name:'Luna',exact:true})).toHaveCount(1);
   await addNetwork(page,'Second','irc.example.org','#general');
   await page.getByRole('button',{name:'@Luna',exact:true}).dblclick();
   await expect(page.locator('#message-input')).toHaveValue('');
@@ -143,13 +143,13 @@ test('Both panel widths, visibility and configuration searches work and survive 
   const divider = await page.locator('#users-resizer').boundingBox();
   await page.mouse.move(divider.x + 2,divider.y + 80); await page.mouse.down(); await page.mouse.move(1020,divider.y + 80); await page.mouse.up();
   await expect(page.locator('#users-panel')).toHaveCSS('width','260px');
-  await page.getByRole('button',{name:'Ocultar privados',exact:true}).click();
+  await page.getByRole('button',{name:'Ocultar panel izquierdo',exact:true}).click();
   await expect(page.locator('#private-panel')).toBeHidden();
   await page.getByRole('button',{name:'Ocultar usuarios',exact:true}).click();
   await expect(page.locator('#users-panel')).toBeHidden();
   await page.reload();
   await expect(page.locator('#private-panel')).toBeHidden(); await expect(page.locator('#users-panel')).toBeHidden();
-  await page.getByRole('button',{name:'Mostrar privados',exact:true}).click(); await page.getByRole('button',{name:'Mostrar usuarios',exact:true}).click();
+  await page.getByRole('button',{name:'Mostrar panel izquierdo',exact:true}).click(); await page.getByRole('button',{name:'Mostrar usuarios',exact:true}).click();
   await expect(page.locator('#users-panel')).toHaveCSS('width','260px');
   await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
   await page.getByRole('textbox',{name:'Buscar opciones de configuración'}).fill('altura');
@@ -286,4 +286,29 @@ test('Notify lists are saved independently for each network',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Primera');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
  await addNetwork(page,'Segunda');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).not.toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
  const ids=await page.locator('#network-select option').evaluateAll(nodes=>nodes.map(n=>n.value));await page.locator('#network-select').selectOption(ids[0]);await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');
+});
+test('Compact toolbar, alphabetic private tabs and Explorer tree replace the old private panel',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;for(const nick of ['Zeta','Alpha'])window.__emit({id,type:'message',target:nick,nick,text:'Hola '+nick});window.__emit({id,type:'modes',target:'#general',text:'+nt'});});
+ await expect.poll(()=>page.getByRole('tab').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')))).toEqual(['#dreams','#general','Alpha','Zeta']);
+ expect(await page.locator('.chat-heading').evaluate(n=>n.getBoundingClientRect().height)).toBeLessThanOrEqual(28);
+ for(const id of ['connection-button','join-button','notify-button','topic-toggle','room-appearance-button'])expect(await page.locator('#'+id).evaluate(n=>!!n.closest('.menubar'))).toBe(true);
+ const title=await page.locator('#conversation-title').boundingBox(),modes=await page.locator('#channel-modes').boundingBox();expect(Math.abs(title.y-modes.y)).toBeLessThan(8);
+ await page.getByRole('button',{name:'Privado Alpha',exact:true}).click();await expect(page.getByRole('tab',{name:'Alpha',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.locator('#tree-privates>summary').click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toBeHidden();await expect(page.getByRole('tab',{name:'Alpha',exact:true})).toBeVisible();await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.treePrivatesOpen)).toBe(false);await page.reload();await expect(page.locator('#tree-privates')).not.toHaveAttribute('open','');
+});
+test('Channel event arrows, optional masks and nickname actions never add photo thumbnails',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;for(const action of ['join','part','quit'])window.__emit({id,type:'channel',target:'#general',nick:'Visitante',ident:'ident',host:'host.example',action});});
+ await expect(page.locator('.event-join').last().locator('.event-arrow')).toHaveText('→');await expect(page.locator('.event-part .event-arrow')).toHaveText('←');await expect(page.locator('.event-quit .event-arrow')).toHaveText('←');await expect(page.locator('.channel-event img')).toHaveCount(0);await expect(page.locator('.event-mask')).toHaveCount(0);
+ await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=layout]').click();await page.locator('#setting-eventShowHost').check();await page.getByRole('button',{name:'Listo',exact:true}).click();await expect(page.locator('.event-part')).toContainText('ident@host.example');
+ await page.locator('.event-part').getByRole('button',{name:'Perfil de Visitante',exact:true}).click();await expect(page.locator('#user-profile')).toBeVisible();
+});
+test('Appearance preview precedes a three-column grid and uses visible color swatches',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
+ const preview=await page.locator('.room-live-preview').boundingBox(),first=await page.getByLabel('Fondo de sala',{exact:true}).boundingBox(),second=await page.getByLabel('Fondo del cuadro de texto',{exact:true}).boundingBox(),third=await page.getByLabel('Color del texto',{exact:true}).boundingBox();expect(preview.y+preview.height).toBeLessThan(first.y);expect(first.y).toBe(second.y);expect(second.y).toBe(third.y);expect(first.height).toBeGreaterThanOrEqual(30);
+ await page.getByLabel('Color del propio nick',{exact:true}).fill('#12ab34');await page.screenshot({path:'dist/Dreams-apariencia-compacta.png'});await page.getByRole('button',{name:'Guardar apariencia',exact:true}).click();await page.reload();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.ownNickColor)).toBe('#12ab34');
+});
+test('Commands menu groups commands and enables room and IRC operators from actual state',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.locator('#commands-menu>summary').click();await page.locator('#commands-menu').getByText('Operador de sala (@)',{exact:true}).click();const op=page.getByRole('menuitem',{name:'Operador de sala (@): /op · Dar operador',exact:true});await expect(op).toBeDisabled();
+ await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'users',target:'#general',users:['@Dreamer','Luna']});});await expect(op).toBeEnabled();await op.click();await expect(page.locator('#message-input')).toHaveValue('/op ');expect(await page.evaluate(()=>window.__sent||[])).toEqual([]);
+ await page.locator('#commands-menu>summary').click();await page.locator('#commands-menu').getByText('Operador de red (IRC oper)',{exact:true}).click();const kill=page.getByRole('menuitem',{name:'Operador de red (IRC oper): /kill · Desconectar usuario',exact:true});await expect(kill).toBeDisabled();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'oper-state',oper:true});});await expect(kill).toBeEnabled();
 });

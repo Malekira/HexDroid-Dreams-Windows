@@ -91,6 +91,7 @@
     return b;
   }
   function input(label, value = "", type = "text", parent = body) {
+    if(type==="color"&&/^#[a-f\d]{3}$/i.test(value||""))value="#"+value.slice(1).split("").map(c=>c+c).join("");
     const l = el("label", "advanced-field", label),
       i = el(type === "textarea" ? "textarea" : "input");
     if (type !== "textarea") i.type = type;
@@ -795,6 +796,7 @@
 
     }
   }
+  window.openDreamsAdvanced=key=>open(key);
   function open(key) {
     section = key || section;
     baseOpenSettings("__advanced__");

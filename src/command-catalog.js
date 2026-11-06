@@ -1,0 +1,95 @@
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.DreamsCommands = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, () => {
+  "use strict";
+  const user = [
+    ["join", "sala", "Entrar en sala"],
+    ["j", "sala", "Entrar en sala (alias)"],
+    ["part", "motivo", "Salir de la sala", "channel"],
+    ["cycle", "motivo", "Volver a entrar", "channel"],
+    ["nick", "apodo", "Cambiar nick"],
+    ["query", "apodo", "Abrir privado"],
+    ["msg", "apodo mensaje", "Mensaje privado"],
+    ["notice", "apodo mensaje", "Enviar aviso"],
+    ["me", "acción", "Acción"],
+    ["amsg", "mensaje", "Mensaje a todas las salas"],
+    ["ame", "acción", "Acción en todas las salas"],
+    ["whois", "apodo", "Consultar perfil"],
+    ["who", "apodo o sala", "Consultar usuarios"],
+    ["whowas", "apodo", "Consultar nick anterior"],
+    ["names", "sala", "Lista de usuarios"],
+    ["topic", "", "Consultar topic", "channel"],
+    ["mode", "", "Consultar modos", "channel"],
+    ["invite", "apodo", "Invitar a la sala", "channel"],
+    ["list", "", "Lista de salas"],
+    ["away", "mensaje", "Marcar ausencia"],
+    ["back", "", "Quitar ausencia"],
+    ["markread", "", "Marcar como leído"],
+    ["ctcp", "apodo VERSION", "Consulta CTCP"],
+    ["ping", "apodo", "Consultar latencia"],
+    ["ignore", "apodo", "Ignorar usuario", "local"],
+    ["unignore", "apodo", "Dejar de ignorar", "local"],
+    ["dns", "servidor", "Consultar dirección DNS", "local"],
+    ["identify", "contraseña", "Identificarse en NickServ"],
+    ["login", "cuenta contraseña", "Iniciar sesión"],
+    ["register", "argumentos", "Registrar cuenta"],
+    ["verify", "argumentos", "Verificar cuenta"],
+    ["ns", "comando", "NickServ"],
+    ["nickserv", "comando", "NickServ (alias)"],
+    ["cs", "comando", "ChanServ"],
+    ["chanserv", "comando", "ChanServ (alias)"],
+    ["hs", "comando", "HostServ"],
+    ["hostserv", "comando", "HostServ (alias)"],
+    ["monitor", "argumentos", "Seguimiento MONITOR"],
+    ["metadata", "argumentos", "Metadatos de usuario"],
+    ["knock", "sala", "Solicitar entrada"],
+    ["time", "", "Hora del servidor"],
+    ["version", "", "Versión del servidor"],
+    ["motd", "", "Mensaje del servidor"],
+    ["admin", "", "Administración del servidor"],
+    ["info", "", "Información del servidor"],
+    ["raw", "comando", "Comando IRC directo"],
+    ["quote", "comando", "Comando IRC directo (alias)"],
+    ["quit", "", "Desconectar"],
+  ];
+  const channel = [
+    ["topic", "texto", "Cambiar topic"],
+    ["mode", "modos argumentos", "Cambiar modos"],
+    ["op", "apodo", "Dar operador", "operator"],
+    ["deop", "apodo", "Quitar operador", "operator"],
+    ["voice", "apodo", "Dar voz"],
+    ["devoice", "apodo", "Quitar voz"],
+    ["ban", "máscara", "Aplicar ban"],
+    ["unban", "máscara", "Quitar ban"],
+    ["kick", "apodo motivo", "Expulsar"],
+    ["kickban", "apodo motivo", "Expulsar y aplicar ban"],
+  ];
+  const oper = [
+    ["oper", "usuario contraseña", "Identificarse como IRC oper", "login"],
+    ["kill", "apodo motivo", "Desconectar usuario"],
+    ["kline", "argumentos", "Bloqueo K-Line"],
+    ["unkline", "máscara", "Quitar K-Line"],
+    ["gline", "argumentos", "Bloqueo G-Line"],
+    ["ungline", "máscara", "Quitar G-Line"],
+    ["rehash", "", "Recargar configuración de la red"],
+    ["wallops", "mensaje", "Aviso a operadores"],
+    ["os", "comando", "OperServ"],
+    ["operserv", "comando", "OperServ (alias)"],
+  ];
+  const groups = [
+    { id: "user", label: "Usuario", items: user },
+    { id: "channel", label: "Operador de sala (@)", items: channel },
+    { id: "oper", label: "Operador de red (IRC oper)", items: oper },
+  ].map((g) => ({
+    ...g,
+    items: g.items.map(([command, args, label, rule]) => ({
+      command,
+      args,
+      label,
+      rule,
+    })),
+  }));
+  return { groups };
+});

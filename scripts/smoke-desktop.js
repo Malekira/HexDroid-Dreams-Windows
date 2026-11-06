@@ -77,9 +77,11 @@ async function run() {
     await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
     await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
     await expect(page.locator('#notify-list')).toContainText('En línea');
+    await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toBeVisible();
     expect(await app.evaluate(()=>global.__notifyBeeps)).toBe(0);
     for(const socket of sockets)socket.write(':local 731 Dreamer :Alice\r\n');
     await expect(page.locator('#notify-list')).toContainText('Desconectado');
+    await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toHaveCount(0);
     await expect.poll(()=>app.evaluate(()=>global.__notifyBeeps)).toBe(1);
     await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
 
@@ -97,7 +99,7 @@ async function run() {
     await page.locator('#message-input').fill('draft in channel');
     await page.getByRole('button',{name:'@Alice',exact:true}).dblclick();
     await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
-    await expect(page.getByRole('tab',{name:'Alice',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('tab',{name:'Alice',exact:true})).toHaveCount(1);
     await page.locator('#message-input').fill('draft in private');
     await page.getByRole('tab',{name:'#dreams',exact:true}).click();
     await expect(page.locator('#message-input')).toHaveValue('draft in channel');
@@ -148,6 +150,11 @@ async function run() {
     expect(scriptImport.error).toBeUndefined();expect(typeof scriptImport.id).toBe('string');
     const scriptConfigure=await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true,permissions:['send'],domains:[]}),scriptImport.id);
     expect(scriptConfigure.error).toBeUndefined();
+    await page.locator('#scripts-menu>summary').click();
+    await expect(page.locator('#scripts-menu').getByRole('button',{name:'/desktophello',exact:true})).toBeVisible();
+    await page.locator('#scripts-menu').getByRole('button',{name:'/desktophello',exact:true}).click();
+    await expect(page.locator('#message-input')).toHaveValue('/desktophello ');
+
     await page.locator('#message-input').fill('/desktophello');await page.locator('#message-input').press('Enter');
     await expect.poll(()=>received.includes('PRIVMSG #dreams :scripted desktop transmission')).toBe(true);
     if(process.platform==='win32'){
@@ -234,7 +241,7 @@ async function run() {
     await page.locator('#join-dialog .dialog-header [data-close]').click();
     await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
     await page.getByLabel('Fondo de sala',{exact:true}).fill('#ffffff');
-    await page.getByLabel('Texto de sala',{exact:true}).fill('#111111');
+    await page.getByLabel('Color del texto',{exact:true}).fill('#111111');
     await page.getByLabel('Nicks coloreados',{exact:true}).uncheck();
     await expect(page.locator('.room-live-preview')).toHaveCSS('background-color','rgb(255, 255, 255)');
     await page.getByRole('button',{name:'Guardar apariencia',exact:true}).click();

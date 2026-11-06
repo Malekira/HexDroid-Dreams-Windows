@@ -97,7 +97,7 @@ class IrcClient extends EventEmitter {
     this.emit('users', { target: channel, users: group ? [...group.values()].sort((a,b) => a.localeCompare(b)) : [], prefixes:this.prefixes, prefixModes:this.prefixModes });
   }
   handle(m) {
-    const { command: c, params: p, nick } = m;
+    const { command: c, params: p, nick } = m;const mask=/^[^!]+!([^@]*)@(.+)$/.exec(m.prefix||''),identity=mask?{ident:mask[1],host:mask[2]}:{};
     if (c === 'PING') { this.sendRaw(`PONG :${p.at(-1) || ''}`); return; }
     if (c === '001') {
       this.nick = p[0]; this.ready = true; clearTimeout(this.registrationTimer);
@@ -123,7 +123,7 @@ class IrcClient extends EventEmitter {
       if (own) this.members.set(key, new Map());
       if (!this.members.has(key)) this.members.set(key, new Map());
       this.members.get(key).set(fold(nick), nick); this.userList(channel);
-      this.emit('channel', { target: channel, nick, action: 'join', own });
+      this.emit('channel', { target: channel, nick, action: 'join', own,...identity });
       if (own) this.sendRaw(`MODE ${channel}`);
     } else if (c === '353') {
       const channel = p[2]; if (!channel) return;
@@ -136,11 +136,11 @@ class IrcClient extends EventEmitter {
       const channel = p[0], who = c === 'KICK' ? p[1] : nick; if (!channel || !who) return;
       const own = fold(who) === fold(this.nick);
       this.members.get(fold(channel))?.delete(fold(who)); if (!own) this.userList(channel);
-      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own });
+      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own,...(c==='PART'?identity:{}),reason:p[c==='KICK'?2:1]||'' });
       if (own) this.members.delete(fold(channel));
     } else if (c === 'QUIT') {
       for (const [channel, members] of this.members) if (members.delete(fold(nick))) {
-        this.userList(channel); this.emit('channel', { target: channel, nick, action: 'quit', own: false });
+        this.userList(channel); this.emit('channel', { target: channel, nick, action: 'quit', own: false,...identity,reason:p[0]||'' });
       }
     } else if (c === 'NICK') {
       const next = p[0]; if (!next) return;

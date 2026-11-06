@@ -40,12 +40,12 @@ function applySettings() {
   document.body.classList.toggle('compact',s.compact);
   $('private-panel').hidden = !s.showPrivates; $('sidebar-resizer').hidden = !s.showPrivates;
   $('users-panel').hidden = !s.showUsers; $('users-resizer').hidden = !s.showUsers;
-  for (const [id, key, noun] of [['users-toggle','showUsers','usuarios'],['privates-toggle','showPrivates','privados']]) {
+  for (const [id, key, noun] of [['users-toggle','showUsers','usuarios'],['privates-toggle','showPrivates','panel izquierdo']]) {
     $(id).setAttribute('aria-pressed',String(s[key])); $(id).setAttribute('aria-label',(s[key] ? 'Ocultar ' : 'Mostrar ') + noun);
   }
   $('private-sort').value = s.privateSort;
   for (const [id,key] of [['font','fontSize'],['sidebar','sidebarWidth'],['usersWidth','usersWidth'],['fontFamily','fontFamily'],['lineHeight','lineHeight'],['messageSpacing','messageSpacing'],['ownNickColor','ownNickColor']]) $('setting-' + id).value = String(s[key]);
-  for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','autoScroll']) $('setting-' + key).checked = s[key];
+  for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).checked = s[key];
 }
 function captureConversation() {
   const c = selected(); if (!c) return;
@@ -82,26 +82,13 @@ function renderSidebar() {
   if (!config.profiles.length) picker.append(el('option','','Sin redes')); else picker.value = active?.id || config.profiles[0].id;
   picker.disabled = !config.profiles.length;
   if (draggedItem) return;
-  const list = $('network-list'); list.replaceChildren();
-  const query = fold($('search').value), n = active && network(active.id);
-  let entries = n ? [...n.conversations.values()].filter(c => c.kind === 'private' && fold(c.name).includes(query)) : [];
-  if (config.settings.privateSort === 'alphabetical') entries.sort((a,b) => a.name.localeCompare(b.name));
-  if (config.settings.privateSort === 'unread') entries.sort((a,b) => b.unread - a.unread || a.name.localeCompare(b.name));
-  if (!entries.length) list.append(el('p','empty-networks',query ? 'No hay privados que coincidan.' : 'Los mensajes privados aparecerán aquí. Doble clic en un usuario para iniciar uno.'));
-  for (const c of entries) {
-    const id = active.id, row = el('div','conversation' + (fold(active.target) === fold(c.name) ? ' active' : '') + ((c.mentions||c.mentionUntil>Date.now()) && !c.muted ? ' has-mention' : '') + (config.settings.highlightActivity!==false&&(c.unread||c.activityUntil>Date.now())&&!c.muted?' has-activity':'') + (c.muted ? ' is-muted' : ''));
-    const b = el('button','conversation-name'); b.setAttribute('aria-label','Privado ' + c.name); b.append(el('span','symbol','◌'),el('span','label',c.name));
-    if (c.muted) b.append(el('span','muted-symbol','◦'));
-    if (c.unread) b.append(el('span','badge' + (c.mentions && !c.muted ? ' mention' : ''),c.unread > 99 ? '99+' : String(c.unread)));
-    b.onclick = () => choose(id,c.name);
-    const close = el('button','close-private','×'); close.setAttribute('aria-label','Cerrar privado ' + c.name); close.onclick = () => closeConversation(id,c.name);
-    row.append(b,close); row.oncontextmenu = e => conversationMenu(e,id,c); dragOrder(row,id,c.name); list.append(row);
-  }
+  window.renderDreamsTree?.();
 }
+
 function renderTabs() {
   if (draggedItem) return;
   const tabs = $('room-tabs'); tabs.replaceChildren();
-  const channels = active ? [...network(active.id).conversations.values()].filter(c => c.kind === 'channel'||c.kind==='queries') : [];
+  const all=active?[...network(active.id).conversations.values()]:[];const channels=[...all.filter(c=>c.kind==='channel'),...all.filter(c=>c.kind==='private').sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})),...all.filter(c=>c.kind==='queries')];
   if (!channels.length) tabs.append(el('span','empty-tabs','Sin canales abiertos · usa + para entrar en una sala'));
   for (const c of channels) {
     const id = active.id, selected = fold(c.name) === fold(active.target), tab = el('div','room-tab' + (selected ? ' selected' : '') + ((c.mentions||c.mentionUntil>Date.now()) && !c.muted ? ' has-mention' : '') + (config.settings.highlightActivity!==false&&(c.unread||c.activityUntil>Date.now())&&!c.muted?' has-activity':'') + (c.muted ? ' is-muted' : ''));
@@ -109,7 +96,7 @@ function renderTabs() {
     if (c.unread) button.append(el('span','badge' + (c.mentions && !c.muted ? ' mention' : ''),String(c.unread)));
     button.onclick = () => choose(id,c.name); tab.append(button);
     const close = el('button','close-tab','×'); close.setAttribute('aria-label','Cerrar ' + c.name); close.onclick = () => closeConversation(id,c.name); tab.append(close);
-    tab.oncontextmenu = e => conversationMenu(e,id,c); dragOrder(tab,id,c.name); tabs.append(tab);
+    tab.oncontextmenu = e => conversationMenu(e,id,c); if(c.kind==='channel')dragOrder(tab,id,c.name);tabs.append(tab);
   }
 }
 async function closeConversation(id, target) {
@@ -148,7 +135,7 @@ function renderMessages(preserveScroll = false) {
     const time = el('time','',valid ? '['+date.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+']' : ''); if (valid) time.dateTime = date.toISOString();
     const row = el(m.event ? 'div' : 'article',m.event ? 'event-message' + (m.error ? ' error' : '') : 'message' + (m.own ? ' own' : '') + (m.action ? ' action' : '') + (m.notice ? ' notice' : '') + (m.mention && !c.muted ? ' mention' : '') + (selectedMessages.has(m.id) ? ' selected' : ''));
     row.dataset.messageId = m.id;
-    if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted); }
+    if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted);if(m.eventType)window.renderDreamsChannelEvent?.(row,m,time); }
     else {
       const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick);if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
@@ -230,7 +217,7 @@ function goFirstUnread() {
 }
 function cycleChannel(direction) {
   if (!active) return;
-  const channels = [...network(active.id).conversations.values()].filter(c => c.kind === 'channel'||c.kind==='queries'); if (!channels.length) return;
+  const all=[...network(active.id).conversations.values()],channels=[...all.filter(c=>c.kind==='channel'),...all.filter(c=>c.kind==='private').sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})),...all.filter(c=>c.kind==='queries')]; if (!channels.length) return;
   const i = channels.findIndex(c => fold(c.name) === fold(active.target));
   choose(active.id,channels[i < 0 ? direction > 0 ? 0 : channels.length - 1 : (i + direction + channels.length) % channels.length].name);
 }
@@ -239,7 +226,7 @@ function toggleMessageSelection(id,row) {
   row.classList.toggle('selected',selectedMessages.has(id)); $('selection-count').textContent = selectedMessages.size ? `${selectedMessages.size} seleccionados · Ctrl+C` : '';
 }
 async function copyText(text) { const result = await api.copy(text); if (result?.error) throw new Error(result.error); }
-function printable(m) { return `${m.time} ${m.nick ? '<' + m.nick + '> ' : ''}${stripFormatting(m.text)}`; }
+function printable(m) { if(m.eventType)return m.time+' '+stripFormatting(m.text)+(m.reason?' · '+stripFormatting(m.reason):'');return `${m.time} ${m.nick ? '<' + m.nick + '> ' : ''}${stripFormatting(m.text)}`; }
 function copyMessages() { return copyText(selected().messages.filter(m => selectedMessages.has(m.id)).map(printable).join('\n')); }
 function messageMenu(event,m,row) {
   const selection = document.getSelection()?.toString();
@@ -278,8 +265,7 @@ function conversationMenu(event,id,c) {
     { label:'Marcar como leído',action:() => { c.unread = 0; c.mentions = 0; c.firstUnreadId = null; render(); } },
     { label:c.muted ? 'Activar resaltado de actividad' : 'Silenciar resaltado de actividad',action:() => { c.muted = !c.muted; persist().catch(() => {}); render(); } },
     null,
-    { label:c.kind === 'channel' ? 'Mover pestaña a la izquierda' : 'Mover arriba',disabled:index <= 0,action:() => move(-1) },
-    { label:c.kind === 'channel' ? 'Mover pestaña a la derecha' : 'Mover abajo',disabled:index >= sameKind.length - 1,action:() => move(1) },
+    ...(c.kind==='channel'?[{label:'Mover pestaña a la izquierda',disabled:index<=0,action:()=>move(-1)},{label:'Mover pestaña a la derecha',disabled:index>=sameKind.length-1,action:()=>move(1)}]:[]),
     ...(c.kind === 'channel' ? [
       { label:'Entrar de nuevo en el canal',disabled:c.joined || network(id).state !== 'connected',action:() => sendCommand(id,'*','/join ' + c.name) },
       { label:'Editar topic',disabled:!c.joined,action:() => askAction('Editar topic','Nuevo topic',c.topic,value => sendCommand(id,c.name,'/topic ' + value)) }
@@ -472,7 +458,7 @@ $('messages').addEventListener('scroll',() => {
   c.scrollTop = list.scrollTop; c.follow = list.scrollHeight - list.scrollTop - list.clientHeight < 70;
   if (c.follow) { c.unread = 0; c.mentions = 0; $('new-messages').hidden = true; }
 });
-for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','autoScroll']) $('setting-' + key).onchange = () => { config.settings[key] = $('setting-' + key).checked; applySettings(); render(); persist().catch(() => {}); };
+for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).onchange = () => { config.settings[key] = $('setting-' + key).checked; applySettings(); render(); persist().catch(() => {}); };
 for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFamily',false],['ownNickColor','ownNickColor',false],['lineHeight','lineHeight',true],['messageSpacing','messageSpacing',true],['sidebar','sidebarWidth',true],['usersWidth','usersWidth',true]]) {
   const node = $('setting-' + id); node.oninput = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); };
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };
@@ -495,6 +481,7 @@ api.onEvent(event => {
     case 'status':
       n.state = event.state; if (event.nick) n.nick = event.nick; if (event.connection) n.connection = event.connection;
       addMessage(id, '*', { event: true, text: event.text });
+      if(event.state==='disconnected')n.ircOper=false;
       if (event.state === 'disconnected') for (const c of n.conversations.values()) { c.joined = false; c.users = []; }
       break;
     case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
@@ -503,13 +490,14 @@ api.onEvent(event => {
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
     case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
+    case 'oper-state':n.ircOper=event.oper;break;
     case 'topic': conversation(id, event.target).topic = event.text; break;
     case 'channel': {
       if (!n.conversations.has(fold(event.target)) && event.action !== 'join') break;
       const c = conversation(id, event.target);
       if (event.own) { c.joined = event.action === 'join'; if (!c.joined) c.users = []; }
       const verb = { join: 'ha entrado en la sala', part: 'ha salido de la sala', quit: 'se ha desconectado', kick: 'ha sido expulsado' }[event.action];
-      addMessage(id, event.target, { event: true, own:event.own, activity:config.settings.highlightEvents!==false, text: event.nick + ' ' + verb });
+      addMessage(id, event.target, { event: true,eventType:event.action,nick:event.nick,ident:event.ident||'',host:event.host||'',reason:event.reason||'',own:event.own, activity:config.settings.highlightEvents!==false, text: event.nick + ' ' + verb });
       if (event.own && event.action === 'join') choose(id,event.target,false);
       break;
     }
