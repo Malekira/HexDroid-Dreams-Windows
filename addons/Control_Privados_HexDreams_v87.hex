@@ -1,0 +1,438 @@
+; CONTROL DE PRIVADOS - HexDreams IRC 0.13.0 o posterior
+; Original mIRC/IRcap: Control_Privados_mIRC_v87.mrc, por Dramatiik.
+; Adaptacion exclusiva del addon. No requiere modificar el programa.
+; Permisos: read, intercept, send, ui, persist. Sin raw ni HTTP.
+; Desactivar el control de privados anterior antes de habilitar este.
+;
+; /pvpendientes | /pvconfig | /si [nick] | /no [nick]
+; /pvignorar [nick] | /pvreset nick
+; /pvautoagregar nick | /pvautoquitar nick | /pvauto
+; /pvmodo preguntar|auto | /pvventana si|no | /pvtip si|no
+; /pvmensaje espera|aceptacion|rechazo TEXTO
+; {nick} se sustituye por el remitente. Se guardan opciones y autoaceptados.
+; Las decisiones y los primeros 25 mensajes son independientes por red+nick.
+; Colecciones vacias: json({}) y slice(...,0,0) evitan los elementos
+; vacios que generan list() y map() en el motor actual.
+; Los paneles pertenecen a la red desde la que se abren.
+
+on LOAD {
+  set %pv87_estado $json("{}")
+  set %pv87_nicks $json("{}")
+  set %pv87_redes $json("{}")
+  set %pv87_buffer $json("{}")
+  set %pv87_ultimo $json("{}")
+  set %pv87_panel $json("{}")
+  set %pv87_pagina $json("{}")
+  set %pv87_auto_pagina $json("{}")
+  set %pv87_presentado $json("{}")
+  set %pv87_ocultar 0
+  set %pv87_ocultos $json("{}")
+  set %pv87_auto $json("{}")
+  set -l %guardados $json($state(pv87_auto))
+  foreach %apodo $keys(%guardados) {
+    if ($get(%guardados,%apodo) == 1 && $pv87.nickvalido(%apodo) == 1) {
+      setat %pv87_auto $lower(%apodo) 1
+    }
+  }
+  set %pv87_espera $state(pv87_espera)
+  set %pv87_aceptacion $state(pv87_aceptacion)
+  set %pv87_rechazo $state(pv87_rechazo)
+  if ($len(%pv87_espera) == 0) { set %pv87_espera Espere por favor, estoy revisando su solicitud de privado... }
+  if ($len(%pv87_aceptacion) == 0) { set %pv87_aceptacion "Hola {nick}, ¿En Qué Te Puedo Ayudar? =)" }
+  if ($len(%pv87_rechazo) == 0) { set %pv87_rechazo "Disculpa {nick}, no puedo aceptar tu privado en este momento." }
+  set %pv87_modo preguntar
+  if ($state(pv87_modo) == auto) { set %pv87_modo auto }
+  set %pv87_ventana 1
+  set %pv87_tip 1
+  if ($state(pv87_ventana) == 0) { set %pv87_ventana 0 }
+  if ($state(pv87_tip) == 0) { set %pv87_tip 0 }
+  sidebar add pv87_control pvpendientes Privados pendientes - Dramatiik
+}
+
+; El evento LOAD no tiene conexion en HexDreams. El credito se muestra
+; una vez en el status de cada red al conectar o utilizar el addon.
+on CONNECT { pv87.presentar }
+alias pv87.presentar {
+  if ($len($network) == 0) { return }
+  if ($get(%pv87_presentado,$network) == 1) { return }
+  setat %pv87_presentado $network 1
+  echo -s "04Gracias 07por 02usar 03nuestro 12Addon 06- 10by 13Dramatiik"
+}
+
+alias pv87.clave { return $join($list($network,$lower($1)),::) }
+alias pv87.nickvalido {
+  if ($len($1) == 0 || $len($1) > 32) { return 0 }
+  if ($re_match($1,"^[^\s=;:\x00-\x1f\x7f]+$") != true) { return 0 }
+  return 1
+}
+
+; Cuenta bytes UTF-8 sin depender de funciones inexistentes de mIRC.
+alias pv87.bytes {
+  set -l %v $re_replace($1,"[\u{10000}-\u{10ffff}]",xxxx)
+  set -l %v $re_replace(%v,"[\u0800-\uffff]",xxx)
+  set -l %v $re_replace(%v,"[\u0080-\u07ff]",xx)
+  return $len(%v)
+}
+
+; Solo espera/rechazo llevan dos resets de formato como identificador.
+; Sus propios ecos se ocultan para no crear un PV con la respuesta
+; automatica. No se ocultan los mensajes que escribe el usuario.
+alias pv87.enviar {
+  set -l %nick $1
+  set -l %texto %pv87_espera
+  if ($2 == aceptacion) { set -l %texto %pv87_aceptacion }
+  elseif ($2 == rechazo) { set -l %texto %pv87_rechazo }
+  set -l %texto $replace(%texto,"{nick}",%nick)
+  if ($3 == ocultar) { set -l %texto $join($list(%texto,""),"") }
+  set -l %wire $join($list("PRIVMSG ",%nick," :",%texto),"")
+  if ($pv87.bytes(%wire) > 430) {
+    echo -s [PV] Mensaje automatico demasiado largo. Acortalo con /pvmensaje.
+    return
+  }
+  if ($3 == ocultar) { setat %pv87_ocultos $join($list($network,$lower(%nick),%texto),"") 1 }
+  msg %nick %texto
+}
+
+alias pv87.guardar {
+  set -l %clave $1
+  set -l %mensajes $get(%pv87_buffer,%clave)
+  if ($len(%mensajes) < 25) {
+    push %mensajes $2-
+    setat %pv87_buffer %clave %mensajes
+  }
+}
+
+alias pv87.recibir {
+  set %pv87_ocultar 0
+  if ($isprivate != true) { return }
+  if ($isme == true) {
+    if ($get(%pv87_ocultos, $join($list($network,$lower($buffer),$text),"")) == 1) { set %pv87_ocultar 1 }
+    return
+  }
+  set -l %nick $1
+  if ($pv87.nickvalido(%nick) != 1) { return }
+  pv87.presentar
+  set -l %clave $pv87.clave(%nick)
+  set -l %estado $get(%pv87_estado,%clave)
+
+  ; La lista persistente tiene prioridad sobre un rechazo de sesion.
+  if ($get(%pv87_auto,$lower(%nick)) == 1) {
+    if (%estado == pendiente) { pv87.aceptar %nick }
+    elseif (%estado != aceptado) {
+      setat %pv87_estado %clave aceptado
+      pv87.enviar %nick aceptacion
+    }
+    return
+  }
+  if (%estado == rechazado) { set %pv87_ocultar 1 | return }
+  if (%estado == aceptado) { return }
+  if (%estado == pendiente) {
+    pv87.guardar %clave $2-
+    set %pv87_ocultar 1
+    return
+  }
+  if (%pv87_modo == auto) {
+    setat %pv87_estado %clave aceptado
+    pv87.enviar %nick aceptacion
+    return
+  }
+
+  ; Guardar ANTES de mostrar la lista: incluye el primer mensaje.
+  setat %pv87_estado %clave pendiente
+  setat %pv87_nicks %clave %nick
+  setat %pv87_redes %clave $network
+  setat %pv87_buffer %clave $list($2-)
+  setat %pv87_ultimo $network %nick
+  setat %pv87_pagina $network 0
+  pv87.enviar %nick espera ocultar
+  echo -s [PV pendiente] %nick - Usa /si %nick o /no %nick en esta red.
+  if (%pv87_tip == 1) { toast Solicitud de privado de %nick - Abri /pvpendientes para decidir. }
+  if (%pv87_ventana == 1) { pvpendientes }
+  else { pv87.refrescar }
+  set %pv87_ocultar 1
+}
+
+on TEXT {
+  pv87.recibir $nick $text
+  if (%pv87_ocultar == 1) { halt }
+}
+on ACTION {
+  pv87.recibir $nick * $text
+  if (%pv87_ocultar == 1) { halt }
+}
+
+; /si y /no sin nick usan el ultimo PENDIENTE de ESTA red; si ya no
+; lo esta, eligen el primero de las otras solicitudes de la misma red.
+alias pv87.elegir {
+  if ($len($1) > 0) { return $1 }
+  set -l %ultimo $get(%pv87_ultimo,$network)
+  if ($len(%ultimo) > 0 && $get(%pv87_estado,$pv87.clave(%ultimo)) == pendiente) { return %ultimo }
+  foreach %clave $keys(%pv87_estado) {
+    if ($get(%pv87_estado,%clave) == pendiente && $get(%pv87_redes,%clave) == $network) {
+      return $get(%pv87_nicks,%clave)
+    }
+  }
+  return ""
+}
+
+alias pv87.aceptar {
+  set -l %nick $1
+  set -l %clave $pv87.clave(%nick)
+  if ($get(%pv87_estado,%clave) != pendiente) { echo -s [PV] No hay solicitud pendiente de %nick en esta red. | return }
+  set -l %historial $get(%pv87_buffer,%clave)
+  setat %pv87_estado %clave aceptado
+  setat %pv87_buffer %clave $slice($list(""),0,0)
+  if ($len(%historial) > 0) {
+    echo %nick --- Mensajes recibidos antes de aceptar el privado ---
+    foreach %linea %historial { echo %nick <%nick> %linea }
+    echo %nick --- Fin de los mensajes pendientes ---
+  }
+  pv87.enviar %nick aceptacion
+  echo -s [PV aceptado] %nick - Se envio el saludo.
+  pv87.refrescar
+}
+
+alias si {
+  set -l %nick $pv87.elegir($1)
+  if ($len(%nick) == 0) { echo -s [PV] No hay solicitudes pendientes en esta red. | return }
+  pv87.aceptar %nick
+}
+alias no {
+  set -l %nick $pv87.elegir($1)
+  if ($len(%nick) == 0) { echo -s [PV] No hay solicitudes pendientes en esta red. | return }
+  set -l %clave $pv87.clave(%nick)
+  if ($get(%pv87_estado,%clave) != pendiente) { echo -s [PV] No hay solicitud pendiente de %nick en esta red. | return }
+  setat %pv87_estado %clave rechazado
+  setat %pv87_buffer %clave $slice($list(""),0,0)
+  pv87.enviar %nick rechazo ocultar
+  echo -s [PV rechazado] %nick - Para volver a recibir solicitudes: /pvreset %nick
+  pv87.refrescar
+}
+alias pvignorar {
+  set -l %nick $pv87.elegir($1)
+  if ($len(%nick) == 0) { echo -s [PV] No hay solicitudes pendientes en esta red. | return }
+  set -l %clave $pv87.clave(%nick)
+  if ($get(%pv87_estado,%clave) != pendiente) { echo -s [PV] No hay solicitud pendiente de %nick en esta red. | return }
+  setat %pv87_estado %clave nuevo
+  setat %pv87_buffer %clave $slice($list(""),0,0)
+  echo -s [PV ignorado] %nick - Sin responder ni bloquear. Puede volver a solicitar.
+  pv87.refrescar
+}
+alias pvreset {
+  if ($pv87.nickvalido($1-) != 1) { echo -s [PV] Uso: /pvreset Nick | return }
+  set -l %clave $pv87.clave($1)
+  setat %pv87_estado %clave nuevo
+  setat %pv87_buffer %clave $slice($list(""),0,0)
+  echo -s [PV] Permiso reiniciado para $1 en esta red. La lista de autoaceptados no cambia.
+  pv87.refrescar
+}
+
+alias pvautoagregar {
+  if ($pv87.nickvalido($1-) != 1) { echo -s [PV] Escribi un solo nick valido, de hasta 32 caracteres. Uso: /pvautoagregar Nick | return }
+  set -l %nick $lower($1)
+  if ($get(%pv87_auto,%nick) != 1) {
+    set -l %prueba $json("{}")
+    foreach %n $keys(%pv87_auto) { setat %prueba %n 1 }
+    setat %prueba %nick 1
+    if ($len($tojson($tojson(%prueba))) > 55000) { echo -s [PV] La lista supera el espacio de guardado disponible. | return }
+    set %pv87_auto %prueba
+    state.set pv87_auto $tojson(%pv87_auto)
+  }
+  ; No existe /scon en HEX. Aceptar ahora la solicitud de ESTA red.
+  ; Las otras redes aplican la lista global al siguiente mensaje entrante.
+  set -l %clave $pv87.clave(%nick)
+  if ($get(%pv87_estado,%clave) == pendiente) { pv87.aceptar $get(%pv87_nicks,%clave) }
+  elseif ($get(%pv87_estado,%clave) == rechazado) { setat %pv87_estado %clave nuevo }
+  echo -s [PV] %nick en autoaceptados. Lista global y persistente.
+  pv87.refrescar
+}
+alias pvautoquitar {
+  if ($pv87.nickvalido($1-) != 1) { echo -s [PV] Uso: /pvautoquitar Nick | return }
+  set -l %nick $lower($1)
+  set -l %nueva $json("{}")
+  foreach %n $keys(%pv87_auto) { if (%n != %nick) { setat %nueva %n 1 } }
+  set %pv87_auto %nueva
+  state.set pv87_auto $tojson(%pv87_auto)
+  echo -s [PV] %nick fuera de autoaceptados. Si ya estaba aceptado esta sesion, /pvreset %nick revoca el permiso.
+  pv87.refrescar
+}
+alias pvauto {
+  if ($len($1) > 0) { pvautoagregar $1 | return }
+  pv87.verauto
+}
+
+alias pvmodo {
+  set -l %modo $lower($1)
+  if (%modo != auto && %modo != preguntar) { echo -s [PV] Uso: /pvmodo preguntar o /pvmodo auto | return }
+  set %pv87_modo %modo
+  state.set pv87_modo %modo
+  echo -s [PV] Modo %modo. Se aplica a solicitudes nuevas. Las pendientes anteriores no se aceptan en bloque.
+  pv87.refrescar
+}
+alias pvventana {
+  if ($1 != si && $1 != no) { echo -s [PV] Uso: /pvventana si o /pvventana no | return }
+  set %pv87_ventana 0
+  if ($1 == si) { set %pv87_ventana 1 }
+  state.set pv87_ventana %pv87_ventana
+  pv87.refrescar
+}
+alias pvtip {
+  if ($1 != si && $1 != no) { echo -s [PV] Uso: /pvtip si o /pvtip no | return }
+  set %pv87_tip 0
+  if ($1 == si) { set %pv87_tip 1 }
+  state.set pv87_tip %pv87_tip
+  pv87.refrescar
+}
+alias pvmensaje {
+  set -l %tipo $lower($1)
+  if (%tipo == aceptar) { set -l %tipo aceptacion }
+  if (%tipo != espera && %tipo != aceptacion && %tipo != rechazo) { echo -s [PV] Uso: /pvmensaje espera, aceptacion o rechazo TEXTO | return }
+  if ($len($trim($2-)) == 0) { echo -s [PV] Los tres mensajes deben tener texto. Ignorar siempre es silencioso. | return }
+  if ($pv87.bytes($2-) > 350) { echo -s [PV] Texto demasiado largo. Usa un mensaje de hasta 350 bytes UTF-8. | return }
+  if (%tipo == espera) { set %pv87_espera $2- | state.set pv87_espera %pv87_espera }
+  elseif (%tipo == aceptacion) { set %pv87_aceptacion $2- | state.set pv87_aceptacion %pv87_aceptacion }
+  else { set %pv87_rechazo $2- | state.set pv87_rechazo %pv87_rechazo }
+  echo -s "[PV] Mensaje de %tipo actualizado. Usa {nick} para personalizarlo."
+  pv87.refrescar
+}
+
+; PANELES: 8 solicitudes por pagina, siempre de la red del panel.
+alias pvpendientes {
+  if ($len($network) == 0) { return }
+  pv87.presentar
+  setat %pv87_panel $network pendientes
+  pv87.verpendientes
+}
+alias pv87.verpendientes {
+  set -l %todas $slice($list(""),0,0)
+  foreach %clave $keys(%pv87_estado) {
+    if ($get(%pv87_estado,%clave) == pendiente && $get(%pv87_redes,%clave) == $network) { push %todas %clave }
+  }
+  set -l %pagina $get(%pv87_pagina,$network)
+  if ($len(%pagina) == 0) { set -l %pagina 0 }
+  if (%pagina > 0 && $calc(%pagina * 8) >= $len(%todas)) { set -l %pagina $calc($ceil($len(%todas) / 8) - 1) }
+  if (%pagina < 0) { set -l %pagina 0 }
+  setat %pv87_pagina $network %pagina
+  set -l %visibles $slice(%todas,$calc(%pagina * 8),$calc(%pagina * 8 + 8))
+  view {
+    column gap 6 {
+      text "Control de privados - Dramatiik" bold textsize 17
+      text "Red: $network"
+      text "Pendientes: $len(%todas) | Pagina $calc(%pagina + 1)"
+      text "Rechazar responde y bloquea. Ignorar descarta sin responder ni bloquear."
+      if ($len(%todas) == 0) { text "No hay privados pendientes." }
+      foreach %clave %visibles {
+        surface radius 5 pad 6 {
+          column gap 4 {
+            text "$get(%pv87_nicks,%clave) - $len($get(%pv87_buffer,%clave)) mensajes guardados" bold
+            row gap 4 {
+              button "Aceptar" pv87.aceptar $get(%pv87_nicks,%clave) weight 1
+              button "Rechazar" no $get(%pv87_nicks,%clave) weight 1
+              button "Ignorar" pvignorar $get(%pv87_nicks,%clave) weight 1
+            }
+          }
+        }
+      }
+      row gap 4 {
+        button "Anterior" pv87.anterior weight 1
+        button "Siguiente" pv87.siguiente weight 1
+        button "Actualizar" pvpendientes weight 1
+      }
+      row gap 4 {
+        button "Autoaceptados" pv87.verauto weight 1
+        button "Configuracion" pvconfig weight 1
+      }
+    }
+  }
+}
+alias pv87.anterior {
+  setat %pv87_pagina $network $max(0,$calc($get(%pv87_pagina,$network) - 1))
+  pvpendientes
+}
+alias pv87.siguiente {
+  setat %pv87_pagina $network $calc($get(%pv87_pagina,$network) + 1)
+  pvpendientes
+}
+alias pv87.verauto {
+  if ($len($network) == 0) { return }
+  setat %pv87_panel $network auto
+  set -l %nicks $sort($keys(%pv87_auto))
+  set -l %pagina $get(%pv87_auto_pagina,$network)
+  if ($len(%pagina) == 0) { set -l %pagina 0 }
+  if (%pagina > 0 && $calc(%pagina * 12) >= $len(%nicks)) { set -l %pagina $calc($ceil($len(%nicks) / 12) - 1) }
+  if (%pagina < 0) { set -l %pagina 0 }
+  setat %pv87_auto_pagina $network %pagina
+  set -l %visibles $slice(%nicks,$calc(%pagina * 12),$calc(%pagina * 12 + 12))
+  view {
+    column gap 6 {
+      text "Autoaceptados - guardados para todas las redes" bold textsize 16
+      text "Agregar: /pvautoagregar Nick | Quitar: boton o /pvautoquitar Nick"
+      if ($len(%nicks) == 0) { text "La lista esta vacia." }
+      foreach %n %visibles {
+        row gap 5 {
+          text %n weight 1
+          button "Quitar" pvautoquitar %n weight 1
+        }
+      }
+      row gap 4 {
+        button "Anterior" pv87.autoanterior weight 1
+        button "Siguiente" pv87.autosiguiente weight 1
+        button "Pendientes" pvpendientes weight 1
+        button "Configuracion" pvconfig weight 1
+      }
+      text "Quitar de esta lista no revoca permisos de esta sesion. Usa /pvreset Nick."
+    }
+  }
+}
+alias pv87.autoanterior {
+  setat %pv87_auto_pagina $network $max(0,$calc($get(%pv87_auto_pagina,$network) - 1))
+  pv87.verauto
+}
+alias pv87.autosiguiente {
+  setat %pv87_auto_pagina $network $calc($get(%pv87_auto_pagina,$network) + 1)
+  pv87.verauto
+}
+alias pvconfig {
+  if ($len($network) == 0) { return }
+  pv87.presentar
+  setat %pv87_panel $network config
+  view {
+    column gap 6 {
+      text "Control de privados - Configuracion" bold textsize 17
+      text "Modo: %pv87_modo"
+      row gap 4 {
+        button "Preguntar" pvmodo preguntar weight 1
+        button "Aceptar automaticamente" pvmodo auto weight 1
+      }
+      text "Abrir panel al recibir solicitud: %pv87_ventana"
+      row gap 4 {
+        button "Panel si" pvventana si weight 1
+        button "Panel no" pvventana no weight 1
+      }
+      text "Aviso emergente en HexDreams: %pv87_tip"
+      row gap 4 {
+        button "Aviso si" pvtip si weight 1
+        button "Aviso no" pvtip no weight 1
+      }
+      text "Mensaje de espera:" bold
+      text %pv87_espera
+      text "Saludo de aceptacion:" bold
+      text %pv87_aceptacion
+      text "Mensaje de rechazo:" bold
+      text %pv87_rechazo
+      text "Editar desde el chat: /pvmensaje espera TEXTO"
+      text "/pvmensaje aceptacion TEXTO | /pvmensaje rechazo TEXTO"
+      text "Usa {nick} para el apodo. Los cambios se guardan automaticamente."
+      row gap 4 {
+        button "Pendientes" pvpendientes weight 1
+        button "Autoaceptados" pv87.verauto weight 1
+      }
+    }
+  }
+}
+alias pv87.refrescar {
+  if ($get(%pv87_panel,$network) == pendientes) { pv87.verpendientes }
+  elseif ($get(%pv87_panel,$network) == auto) { pv87.verauto }
+  elseif ($get(%pv87_panel,$network) == config) { pvconfig }
+}
+on SIGNAL:view_closed { setat %pv87_panel $network cerrado }
