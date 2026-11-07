@@ -1,21 +1,12 @@
-Primera versión de prueba de HexDroid Dreams para Windows 10/11 x64.
+# HexDreams IRC 0.13.0 para Windows
 
-## Descargar y abrir
+- Corregido el falso error «Bloque .hex sin cerrar» al encontrar caritas como `=)` en texto. Los comentarios respetan los puntos y coma dentro de comillas; los errores de bloque incluyen línea.
+- Compatibilidad del control de privados: variables `$isprivate` y `$isme`, evento NICK con `$newnick`, condiciones dentro de vistas, y `echo -s` en el status de red. Una vista abierta se actualiza en su propia ventana; al cerrarla se envía `SIGNAL:view_closed` al script propietario.
+- Scripts → Editor de scripts: crear o abrir archivos, editar scripts instalados, validar sintaxis, guardar en la aplicación y guardar archivos .hex. Incluye posición del cursor y contador de bytes. Guardar cambios deja el script desactivado y sin permisos; se habilita desde Administrar scripts. Una validación fallida no modifica el instalado y se detectan ediciones concurrentes.
+- Ver → Historial, Ver → Configuración y Ver → Salas favoritas → Configuración / lista de salas. Favoritas se agregan y eliminan desde su configuración; el menú solo contiene accesos compactos, sin botones Quitar. Se conserva la pertenencia por red.
+- Exportar/importar configuración usa filas compactas, con el texto y su casilla en la misma línea.
+- Notify muestra filas más bajas, nick y estado alineados y acciones pequeñas del mismo tamaño a la derecha.
+- Notificaciones muestra hora, tipo/nick, red/sala y mensaje en filas compactas, con un botón pequeño para abrir la conversación. Los mensajes completos se conservan y el diseño se ajusta al ancho.
+- Botones de acciones de usuario con columnas y alturas iguales: dos columnas en el panel lateral y tres en WHOIS.
 
-Descarga **HexDroid-Dreams-0.1.0-Windows-x64.zip** de los archivos de esta versión. Extrae TODO el ZIP y ejecuta **HexDroidDreams.exe** desde la carpeta extraída. No requiere MSI ni instalar Node.js.
-
-Incluye salas como pestañas superiores, barra de conversaciones izquierda ajustable, usuarios ocultables a la derecha, menús discretos y configuración arriba a la derecha. Admite varias redes IRC, TLS, salas y mensajes privados.
-
-Si no aparece la ventana, ejecuta **Iniciar-con-diagnostico.cmd**. Los registros y preferencias se guardan en `%APPDATA%\HexDroidDreams-Desktop`, en una carpeta independiente de versiones anteriores.
-
-## Validación
-
-Compilación y pruebas ejecutadas con éxito en el runner Windows de GitHub Actions: protocolo IRC y almacenamiento, conexión y mensajes por IPC en Electron real, salida/reentrada de salas, reapertura, instancia única y recuperación de configuración dañada. También se probaron los controles de interfaz en Chromium en Linux.
-
-Esto no sustituye la prueba en tu equipo ni demuestra compatibilidad con todas las redes IRC. No se ha validado con una red IRC pública. La aplicación de prueba no está firmada digitalmente.
-
-## Límites de esta primera versión
-
-Todavía no incluye SASL/NickServ automático, DCC, cifrado de extremo a extremo, scripts, historial persistente ni reconexión automática. Las contraseñas del servidor se usan solo para la sesión y no se guardan en disco.
-
-El proyecto Windows vive en **Malekira/HexDroid-Dreams-Windows**, separado de **Malekira/HexDroid-Dreams-Android**. Esta versión conserva el ZIP y el commit originales; el traslado no introduce cambios en la aplicación.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Se conservan los datos anteriores. Vuelve a importar tu .hex; para el control de privados habilita únicamente los permisos que utiliza: lectura, interceptación, envío y UI. No necesita raw, HTTP ni claves. Firma el nuevo EXE con Sign y Verify usando tu certificado existente.
