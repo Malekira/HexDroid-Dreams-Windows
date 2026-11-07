@@ -22,3 +22,12 @@ test('Web GECOS metadata is not displayed as an encoded real name; ordinary name
  assert.equal(displayRealName(Buffer.from('#|female|42|/avatar/Chat/Alice.png').toString('base64')),'Nombre real no facilitado');
  for(const text of ['Nombre de Alice','\x0313Nombre con color','YWJjZA=='])assert.equal(displayRealName(text),text);
 });
+test('Message thumbnail loading is independent of user-list photos and still honors the multimedia master switch',async()=>{
+ const {Runtime}=require('../src/services/runtime');let calls=0;const client={},settings={mediaEnabled:true,showAvatars:false,showMessageAvatars:true,autoAvatars:true};
+ const body=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64');
+ const context={sessions:{get:()=>client},getConfig:()=>({settings}),avatarCache:new Map(),resolvePhoto:()=>({url:'https://photos.example/alice.png',version:1,client}),web:{request:async()=>{calls++;return{status:200,body};}},electron:{nativeImage:{createFromBuffer:()=>({isEmpty:()=>false,getSize:()=>({width:1,height:1}),resize:()=>({toDataURL:()=> 'data:image/png;base64,'+body.toString('base64')})})}}};
+ const result=await Runtime.prototype.action.call(context,'avatar.load',{network:'net',nick:'Alice'});assert.match(result.image,/^data:image\/png/);assert.equal(calls,1);
+ settings.showMessageAvatars=false;assert.equal((await Runtime.prototype.action.call(context,'avatar.load',{network:'net',nick:'Alice'})).disabled,true);assert.equal(calls,1);
+ settings.showMessageAvatars=true;settings.mediaEnabled=false;assert.equal((await Runtime.prototype.action.call(context,'avatar.load',{network:'net',nick:'Alice'})).disabled,true);
+ assert.equal(validateSettings({showMessageAvatars:false}).showMessageAvatars,false);
+});

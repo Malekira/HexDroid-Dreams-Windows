@@ -1,5 +1,8 @@
-# HexDreams IRC 0.10.1 para Windows
+# HexDreams IRC 0.11.0 para Windows
 
+- Historial TXT activado por defecto: un archivo por sala o privado, separado por red, legible en Notepad, con fecha y hora local y sin códigos de color. Incluye mensajes y eventos de sala; las confirmaciones de envío no duplican las líneas.
+- Configuración → Historial permite abrir la carpeta TXT y desactivar su guardado. Los TXT son independientes de la búsqueda interna y se conservan hasta borrarlos manualmente. Para respaldarlos, copia esa carpeta; no se convierten automáticamente los mensajes anteriores.
+- Multimedia incorpora una opción independiente para las miniaturas junto a mensajes de salas y privados. Se mantienen visibles también en modo compacto cuando están activadas, aunque se oculten las fotos de la lista de usuarios.
 - Corregida la alineación del logo interno para que no sobresalga de la barra.
 - El icono de la ventana y de la barra de tareas utiliza explícitamente el logo, con identidad propia de Windows. Si tenías fijado un acceso anterior, desfíjalo y vuelve a fijar HexDreamsIRC.exe de esta carpeta.
 - Notify ordenado alfabéticamente. Su botón + añade usuarios. Debajo hay una raya y una sección Conexiones, con el mundo para agregar redes y una lista compacta para seleccionarlas.

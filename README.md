@@ -4,11 +4,11 @@ Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistem
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.10.1)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.11.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.10.1-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.11.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa el botón **+** de la conversación para entrar en más salas.
@@ -36,7 +36,7 @@ Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/n
 
 ## IRC y sistemas avanzados 0.3.0
 
-El engranaje superior derecho y **Herramientas** abren redes/autenticación, historial, notificaciones/tema, DCC, cifrado, scripts, respaldos y multimedia. La interfaz de paneles de 0.2.0 se conserva.
+El engranaje superior derecho abre redes/autenticación, historial, notificaciones/tema, DCC, cifrado, scripts, respaldos y multimedia. Las salas y privados se seleccionan desde el árbol izquierdo.
 
 - CAP/SASL (PLAIN, SCRAM-SHA-256, EXTERNAL), certificados PFX/CA, TLS verificado, STS, reconexión, recuperación de canales y nick, autojoin con claves, codificaciones, SOCKS4/5 y perfiles de bouncer.
 - IRCv3 negociado: echo sin duplicación, lotes/multilínea, CHATHISTORY, respuestas, reacciones, escritura, marcas de lectura y eliminación compatibles. Filehost e iconos se detectan mediante ISUPPORT; los avatares requieren metadatos compatibles y descarga solicitada.
@@ -51,7 +51,7 @@ Consulta [las notas y límites de esta versión](RELEASE-NOTES.md) y [el estado 
 
 ## Alcance y privacidad
 
-El historial está desactivado por defecto. Al activarlo se guarda el contenido de las conversaciones en este equipo. Los borradores se conservan solo durante la sesión. Se mantienen hasta 600 mensajes cargados por conversación y 100 entradas de composición; la base de historial tiene su propia retención. No se descargan imágenes, avatares ni enlaces automáticamente.
+Los archivos TXT por sala y privado se guardan por defecto, con fecha, hora y texto sin códigos de color. Se abren desde Configuración → Historial → Abrir carpeta de historial TXT. El historial de búsqueda dentro de la aplicación se activa por separado. Los borradores se conservan solo durante la sesión. Se mantienen hasta 600 mensajes cargados por conversación y 100 entradas de composición; la base de historial tiene su propia retención. Las fotos y sus miniaturas se configuran en Multimedia, con opciones independientes para la lista de usuarios y los mensajes.
 
 Las contraseñas se mantienen en memoria salvo que marques guardar. En Windows se usa `safeStorage` de Electron respaldado por DPAPI; si el proveedor seguro no está disponible se rechaza guardar secretos, sin alternativa en texto claro. Las configuraciones anteriores conservan sus perfiles y disposición. Guarda un respaldo antes de probar cambios de cifrado o restauraciones.
 

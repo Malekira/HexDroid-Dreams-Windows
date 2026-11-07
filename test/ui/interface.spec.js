@@ -398,3 +398,10 @@ test('Notify is alphabetical, has its own add button, and the internal logo stay
 test('One connected nickname is displayed once when two saved Notify entries follow it',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{window.getDreamsNotify=()=>[{nick:'Alice',currentNick:'Bob',online:true},{nick:'Bob',online:true}];window.renderDreamsNotify();});await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(1);await expect(page.locator('#sidebar-notify-list')).toHaveText('●Bob');
 });
+test('Message thumbnails remain visible in compact mode, independent of user-list photos, and can be disabled',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{const id=config.profiles[0].id,n=network(id);config.settings.compact=true;config.settings.mediaEnabled=true;config.settings.showAvatars=false;config.settings.showMessageAvatars=true;n.avatars={alice:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='};n.avatarRevision=(n.avatarRevision||0)+1;window.__emit({id,type:'message',target:'#general',nick:'Alice',text:'Con miniatura'});applySettings();render();});
+ await expect(page.locator('#messages .message>.avatar img')).toBeVisible();await expect(page.locator('.user-avatar img')).toHaveCount(0);
+ await page.evaluate(()=>{config.settings.showMessageAvatars=false;applySettings();render();});await expect(page.locator('#messages .message>.avatar')).toHaveCount(0);await expect(page.locator('.message-text')).toHaveText('Con miniatura');
+ await page.evaluate(()=>{config.settings.showMessageAvatars=true;applySettings();render();});await expect(page.locator('#messages .message>.avatar img')).toBeVisible();
+});

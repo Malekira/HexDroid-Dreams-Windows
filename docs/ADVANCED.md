@@ -101,3 +101,11 @@ Vista de sala permite Misma ventana o Ventana dividida. Los mensajes y eventos m
 Notificaciones y tema y Chat y mensajes incluyen el resaltado de menciones y su color. Desactivarlo conserva los mensajes y las preferencias de sonido independientes. WHOIS solicita el idle al servidor del usuario y muestra explícitamente si no ha sido facilitado.
 
 Si Windows conserva el icono de un acceso fijado anterior, desfija ese acceso y fija el nuevo HexDreamsIRC.exe. Se conserva la carpeta histórica de datos y el certificado personal.
+
+## Archivos TXT y miniaturas junto a los mensajes
+
+Guardar archivos TXT por sala y privado está activado por defecto. Cada red tiene carpetas salas y privados, con un archivo TXT por conversación. Se guardan mensajes recibidos y enviados, acciones, NOTICE y eventos de sala, con fecha y hora local y su zona horaria. Los colores y estilos IRC se eliminan del TXT; se conserva Unicode y se usa UTF-8 con finales de línea compatibles con Notepad. Las confirmaciones de un mismo envío se registran una sola vez; dos envíos iguales intencionales se conservan.
+
+Configuración → Historial → Abrir carpeta de historial TXT abre la carpeta de archivos. Su guardado es independiente del historial para búsqueda en la aplicación y se puede desactivar. La retención y el borrado del historial de búsqueda no eliminan los TXT. Para copiarlos o respaldarlos, conserva la carpeta TXT; el respaldo estructurado de la aplicación maneja su historial de búsqueda aparte. El registro TXT comienza con los mensajes nuevos; el historial anterior puede exportarse desde la búsqueda si estaba guardado.
+
+En Multimedia, Mostrar miniaturas junto a los mensajes controla las fotos de los mensajes de salas y privados, independientemente de Mostrar miniaturas en la lista de usuarios y perfiles. Activar multimedia sigue siendo el control general. El modo compacto respeta esa elección; quienes no tengan foto conservan sus iniciales cuando las miniaturas están activadas.

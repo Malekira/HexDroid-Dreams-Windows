@@ -97,8 +97,8 @@ async function closeConversation(id, target) {
   if (cWasActive) { active = null; choose(id,'*'); } else render();
   persist().catch(() => {});
 }
-function avatarFor(id,nick){
-  if(config.settings.mediaEnabled===false||config.settings.showAvatars===false)return null;
+function avatarFor(id,nick,scope="users"){
+  if(config.settings.mediaEnabled===false||(scope==="messages"?config.settings.showMessageAvatars===false:config.settings.showAvatars===false))return null;
   const n=network(id),state=n.userStates?.[fold(nick)]||{},photo=n.avatars?.[fold(nick)];
   if(Object.hasOwn(state.metadata||{},'avatar')||Object.hasOwn(state.metadata||{},'avatar-url'))return photo||null;
   return photo||(fold(n.nick)===fold(nick)?profile(id)?.photo:null);
@@ -108,7 +108,7 @@ function renderMessages(preserveScroll = false) {
   const eventList=window.prepareDreamsEventPane?.(c);
   list.hidden = !c; $('welcome').hidden = !!c;
   if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.showClones,config.settings.roomView,config.settings.highlightMentions,config.settings.timestamps,config.settings.showEvents,c.muted]);
+  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.showMessageAvatars,config.settings.mediaEnabled,config.settings.showClones,config.settings.roomView,config.settings.highlightMentions,config.settings.timestamps,config.settings.showEvents,c.muted]);
   if (preserveScroll && signature === lastMessageView) return;
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
@@ -127,7 +127,7 @@ function renderMessages(preserveScroll = false) {
     row.dataset.messageId = m.id;
     if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted);if(m.eventType&&!window.renderDreamsSpecialEvent?.(row,m,time))window.renderDreamsChannelEvent?.(row,m,time); }
     else {
-      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick);if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
+      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick,"messages");if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}if(config.settings.showMessageAvatars!==false&&config.settings.mediaEnabled!==false)row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
       const nick = el('button','message-nick','{'+m.nick+'}');nick.setAttribute('aria-label',m.nick);if(!m.own&&config.settings.coloredNicks!==false){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} 48% ${DreamsFormatting.luminance(getComputedStyle($('messages')).backgroundColor)>.4?32:72}%)`;} nick.onclick = () => choose(active.id,m.nick); if (config.settings.timestamps)header.append(time,document.createTextNode(' '));header.append(nick,document.createTextNode(' '));
       const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text); content.append(header,body);if(api.advanced&&config.settings.mediaEnabled!==false){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);

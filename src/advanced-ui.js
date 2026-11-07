@@ -370,8 +370,12 @@
         call("secrets.forget", { network: p.id }),
       );
     } else if (section === "history") {
+      const textLogs=input('Guardar archivos TXT por sala y privado',config.settings.textLogsEnabled!==false,'checkbox');
+      note('Los TXT se guardan en UTF-8, con fecha y hora y sin códigos de color. Cada red tiene carpetas separadas de salas y privados.');
+      button('Abrir carpeta de historial TXT',()=>call('logs.text.open'));
+      note('Los TXT se conservan aparte; copia esa carpeta para respaldarlos. La búsqueda y su retención se configuran debajo.');
       const enabled = input(
-          "Guardar historial local",
+          "Guardar historial para búsqueda en la aplicación",
           config.settings.historyEnabled,
           "checkbox",
         ),
@@ -387,13 +391,13 @@
       );
       protocol.disabled = !state.secureStorage;
       note("0 días conserva indefinidamente.");
-      button("Cambiar carpeta de historial", () => call("history.folder"));
+      button("Cambiar carpeta del historial de búsqueda", () => call("history.folder"));
       note(
-        "El historial guarda el contenido de las conversaciones en este equipo. Está desactivado por defecto.",
+        "Este historial permite buscar y restaurar conversaciones dentro de la aplicación. Los archivos TXT se guardan aparte y no se eliminan con su retención.",
       );
       const queries=input('Guardar historial de consultas WHOIS y WHO',config.settings.queryHistoryEnabled!==false,'checkbox');
       button("Guardar preferencias", () =>
-        settings({queryHistoryEnabled:queries.checked,
+        settings({textLogsEnabled:textLogs.checked,queryHistoryEnabled:queries.checked,
           historyEnabled: enabled.checked,
           historyDays: Number(days.value),
           protocolLogging: protocol.checked,
@@ -455,7 +459,7 @@
       button("Pedir historial al servidor", () =>
         call("history.server", requireContext()),
       );
-      button("Eliminar historial local", () => call("history.clear"));
+      button("Eliminar historial de búsqueda", () => call("history.clear"));
     } else if(section==='palette'){
       window.renderDreamsThemeManager?.(body);
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
@@ -771,9 +775,10 @@
         return r;
       });
     } else if (section === "media") {
-      const enabled=input('Activar multimedia',config.settings.mediaEnabled!==false,'checkbox'),avatars=input('Mostrar miniaturas de usuarios',config.settings.showAvatars!==false,'checkbox'),automatic=input('Cargar automáticamente fotos desde mi plantilla',config.settings.autoAvatars===true,'checkbox'),template=input('URL común de fotos (usa {nick} o {nickLower})',config.settings.avatarUrlTemplate||'');
+      const enabled=input('Activar multimedia',config.settings.mediaEnabled!==false,'checkbox'),avatars=input('Mostrar miniaturas en la lista de usuarios y perfiles',config.settings.showAvatars!==false,'checkbox'),automatic=input('Cargar automáticamente fotos desde mi plantilla',config.settings.autoAvatars===true,'checkbox'),template=input('URL común de fotos (usa {nick} o {nickLower})',config.settings.avatarUrlTemplate||'');
+      const messageAvatars=input('Mostrar miniaturas junto a los mensajes',config.settings.showMessageAvatars!==false,'checkbox');
       note('Ejemplo: https://tu-servidor/fotos/{nickLower}.jpg. Al activar la carga automática, ese sitio verá tu IP y los nicks consultados. Con proxy se mantienen bloqueadas las descargas directas.');
-      button('Guardar configuración multimedia',async()=>{await settings({mediaEnabled:enabled.checked,showAvatars:avatars.checked,autoAvatars:automatic.checked,avatarUrlTemplate:template.value.trim()});for(const n of networks.values()){n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}avatarRequests.clear();await call('avatars.sync');render();});
+      button('Guardar configuración multimedia',async()=>{await settings({showMessageAvatars:messageAvatars.checked,mediaEnabled:enabled.checked,showAvatars:avatars.checked,autoAvatars:automatic.checked,avatarUrlTemplate:template.value.trim()});for(const n of networks.values()){n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}avatarRequests.clear();avatarQueue.length=0;await call('avatars.sync');render();});
       if (active && network(active.id).filehost)
         button("Subir archivo al filehost de la red", async () => {
           const r = await call("filehost.upload", requireContext());
@@ -1013,9 +1018,9 @@
     }
   };
   const avatarRequests=new Map(),avatarQueue=[];let avatarRunning=0;
-  function drainAvatars(){while(avatarRunning<3&&avatarQueue.length){const task=avatarQueue.shift(),n=network(task.id);if(config.settings.mediaEnabled===false||!config.settings.autoAvatars||config.settings.showAvatars===false||task.epoch!==(n.avatarEpoch||0)||task.version!==(n.userStates?.[fold(task.nick)]?.avatarVersion||0))continue;avatarRunning++;call('avatar.load',{network:task.id,nick:task.nick}).then(r=>{if(r.image&&task.epoch===(n.avatarEpoch||0)&&task.version===(n.userStates?.[fold(task.nick)]?.avatarVersion||0)&&config.settings.avatarUrlTemplate===task.template&&(profile(task.id)?.photoUrl||'')===task.photoUrl&&config.settings.mediaEnabled!==false&&config.settings.showAvatars!==false){n.avatars||={};n.avatars[fold(task.nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;scheduleRender();}}).catch(()=>{}).finally(()=>{avatarRunning--;drainAvatars();});}}
+  function drainAvatars(){while(avatarRunning<3&&avatarQueue.length){const task=avatarQueue.shift(),n=network(task.id);if(config.settings.mediaEnabled===false||!config.settings.autoAvatars||(config.settings.showAvatars===false&&config.settings.showMessageAvatars===false)||task.epoch!==(n.avatarEpoch||0)||task.version!==(n.userStates?.[fold(task.nick)]?.avatarVersion||0))continue;avatarRunning++;call('avatar.load',{network:task.id,nick:task.nick}).then(r=>{if(r.image&&task.epoch===(n.avatarEpoch||0)&&task.version===(n.userStates?.[fold(task.nick)]?.avatarVersion||0)&&config.settings.avatarUrlTemplate===task.template&&(profile(task.id)?.photoUrl||'')===task.photoUrl&&config.settings.mediaEnabled!==false&&(config.settings.showAvatars!==false||config.settings.showMessageAvatars!==false)){n.avatars||={};n.avatars[fold(task.nick)]=r.image;n.avatarRevision=(n.avatarRevision||0)+1;scheduleRender();}}).catch(()=>{}).finally(()=>{avatarRunning--;drainAvatars();});}}
   window.resetDreamsAvatars=()=>{avatarRequests.clear();for(const n of networks.values()){n.avatarEpoch=(n.avatarEpoch||0)+1;n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}};
-  window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||config.settings.showAvatars===false||!config.settings.autoAvatars)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(c?.users||[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const version=n.userStates?.[fold(nick)]?.avatarVersion||0,epoch=n.avatarEpoch||0,key=active.id+'|'+fold(nick)+'|'+version+'|'+epoch+'|'+config.settings.avatarUrlTemplate+'|'+(profile(active.id)?.photoUrl||'');if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;if(avatarQueue.length>=200)break;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);avatarQueue.push({id:active.id,nick,version,epoch,template:config.settings.avatarUrlTemplate,photoUrl:profile(active.id)?.photoUrl||''});}drainAvatars();};
+  window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||(config.settings.showAvatars===false&&config.settings.showMessageAvatars===false)||!config.settings.autoAvatars)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(config.settings.showAvatars!==false?c?.users||[]:[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const version=n.userStates?.[fold(nick)]?.avatarVersion||0,epoch=n.avatarEpoch||0,key=active.id+'|'+fold(nick)+'|'+version+'|'+epoch+'|'+config.settings.avatarUrlTemplate+'|'+(profile(active.id)?.photoUrl||'');if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;if(avatarQueue.length>=200)break;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);avatarQueue.push({id:active.id,nick,version,epoch,template:config.settings.avatarUrlTemplate,photoUrl:profile(active.id)?.photoUrl||''});}drainAvatars();};
   api.onEvent(event=>{if(event.type==='attention'&&event.flash){const workspace=document.querySelector('.workspace');workspace.classList.remove('mention-flash');void workspace.offsetWidth;workspace.classList.add('mention-flash');setTimeout(()=>workspace.classList.remove('mention-flash'),2200);}if(event.type==='attention'){const c=conversation(event.id,event.target);c.mentionUntil=Date.now()+4000;renderTabs();}});
   setTimeout(async()=>{if(config.settings.queryHistoryEnabled===false)return;for(const p of config.profiles){try{const rows=await call('history.search',{network:p.id,target:'*consultas*',limit:200});if(rows.length){for(const m of rows){const c=conversation(p.id,'*consultas*');if(!c.messages.some(live=>live.text===m.text&&live.time===m.time))workspace.addMessage(p.id,'*consultas*',{...m,event:true,historical:true});}render();}}catch{}}},500);
   const historyLoaded = new Set(),

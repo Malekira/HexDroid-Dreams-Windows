@@ -46,13 +46,14 @@ class Runtime {
       ).directory;
     } catch {}
     this.history = new HistoryStore(historyDirectory);
+    this.textLogs=new (require("./text-logs").TextLogs)(directory);
     this.protocolLog = new ProtocolLog(directory, electron.safeStorage);
     this.crypto = new CryptoManager(directory, this.vault);
     this.sessions = new SessionManager({
       credentials: (id) => this.credentials(id),
       policy: (host) => this.sts[host],
       clientFactory: (profile, secrets) => {
-        const c = new IrcClient({...profile,ownAvatarTemplate:profile.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png',avatarDiscovery:this.getConfig().settings.mediaEnabled!==false&&this.getConfig().settings.autoAvatars===true&&this.getConfig().settings.showAvatars!==false}, secrets);
+        const c = new IrcClient({...profile,ownAvatarTemplate:profile.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png',avatarDiscovery:this.getConfig().settings.mediaEnabled!==false&&this.getConfig().settings.autoAvatars===true&&(this.getConfig().settings.showAvatars!==false||this.getConfig().settings.showMessageAvatars!==false)}, secrets);
         this.cryptoAdapters.set(profile.id, this.crypto.attach(profile.id, c));
         return c;
       },
@@ -203,6 +204,11 @@ class Runtime {
     this.sessions.connect(profile, secrets);
     return { ok: true };
   }
+  writeTextLog(id,message){
+    if(this.getConfig().settings.textLogsEnabled===false||!this.textLogs)return;
+    const profile=this.getConfig().profiles.find(p=>p.id===id);if(!profile)return;
+    try{this.textLogs.append(profile,message);}catch(error){if(!this.textLogErrorAt||Date.now()-this.textLogErrorAt>30000){this.textLogErrorAt=Date.now();this.emit(id,'problem',{text:'No se pudo guardar el historial TXT: '+error.message});}}
+  }
   async receive(id, type, data) {
     if(this.closed)return;
     if (type === "protocol") {
@@ -263,6 +269,7 @@ class Runtime {
         this.history.append(id, data);
         this.history.prune(this.getConfig().settings.historyDays);
       }
+      this.writeTextLog(id,data);
       if (!data.own && !data.historical) this.notify(id, data);
     }
     if (type === "server") {
@@ -303,6 +310,9 @@ class Runtime {
         data.state === "connected" ? "CONNECT" : "DISCONNECT",
         { network: id },
       );
+    if(type==='channel')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.reason?' · '+data.reason:'')});
+    if(type==='nick')for(const target of data.targets||[])this.writeTextLog(id,{target,event:true,time:data.time,text:data.old+' → '+data.nick+' cambió de nick'});
+    if(type==='clones')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:'Posibles clones (mismo host): '+data.nicks.join(', ')});
     this.emit(id, type, data);
   }
   notify(id, data) {
@@ -560,6 +570,8 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'logs.text.status':return{directory:this.textLogs.directory,enabled:this.getConfig().settings.textLogsEnabled!==false};
+      case 'logs.text.open':{const error=await this.electron.shell.openPath(this.textLogs.open());if(error)throw new Error(error);return{ok:true};}
       case 'notifications.list':return this.notificationLog||[];
       case 'notifications.read':{const keys=new Set(Array.isArray(data.keys)?data.keys:[]);for(const item of this.notificationLog||[])if(keys.has(item.key))item.read=true;return{ok:true};}
       case 'notifications.clear':this.notificationLog=[];return{ok:true};
@@ -1177,10 +1189,10 @@ class Runtime {
       }
       case 'avatars.sync':{
         this.avatarCache.clear();const s=this.getConfig().settings;
-        for(const session of this.sessions.sessions.values()){const c=session.client;if(!c)continue;c.avatarDiscovery=s.mediaEnabled!==false&&s.autoAvatars===true&&s.showAvatars!==false;if(!c.ready||!c.avatarDiscovery)continue;c.avatarSubscribed=false;c.syncAvatars();for(const channel of c.joined.values())c.sendRaw('WHO '+channel+(c.whox?' %tcuhnfar,152':''));}return{ok:true};}
+        for(const session of this.sessions.sessions.values()){const c=session.client;if(!c)continue;c.avatarDiscovery=s.mediaEnabled!==false&&s.autoAvatars===true&&(s.showAvatars!==false||s.showMessageAvatars!==false);if(!c.ready||!c.avatarDiscovery)continue;c.avatarSubscribed=false;c.syncAvatars();for(const channel of c.joined.values())c.sendRaw('WHO '+channel+(c.whox?' %tcuhnfar,152':''));}return{ok:true};}
       case 'avatar.load':{
         require('../irc').token(data.nick,'Apodo');
-        const settings=this.getConfig().settings;if(settings.mediaEnabled===false||settings.showAvatars===false||!settings.autoAvatars)return{disabled:true};
+        const settings=this.getConfig().settings;if(settings.mediaEnabled===false||(settings.showAvatars===false&&settings.showMessageAvatars===false)||!settings.autoAvatars)return{disabled:true};
         const now=Date.now(),resolved=this.resolvePhoto(id,data.nick,{automatic:true,now});if(!resolved.url)return{empty:true,blocked:resolved.blocked};
         const key=id+'|'+resolved.version+'|'+resolved.url,saved=this.avatarCache.get(key);if(saved&&now-saved.time<60000)return{image:saved.image};
         const response=await this.web.request(resolved.url,{domains:[new URL(resolved.url).hostname],maxBytes:2097152});if(response.status!==200)throw new Error('Foto no encontrada (HTTP '+response.status+').');if(!imageMime(response.body))throw new Error('La URL de foto no devolvió una imagen compatible.');

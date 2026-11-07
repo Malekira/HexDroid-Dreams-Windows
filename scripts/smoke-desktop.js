@@ -252,11 +252,16 @@ async function run() {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Multimedia',exact:true}).click();
     await expect(page.getByLabel('URL común de fotos (usa {nick} o {nickLower})',{exact:true})).toHaveValue('https://photos.example/{nickLower}.png');
-    await page.getByLabel('Mostrar miniaturas de usuarios',{exact:true}).uncheck();
+    await page.getByLabel('Mostrar miniaturas en la lista de usuarios y perfiles',{exact:true}).uncheck();
     await page.getByRole('button',{name:'Guardar configuración multimedia',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await expect(page.locator('.user-avatar img')).toHaveCount(0);
-    await page.getByLabel('Mostrar miniaturas de usuarios',{exact:true}).check();
+    await page.getByLabel('Mostrar miniaturas junto a los mensajes',{exact:true}).uncheck();
+    await page.getByRole('button',{name:'Guardar configuración multimedia',exact:true}).click();
+    await expect(page.locator('#messages .message>.avatar')).toHaveCount(0);
+    await expect.poll(()=>page.evaluate(async()=>(await window.dreams.load()).settings.showMessageAvatars)).toBe(false);
+    await page.getByLabel('Mostrar miniaturas junto a los mensajes',{exact:true}).check();
+    await page.getByLabel('Mostrar miniaturas en la lista de usuarios y perfiles',{exact:true}).check();
     await page.getByRole('button',{name:'Guardar configuración multimedia',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('#settings-dialog .dialog-header button').click();
@@ -302,7 +307,7 @@ async function run() {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.advanced-dialog')).toBeVisible();
     await page.getByRole('button',{name:'Historial',exact:true}).click();
-    await page.getByLabel('Guardar historial local',{exact:true}).check();
+    await page.getByLabel('Guardar historial para búsqueda en la aplicación',{exact:true}).check();
     await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('.advanced-dialog .dialog-header button').click();
@@ -331,6 +336,14 @@ async function run() {
     // Ensure all queued preference writes have reached the actual main process.
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.sidebarWidth).toBe(420);
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.usersWidth).toBe(360);
+    console.log('Prueba Electron: historial TXT separado por sala y privado');
+    for(const socket of sockets)socket.write(':Alice!u@host PRIVMSG Dreamer :Historial TXT privado 🦆\r\n:Alice!u@host PRIVMSG #dreams :\x0313Historial TXT de sala\x0f\r\n');
+    const textLogInfo=await page.evaluate(()=>window.dreams.advanced('logs.text.status'));
+    await expect.poll(()=>{if(!fs.existsSync(textLogInfo.directory))return false;const files=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));return files.some(f=>String(f).includes(path.sep+'privados'+path.sep))&&files.some(f=>String(f).includes(path.sep+'salas'+path.sep));}).toBe(true);
+    await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('Historial TXT privado 🦆');
+    const textFiles=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));
+    const roomLog=textFiles.filter(f=>String(f).includes(path.sep+'salas'+path.sep)).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n');
+    expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);
     console.log('Prueba Electron: respaldo con historial y restauración');
     const backupFile=path.join(root,'backup-with-history.json');
     await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},backupFile);

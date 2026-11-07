@@ -1026,3 +1026,5 @@ html[data-theme="violet"] #messages .message.mention {
 #channel-events :is(.event-nick-change, .event-clones) .event-nick {
   color: inherit;
 }
+/* Compact spacing must not override the explicit message-thumbnail preference. */
+.compact #messages .message>.avatar {display:grid;width:24px;height:24px;flex:0 0 24px;margin-top:1px}
