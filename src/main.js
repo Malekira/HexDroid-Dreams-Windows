@@ -37,8 +37,10 @@ function createWindow() {
   const stateStore = new WindowState(dataDirectory);
   const bounds = stateStore.load(screen.getAllDisplays().map(d => d.workArea));
   window = new BrowserWindow({ x:bounds.x, y:bounds.y, width:bounds.width, height:bounds.height, minWidth:760, minHeight:500,
-    title: 'HexDreams IRC', icon:path.join(__dirname,'assets',process.platform==='win32'?'app.ico':'logo.png'), backgroundColor: '#0c1019', autoHideMenuBar: true,
+    title: 'HexDreams IRC', icon:path.join(__dirname,'assets','logo.png'), backgroundColor: '#0c1019', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  window.setIcon(electron.nativeImage.createFromPath(path.join(__dirname,'assets','logo.png')).resize({width:256,height:256}));
+  if(process.platform==='win32'&&app.isPackaged)window.setRelaunchDetails({appId:'org.hexdreams.irc',appDisplayName:'HexDreams IRC',iconPath:process.execPath,iconIndex:0,relaunchCommand:'"'+process.execPath+'"'});
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -71,7 +73,7 @@ else {
     register('app:copy', text => { if (typeof text !== 'string' || text.length > 1000000) throw new Error('Texto no válido.'); clipboard.writeText(text); return { ok:true }; });
     register('app:logs', async () => { const error = await shell.openPath(app.getPath('userData')); if (error) throw new Error(error); return { ok: true }; });
     register('app:quit', () => { app.quit(); });
-    app.setAppUserModelId('org.hexdroid.dreams');
+    app.setAppUserModelId('org.hexdreams.irc');
     createWindow();
     if(app.commandLine.getSwitchValue('ozone-platform')!=='headless'){tray=new electron.Tray(path.join(__dirname,'assets','tray.png'));tray.setToolTip('HexDreams IRC');const show=()=>{window?.restore();window?.show();window?.focus();};tray.on('double-click',show);tray.setContextMenu(electron.Menu.buildFromTemplate([{label:'Abrir HexDreams IRC',click:show},{label:'Salir',click:()=>app.quit()}]));}
     window.webContents.once('did-finish-load',()=>{ for(const p of config.profiles.filter(p=>p.autoConnect))try{runtime.connect({id:p.id});}catch(e){emit(p.id,'problem',{text:e.message});} });

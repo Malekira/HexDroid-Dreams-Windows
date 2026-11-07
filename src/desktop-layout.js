@@ -30,7 +30,22 @@
   configure.type = "button";
   configure.setAttribute("aria-label", "Configurar Notify");
   configure.onclick = () => $("notify-button").click();
-  notifyHeader.append(configure, plus);
+  const addUser = el("button", "icon-button", "+");
+  addUser.id = "notify-add-user";
+  addUser.type = "button";
+  addUser.setAttribute("aria-label", "Agregar usuario a Notify");
+  addUser.onclick = () => window.addDreamsNotifyUser?.();
+  notifyHeader.append(configure, addUser);
+  const separator = el("hr", "sidebar-section-divider"),
+    connectionsHeader = el(
+      "div",
+      "notify-sidebar-title connections-sidebar-title",
+    );
+  plus.textContent = "🌐";
+  plus.title = "Agregar red";
+  connectionsHeader.append(el("strong", "", "Conexiones"), plus);
+  const connections = el("div", "sidebar-connections");
+  connections.id = "sidebar-connections";
   const onlineList = el("div", "sidebar-notify-list");
   onlineList.id = "sidebar-notify-list";
   const tree = el("nav", "conversation-tree");
@@ -41,6 +56,9 @@
   sidebar.replaceChildren(
     notifyHeader,
     onlineList,
+    separator,
+    connectionsHeader,
+    connections,
     searchLabel,
     sortLabel,
     tree,
@@ -117,22 +135,32 @@
   let notifyView = "";
   window.renderDreamsNotify = () => {
     const id = active?.id,
-      online = (id ? window.getDreamsNotify?.(id) || [] : []).filter(
-        (p) => p.online === true,
-      );
-    const signature = JSON.stringify([id, online.map((p) => p.nick)]);
+      online = (id ? window.getDreamsNotify?.(id) || [] : [])
+        .filter((p) => p.online === true)
+        .sort((a, b) =>
+          (a.currentNick || a.nick).localeCompare(
+            b.currentNick || b.nick,
+            "es",
+            { sensitivity: "base" },
+          ),
+        );
+    const signature = JSON.stringify([
+      id,
+      online.map((p) => [p.nick, p.currentNick]),
+    ]);
     if (signature === notifyView) return;
     notifyView = signature;
     onlineList.replaceChildren();
     for (const person of online) {
+      const nick = person.currentNick || person.nick;
       const b = el("button", "notify-online-row");
       b.type = "button";
-      b.setAttribute("aria-label", "Notify " + person.nick + " en línea");
-      b.append(el("span", "online-dot", "●"), el("span", "", person.nick));
-      b.onclick = () => choose(id, person.nick);
+      b.setAttribute("aria-label", "Notify " + nick + " en línea");
+      b.append(el("span", "online-dot", "●"), el("span", "", nick));
+      b.onclick = () => choose(id, nick);
       b.oncontextmenu = (e) =>
         contextMenu.show(e, person.nick, [
-          { label: "Abrir privado", action: () => choose(id, person.nick) },
+          { label: "Abrir privado", action: () => choose(id, nick) },
           {
             label: "Dejar de seguir conexión",
             action: async () => {
@@ -149,6 +177,32 @@
   let treeNetwork;
   window.renderDreamsTree = () => {
     window.renderDreamsNotify();
+    const ids = new Set(config.profiles.map((p) => p.id));
+    for (const b of connections.children)
+      if (!ids.has(b.dataset.network)) b.remove();
+    for (const p of config.profiles) {
+      let b = [...connections.children].find((b) => b.dataset.network === p.id);
+      if (!b) {
+        b = el("button", "connection-tree-row");
+        b.dataset.network = p.id;
+        b.type = "button";
+        b.setAttribute("aria-label", "Red " + p.name);
+        b.onclick = () => {
+          const n = network(p.id);
+          choose(
+            p.id,
+            n.lastTarget && n.conversations.has(fold(n.lastTarget))
+              ? n.lastTarget
+              : "*",
+          );
+        };
+        connections.append(b);
+      }
+      b.setAttribute("aria-label", "Red " + p.name);
+      b.textContent =
+        (network(p.id).state === "connected" ? "● " : "○ ") + p.name;
+      b.classList.toggle("active", active?.id === p.id);
+    }
     if (treeNetwork !== active?.id) {
       list.replaceChildren();
       treeNetwork = active?.id;

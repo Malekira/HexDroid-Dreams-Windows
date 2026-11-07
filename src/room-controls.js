@@ -34,7 +34,8 @@
       shown ? "Ocultar topic" : "Mostrar topic",
     );
     toggle.setAttribute("aria-pressed", String(shown));
-    divider.hidden = !shown || selected()?.kind !== "channel" || !selected()?.topic;
+    divider.hidden =
+      !shown || selected()?.kind !== "channel" || !selected()?.topic;
     topic.style.height = Number.isFinite(config.settings.topicHeight)
       ? config.settings.topicHeight + "px"
       : "";
@@ -123,8 +124,15 @@
   trigger.setAttribute("aria-label", "Notify: usuarios en línea");
   tools.append(trigger);
   let notifyNetwork = null;
-  const states = new Map();
-  window.getDreamsNotify=id=>(profile(id)?.notifyNicks||[]).map(nick=>({nick,online:(states.get(id)||{})[fold(nick)]??null}));
+  const states = new Map(),
+    currentNicks = new Map(),
+    nickHistory = new Map();
+  window.getDreamsNotify = (id) =>
+    (profile(id)?.notifyNicks || []).map((nick) => ({
+      nick,
+      currentNick: (currentNicks.get(id) || {})[fold(nick)] || nick,
+      online: (states.get(id) || {})[fold(nick)] ?? null,
+    }));
   function action(parent, text, fn) {
     const b = el("button", "secondary", text);
     b.type = "button";
@@ -163,7 +171,9 @@
     const list = $("notify-list");
     if (!list) return;
     list.replaceChildren();
-    const names = profile(notifyNetwork)?.notifyNicks || [],
+    const names = [...(profile(notifyNetwork)?.notifyNicks || [])].sort(
+        (a, b) => a.localeCompare(b, "es", { sensitivity: "base" }),
+      ),
       current = states.get(notifyNetwork) || {};
     if (!names.length)
       list.append(
@@ -184,14 +194,23 @@
               : network(notifyNetwork).state === "connected"
                 ? "Consultando…"
                 : "Red desconectada";
-      const name = el("strong", "", nick),
+      const target =
+        (currentNicks.get(notifyNetwork) || {})[fold(nick)] || nick;
+      const name = el(
+          "strong",
+          "",
+          target === nick ? nick : nick + " → " + target,
+        ),
         label = el("span", "notify-status" + (online ? " online" : ""), status);
       row.append(name, label);
       action(row, "Abrir privado", () => {
         dialog.close();
-        choose(notifyNetwork, nick);
+        choose(notifyNetwork, target);
       });
-      action(row, "WHOIS", () => {dialog.close();window.openDreamsWhois(notifyNetwork,nick);});
+      action(row, "WHOIS", () => {
+        dialog.close();
+        window.openDreamsWhois(notifyNetwork, target);
+      });
       action(row, "Quitar", async () => {
         await saveNames(
           notifyNetwork,
@@ -200,6 +219,14 @@
         renderList();
       });
       list.append(row);
+    }
+    const changes = nickHistory.get(notifyNetwork) || [];
+    if (changes.length) {
+      const history = el("section", "notify-nick-history");
+      history.append(el("strong", "", "Cambios de nick"));
+      for (const item of changes.slice().reverse())
+        history.append(el("p", "", item.old + " → " + item.newNick));
+      list.append(history);
     }
   }
   function option(text, key) {
@@ -252,6 +279,7 @@
     body.append(list);
     option("Avisar cambios de conexión", "notifyPresence");
     option("Avisar también desconexiones", "notifyPresenceOffline");
+    option("Avisar cambios de nick", "notifyNickChanges");
     option("Sonido de Notify", "notifyPresenceSound");
     body.append(
       el(
@@ -265,6 +293,12 @@
     if (api.advanced) {
       const id = notifyNetwork,
         rows = await call("presence.status", { network: id });
+      currentNicks.set(
+        id,
+        Object.fromEntries(
+          rows.map((row) => [fold(row.nick), row.currentNick || row.nick]),
+        ),
+      );
       states.set(
         id,
         Object.fromEntries(rows.map((row) => [fold(row.nick), row.online])),
@@ -273,17 +307,43 @@
     }
   }
   trigger.onclick = () => run(openNotify);
+  window.addDreamsNotifyUser = () =>
+    run(async () => {
+      await openNotify();
+      body.querySelector(".notify-add input")?.focus();
+    });
   if (api.advanced)
     api.onEvent((event) => {
+      if (event.type === "presence-nick") {
+        const names = currentNicks.get(event.id) || {},
+          state = states.get(event.id) || {};
+        names[fold(event.nick)] = event.newNick;
+        state[fold(event.nick)] = true;
+        currentNicks.set(event.id, names);
+        states.set(event.id, state);
+        const history = nickHistory.get(event.id) || [];
+        history.push({ old: event.old, newNick: event.newNick });
+        nickHistory.set(event.id, history.slice(-50));
+        window.renderDreamsNotify?.();
+        if (event.id === notifyNetwork && dialog.open) renderList();
+      }
       if (event.type === "presence") {
+        const names = currentNicks.get(event.id) || {};
+        names[fold(event.nick)] = event.online
+          ? event.currentNick || event.nick
+          : event.nick;
+        currentNicks.set(event.id, names);
         const current = states.get(event.id) || {};
         current[fold(event.nick)] = event.online;
-        states.set(event.id, current);window.renderDreamsNotify?.();
+        states.set(event.id, current);
+        window.renderDreamsNotify?.();
         if (event.id === notifyNetwork && dialog.open) renderList();
       }
       if (event.type === "presence-alert") notify(event.text);
       if (event.type === "status" && event.state === "disconnected") {
-        states.delete(event.id);window.renderDreamsNotify?.();
+        currentNicks.delete(event.id);
+        states.delete(event.id);
+        window.renderDreamsNotify?.();
         if (event.id === notifyNetwork && dialog.open) renderList();
       }
     });

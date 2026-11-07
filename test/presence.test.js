@@ -70,3 +70,13 @@ test("Room activity speeds up presence changes without treating PART as a discon
   assert.equal(f.events.at(-1).online, true);
   f.p.stop();
 });
+test('Notify follows observed nickname changes without false disconnects and resumes the saved nick after QUIT',()=>{
+ const f=fixture();f.p.setMonitor(true);f.p.update('Alice',true);f.events.length=0;
+ f.p.handle({command:'NICK',nick:'Alice',params:['Zeta']});f.p.handle({command:'731',params:['Me','Alice']});
+ assert.deepEqual(f.p.snapshot(),[{nick:'Alice',currentNick:'Zeta',online:true}]);assert.equal(f.events.length,1);assert.equal(f.events[0].type,'presence-nick');assert.equal(f.events[0].old,'Alice');assert.equal(f.events[0].newNick,'Zeta');assert.ok(f.wire.includes('MONITOR + Zeta'));
+ f.p.handle({command:'NICK',nick:'Zeta',params:['Beta']});assert.equal(f.p.snapshot()[0].currentNick,'Beta');
+ f.p.handle({command:'QUIT',nick:'Beta',params:['bye']});assert.deepEqual(f.p.snapshot(),[{nick:'Alice',online:false}]);assert.equal(f.events.at(-1).online,false);assert.equal(f.wire.at(-1),'MONITOR + Alice');f.p.stop();
+});
+test('An old ISON response cannot mark a watched user offline after an observed nick change',()=>{
+ const f=fixture();f.p.poll();f.p.handle({command:'NICK',nick:'Alice',params:['AliceNew']});f.p.handle({command:'303',params:['Me','']});assert.equal(f.p.snapshot()[0].online,true);f.p.poll();assert.equal(f.wire.at(-1),'ISON AliceNew');f.p.stop();
+});

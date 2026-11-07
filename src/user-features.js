@@ -119,7 +119,7 @@
     const list = el("dl", "user-details");
     for (const [key, label] of Object.entries({
       realName: "Nombre real",
-      idle: "Inactividad",
+      idle: "Inactividad (idle)",
       ident: "Ident",
       host: "Host",
       server: "Servidor",
@@ -129,7 +129,7 @@
     })) {
       const term = el("dt", "", label),
         value = el("dd");
-      DreamsFormatting.render(value, details[key] || "—");
+      DreamsFormatting.render(value, details[key] || (key==="idle"?(details.complete?"No facilitado por el servidor":"Consultando…"):"—"));
       list.append(term, value);
     }
     const own = network(id).nick && fold(network(id).nick) === fold(nick),
@@ -906,6 +906,10 @@
             break;
           case "301":
             d.away = p[0];
+            break;
+          case "402":
+            d.error = "El usuario o su servidor no está disponible.";
+            d.complete = true;
             break;
           case "401":
             d.error = "El usuario no está conectado.";

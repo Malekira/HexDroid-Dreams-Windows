@@ -222,6 +222,15 @@ class Runtime {
         JSON.stringify(this.sts),
       );
     }
+    if(type==='presence-nick'){
+      const s=this.getConfig().settings;
+      if(s.notifications!==false&&s.notifyPresence!==false&&s.notifyNickChanges!==false&&!(s.mutedUsers?.[id]||[]).some(n=>[data.nick,data.old,data.newNick].some(name=>require('../irc').fold(n)===require('../irc').fold(name)))){
+        const text=data.old+' → '+data.newNick;
+        if(s.notifyPresenceSound!==false)this.electron.shell.beep();
+        this.emit(id,'presence-alert',{text:'Notify · '+text,nick:data.nick,old:data.old,newNick:data.newNick});
+        if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const notification=new this.electron.Notification({title:'Notify · Cambio de nick',body:text,silent:true});notification.show();}
+      }
+    }
     if(type==='presence'&&!data.initial){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
     if (type === "message") {
       if (
@@ -304,13 +313,13 @@ class Runtime {
     const focused=!!w?.isFocused(),viewing=focused&&this.activeConversation?.id===id&&require('../irc').fold(this.activeConversation.target)===require('../irc').fold(data.target);
     if((settings.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick||'')))return;
     const self=this.sessions.get(id)?.nick||'',plain=require('../formatting').plain(data.text||''),fold=require('../irc').fold;
-    const mentioned=!!self&&fold(plain).split(/[^a-z0-9_{}|~\-]+/).includes(fold(self))||(settings.highlightWords||[]).some(word=>fold(plain).includes(fold(word)));
+    const mentioned=!!self&&fold(plain).split(/[^\p{L}\p{N}_{}|~\-]+/u).includes(fold(self))||(settings.highlightWords||[]).some(word=>fold(plain).includes(fold(word)));
     if((mentioned||data.notice)&&!data.own&&!data.historical){
       const entry={key:require('node:crypto').randomUUID(),network:id,target:data.target,nick:data.nick||'Servidor',text:plain.slice(0,10000),kind:data.notice?'notice':'mention',time:data.time||new Date().toISOString(),read:false};
       this.notificationLog||=[];this.notificationLog.push(entry);if(this.notificationLog.length>500)this.notificationLog.shift();this.emit(id,'notification-entry',{entry});
     }
     if(!settings.notifications||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
-    const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^a-z0-9_{}|~\-]+/),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
+    const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^\p{L}\p{N}_{}|~\-]+/u),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
     const sound=mention?settings.mentionSound!==false:privateMessage?settings.privateSound!==false:settings.channelSound===true;
     if(sound)this.electron.shell.beep();
     if(mention||privateMessage)this.emit(id,'attention',{target:data.target,mention,flash:settings.flashOnMention});

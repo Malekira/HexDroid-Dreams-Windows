@@ -36,7 +36,7 @@ async function run() {
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 332 Dreamer #dreams :Topic de prueba\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
-        if (line === 'WHOIS Absent') socket.write(':local 401 Dreamer Absent :No such nick\r\n');
+        if (line === 'WHOIS Absent Absent') socket.write(':local 401 Dreamer Absent :No such nick\r\n');
         if (line === 'WHO Alice') socket.write(':local 352 Dreamer #dreams ident host local Alice H :0 Alice WHO result\r\n:local 315 Dreamer Alice :End of WHO\r\n');
         if (line === 'WHOIS Alice' || line === 'WHOIS Alice Alice') socket.write(':local 311 Dreamer Alice user host * :\x02\x0313Alice Test\x0f\r\n:local 317 Dreamer Alice 125 123456 :seconds idle\r\n:local 318 Dreamer Alice :End of WHOIS\r\n');
         if (line.startsWith('PART #dreams')) socket.write(':Dreamer!u@local PART #dreams :bye\r\n');
@@ -115,7 +115,7 @@ async function run() {
     await expect(page.locator('#message-input')).toHaveValue('draft in private');
     await page.getByRole('button',{name:'Privado Alice',exact:true}).click({button:'right'});
     await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
-    await expect.poll(() => received.includes('WHOIS Alice')).toBe(true);
+    await expect.poll(() => received.includes('WHOIS Alice Alice')).toBe(true);
     await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');
     await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();
     await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();
@@ -130,9 +130,20 @@ async function run() {
     for(const socket of sockets)socket.write(':Alice!ident@host NICK :Alicia\r\n');
     await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await expect(page.getByRole('button',{name:'@Alicia',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Notify Alicia en línea',exact:true})).toBeVisible();
+    await expect(page.locator('#messages .event-nick-change').last()).toContainText('Alice → Alicia');
     await expect(page.getByRole('button',{name:'@Alice',exact:true})).toHaveCount(0);
     for(const socket of sockets)socket.write(':Alicia!ident@host NICK :Alice\r\n');
     await expect(page.getByRole('button',{name:'@Alice',exact:true})).toBeVisible();
+    for(const socket of sockets)socket.write(':CloneNick!other@host JOIN :#dreams\r\n');
+    await expect(page.locator('#messages .event-clones')).toContainText('Alice, CloneNick');
+    await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('split');
+    await expect(page.locator('#channel-events .event-clones')).toContainText('Alice, CloneNick');
+    await expect(page.locator('#messages .event-clones')).toHaveCount(0);
+    const split=page.getByRole('separator',{name:'Altura de eventos de sala',exact:true});await split.focus();await page.keyboard.press('Home');
+    await expect.poll(()=>page.evaluate(async()=>(await window.dreams.load()).settings.eventsPanePercent)).toBe(12);
+    await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('unified');
+    for(const socket of sockets)socket.write(':CloneNick!other@host PART #dreams :bye\r\n');
     await page.locator('#message-input').fill('first line\nsecond line'); await page.locator('#message-input').press('Enter');
     await expect.poll(() => received.includes('PRIVMSG #dreams :first line') && received.includes('PRIVMSG #dreams :second line')).toBe(true);
     await page.getByRole('separator',{name:'Ancho de usuarios'}).focus(); await page.keyboard.press('End');

@@ -1,13 +1,13 @@
-# HexDreams IRC 0.9.0 para Windows
+# HexDreams IRC 0.10.0 para Windows
 
-El programa pasa a llamarse HexDreams IRC. Incluye el logo elegido, con el exterior transparente, en la aplicación y en sus iconos de Windows.
+- Corregida la alineación del logo interno para que no sobresalga de la barra.
+- El icono de la ventana y de la barra de tareas utiliza explícitamente el logo, con identidad propia de Windows. Si tenías fijado un acceso anterior, desfíjalo y vuelve a fijar HexDreamsIRC.exe de esta carpeta.
+- Notify ordenado alfabéticamente. Su botón + añade usuarios. Debajo hay una raya y una sección Conexiones, con el mundo para agregar redes y una lista compacta para seleccionarlas.
+- Resaltado de mensajes que mencionen tu nick, activable y con selector de color en Notificaciones y tema o Chat y mensajes. El color se conserva al reiniciar.
+- WHOIS se dirige al servidor del usuario para obtener su idle. El perfil muestra Inactividad (idle); si la red no lo proporciona, lo indica en lugar de inventar un tiempo.
+- Notify avisa «nick anterior → nick nuevo» y conserva los cambios recientes en su ventana. Sigue el apodo nuevo durante la conexión; al desconectarse vuelve a vigilar el apodo guardado. Solo puede informar cambios que la red comunique al cliente.
+- Cambios de nick en rojo en las salas compartidas.
+- Posibles clones en rojo, detectados por el mismo host visible dentro de la sala. Compartir host puede corresponder a usuarios distintos de una misma conexión; el aviso no confirma identidad.
+- Selector Vista de sala: Misma ventana o Ventana dividida. La segunda separa mensajes de usuarios y eventos de sala en dos paneles de la misma ventana. El separador se arrastra, admite flechas y Home/End y guarda su posición. Doble clic restaura la proporción inicial. Cada panel tiene desplazamiento independiente; volver a unificar conserva los mensajes y eventos disponibles.
 
-- Corregida la confirmación de mensajes propios cuando el servidor cambia o elimina códigos de estilo. Se actualiza la copia pendiente, conservando dos envíos iguales intencionales como mensajes separados. El historial antiguo ya duplicado no se elimina automáticamente.
-- El nombre real ya no se recorta silenciosamente a 200 caracteres. Se conserva completo si cabe en la línea IRC; si no, aparece un error claro. El editor muestra caracteres visibles y bytes con formato. Los límites propios del servidor siguen aplicándose. Si el texto se había guardado recortado, vuelve a escribirlo completo y reconecta.
-- WHOIS abre una ventana flotante con foto, nombre real, idle, ident, host y demás datos, además de conservar las respuestas en WHOIS/WHO. Notify incorpora WHOIS junto a cada usuario.
-- Los botones del perfil son compactos, se colocan uno junto a otro y bajan de fila automáticamente según el espacio.
-- «Agregar red…» está disponible en el desplegable de redes.
-- Se pueden guardar, seleccionar y eliminar hasta 40 temas personalizados con nombre. Incluyen colores del entorno, fondos y estilo de sala, fuente, tamaño y formato de escritura. No contienen redes ni credenciales.
-- Nuevo tema «Morado y azul marino», con degradados y sin dorado. Se selecciona en Configuración → Apariencia o Colores del entorno; se conserva tu estilo actual hasta elegirlo.
-
-Extrae toda la carpeta del ZIP y abre HexDreamsIRC.exe. La carpeta de datos y el almacén del certificado personal se mantienen compatibles con las versiones anteriores: no hace falta recrear redes ni certificado. Para firmar este EXE utiliza Sign y Verify apuntando a HexDreamsIRC.exe.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Se mantienen redes, temas, preferencias, historial y certificado personal. Firma el nuevo EXE con Sign y comprueba con Verify usando tu certificado existente.

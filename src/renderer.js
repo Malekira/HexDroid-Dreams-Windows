@@ -105,25 +105,27 @@ function avatarFor(id,nick){
 }
 function renderMessages(preserveScroll = false) {
   const list = $('messages'), c = selected(), query = fold($('message-search').value);
+  const eventList=window.prepareDreamsEventPane?.(c);
   list.hidden = !c; $('welcome').hidden = !!c;
   if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.timestamps,config.settings.showEvents,c.muted]);
+  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.showClones,config.settings.roomView,config.settings.highlightMentions,config.settings.timestamps,config.settings.showEvents,c.muted]);
   if (preserveScroll && signature === lastMessageView) return;
   const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
   const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
-  lastMessageView = signature; list.replaceChildren();
-  const visible = c.messages.filter(m => (!m.event || c.kind==='queries' || config.settings.showEvents || m.error) && (!query || fold(DreamsFormatting.plain(m.text) + ' ' + (m.nick || '')).includes(query)));
+  lastMessageView = signature; list.replaceChildren();if(eventList)eventList.replaceChildren();
+  const visible = c.messages.filter(m => (m.eventType!=='clones'||config.settings.showClones!==false) && (!m.event || c.kind==='queries' || config.settings.showEvents || m.error) && (!query || fold(DreamsFormatting.plain(m.text) + ' ' + (m.nick || '')).includes(query)));
   $('search-count').textContent = query ? `${visible.length} resultados` : '';
-  if (!visible.length) list.append(el('div','event-message',query ? 'No hay mensajes que coincidan.' : c.kind === 'server' ? 'Conecta esta red para ver su actividad.' : 'Este es el comienzo de la conversación.'));
+  if (!visible.some(m=>!eventList||!m.event)) list.append(el('div','event-message',query ? 'No hay mensajes que coincidan.' : c.kind === 'server' ? 'Conecta esta red para ver su actividad.' : 'Este es el comienzo de la conversación.'));
   let day = '';
   for (const m of visible) {
     const date = new Date(m.time), valid = !Number.isNaN(date.valueOf());
     const label = valid ? date.toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '';
-    if (label && label !== day) { day = label; list.append(el('div','message-day',label)); }
+    const destination=m.event&&eventList?eventList:list;
+    if (destination===list && label && label !== day) { day = label; list.append(el('div','message-day',label)); }
     const time = el('time','',valid ? '['+date.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+']' : ''); if (valid) time.dateTime = date.toISOString();
-    const row = el(m.event ? 'div' : 'article',m.event ? 'event-message' + (m.error ? ' error' : '') : 'message' + (m.own ? ' own' : '') + (m.action ? ' action' : '') + (m.notice ? ' notice' : '') + (m.mention && !c.muted ? ' mention' : '') + (selectedMessages.has(m.id) ? ' selected' : ''));
+    const row = el(m.event ? 'div' : 'article',m.event ? 'event-message' + (m.error ? ' error' : '') : 'message' + (m.own ? ' own' : '') + (m.action ? ' action' : '') + (m.notice ? ' notice' : '') + (m.mention && !c.muted && config.settings.highlightMentions!==false ? ' mention' : '') + (selectedMessages.has(m.id) ? ' selected' : ''));
     row.dataset.messageId = m.id;
-    if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted);if(m.eventType)window.renderDreamsChannelEvent?.(row,m,time); }
+    if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted);if(m.eventType&&!window.renderDreamsSpecialEvent?.(row,m,time))window.renderDreamsChannelEvent?.(row,m,time); }
     else {
       const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick);if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}row.append(avatar);
       const content = el('div','message-content'), header = el('div','message-header');
@@ -132,8 +134,9 @@ function renderMessages(preserveScroll = false) {
     }
     row.oncontextmenu = e => messageMenu(e,m,row);
     row.addEventListener('click',e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleMessageSelection(m.id,row); } },true);
-    list.append(row);
+    destination.append(row);
   }
+  if(eventList){if(!eventList.children.length)eventList.append(el("div","event-message","Sin eventos de sala."));eventList.scrollTop=c.eventsFollow===false?c.eventScrollTop||0:eventList.scrollHeight;}
   if (query) list.scrollTop = 0;
   else if (c.follow && config.settings.autoScroll) list.scrollTop = list.scrollHeight;
   else {
@@ -493,7 +496,9 @@ api.onEvent(event => {
       if (event.own && event.action === 'join') choose(id,event.target,false);
       break;
     }
+    case 'clones': addMessage(id,event.target,{event:true,eventType:'clones',nicks:event.nicks,host:event.host,activity:config.settings.showClones!==false&&config.settings.highlightEvents!==false,text:'Posibles clones (mismo host): '+event.nicks.join(', ')});break;
     case 'nick': {
+      for(const c of n.conversations.values())if(c.kind==='channel'&&((event.targets||[]).some(t=>fold(t)===fold(c.name))||c.users.some(u=>[fold(event.old),fold(event.nick)].includes(fold(bareNick(u,n))))))addMessage(id,c.name,{event:true,eventType:'nick',oldNick:event.old,nick:event.nick,own:event.own,activity:config.settings.highlightEvents!==false,text:event.old+' → '+event.nick+' cambió de nick'});
       if (event.own) n.nick = event.nick;
       for(const c of n.conversations.values())c.users=c.users.map(user=>fold(bareNick(user,n))===fold(event.old)?statusPrefix(user,n)+event.nick:user);
       if(fold(event.old)!==fold(event.nick)&&n.userStates?.[fold(event.old)]){n.userStates[fold(event.nick)]=n.userStates[fold(event.old)];delete n.userStates[fold(event.old)];}

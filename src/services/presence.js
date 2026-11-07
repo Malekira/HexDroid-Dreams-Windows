@@ -34,6 +34,7 @@ class Presence {
     this.client = client;
     this.names = normalizeNotify(names);
     this.states = new Map();
+    this.aliases = new Map();
     this.pending = [];
     this.monitor = false;
   }
@@ -47,15 +48,16 @@ class Presence {
   }
   configure(names) {
     this.names = normalizeNotify(names);
+    for (const key of this.aliases.keys())
+      if (!this.names.some((n) => fold(n) === key)) this.aliases.delete(key);
     for (const key of this.states.keys())
       if (!this.names.some((n) => fold(n) === key)) this.states.delete(key);
     if (!this.client.ready) return;
     if (this.monitor) {
       this.client.sendRaw("MONITOR C");
-      for (let i = 0; i < this.names.length; i += 5)
-        this.client.sendRaw(
-          "MONITOR + " + this.names.slice(i, i + 5).join(","),
-        );
+      const names = this.names.map((n) => this.aliases.get(fold(n)) || n);
+      for (let i = 0; i < names.length; i += 5)
+        this.client.sendRaw("MONITOR + " + names.slice(i, i + 5).join(","));
     }
     this.poll();
   }
@@ -67,7 +69,9 @@ class Presence {
   poll() {
     const c = this.client;
     if (!c.ready || c.closed) return;
-    const names = this.monitor ? [] : [...this.names];
+    const names = this.monitor
+      ? []
+      : this.names.map((n) => this.aliases.get(fold(n)) || n);
     if (
       c.profile.recoverNick &&
       fold(c.nick) !== fold(c.profile.nick) &&
@@ -87,21 +91,48 @@ class Presence {
     }
   }
   update(nick, online) {
-    const name = this.names.find((n) => fold(n) === fold(nick));
+    const name = this.names.find(
+      (n) => fold(this.aliases.get(fold(n)) || n) === fold(nick),
+    );
     if (!name) return;
     const key = fold(name),
       initial = !this.states.has(key);
     if (!initial && this.states.get(key) === online) return;
     this.states.set(key, online);
-    this.client.emit("presence", { nick: name, online, initial });
+    const currentNick = this.aliases.get(key) || name;
+    this.client.emit("presence", {
+      nick: name,
+      online,
+      initial,
+      ...(currentNick !== name ? { currentNick } : {}),
+    });
+    if (!online && this.aliases.has(key)) {
+      this.aliases.delete(key);
+      if (this.monitor && this.client.ready) this.configure(this.names);
+    }
   }
   handle(m) {
     const p = m.params,
       c = this.client;
     if (m.command === "JOIN") this.update(m.nick, true);
     if (m.command === "QUIT") this.update(m.nick, false);
-    if (m.command === "NICK" && fold(m.nick) !== fold(p[0])) {
-      this.update(m.nick, false);
+    if (m.command === "NICK" && m.nick !== p[0]) {
+      const matches = this.names.filter(
+        (n) => fold(this.aliases.get(fold(n)) || n) === fold(m.nick),
+      );
+      for (const name of matches) {
+        const key = fold(name);
+        this.aliases.set(key, p[0]);
+        this.states.set(key, true);
+        this.client.emit("presence-nick", {
+          nick: name,
+          old: m.nick,
+          newNick: p[0],
+          online: true,
+        });
+      }
+      if (matches.length && this.monitor && this.client.ready)
+        this.configure(this.names);
       this.update(p[0], true);
     }
     if (m.command === "303") {
@@ -134,6 +165,9 @@ class Presence {
   snapshot() {
     return this.names.map((nick) => ({
       nick,
+      ...(this.aliases.has(fold(nick))
+        ? { currentNick: this.aliases.get(fold(nick)) }
+        : {}),
       online: this.states.has(fold(nick)) ? this.states.get(fold(nick)) : null,
     }));
   }
@@ -141,6 +175,7 @@ class Presence {
     clearInterval(this.timer);
     this.pending = [];
     this.states.clear();
+    this.aliases.clear();
   }
 }
 module.exports = { Presence, normalizeNotify };

@@ -75,8 +75,8 @@ function executeInput(client, target, text, emit = () => {}) {
   } else if (command === "whois" || command === "who") {
     token(args || target, "Destino");
     if (typeof client.request === "function")
-      client.request(`${command.toUpperCase()} ${args || target}`, "*consultas*");
-    else client.sendRaw(`${command.toUpperCase()} ${args || target}`);
+      client.request(`${command.toUpperCase()} ${command==="whois"?(args||target)+" "+(args||target):args||target}`, "*consultas*");
+    else client.sendRaw(`${command.toUpperCase()} ${command==="whois"?(args||target)+" "+(args||target):args||target}`);
     emit("query",{target:"*consultas*",...(command==="whois"?{whois:args||target}:{})});
   } else if (command === "topic")
     client.sendRaw(`TOPIC ${channel()}${args ? " :" + args : ""}`);

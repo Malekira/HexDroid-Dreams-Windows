@@ -393,3 +393,6 @@ test('Echo labels confirm their own send; history and other users never consume 
  c.batches.set('old',{type:'chathistory'});c.handle(parseLine('@batch=old :Me!u@h PRIVMSG #room :hello'));c.handle(parseLine(':Alice!u@h PRIVMSG #room :hello'));assert.equal(c.pendingEcho.size,1);
  c.handle(parseLine('@label='+id+' :Me!u@h PRIVMSG #room :server-normalized hello'));assert.equal(rows.at(-1).clientId,id);assert.equal(rows.at(-1).pending,false);assert.equal(c.pendingEcho.size,0);
 });
+test('WHOIS server-routing failures finish the floating profile instead of leaving an endless lookup',()=>{
+ const{parseLine}=require('../src/irc'),c=new IrcClient({host:'localhost',port:6667,nick:'Me',tls:false,channels:[]});const profile=[];c.on('user-profile',e=>profile.push(e));c.on('problem',()=>{});c.handle(parseLine(':server 402 Me MissingNick :No such server'));assert.equal(profile[0].code,'402');assert.equal(profile[0].nick,'MissingNick');assert.equal(profile[0].error,true);
+});

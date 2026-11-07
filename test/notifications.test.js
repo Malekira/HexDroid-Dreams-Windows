@@ -24,3 +24,7 @@ test('Disabling outgoing typing blocks active TAGMSG without changing received m
  await Runtime.prototype.action.call(f.context,'typing',{network:'net',target:'#room',state:'active'});assert.deepEqual(sent,[]);
  await Runtime.prototype.action.call(f.context,'typing',{network:'net',target:'#room',state:'done'});assert.deepEqual(sent,[['#room','done']]);
 });
+test('Notify nick changes produce one configurable alert with old and new nicknames',async()=>{
+ const f=fixture();await Runtime.prototype.receive.call(f.context,'net','presence-nick',{nick:'Alice',old:'Alice',newNick:'AliceNew'});assert.equal(f.sounds(),1);assert.ok(f.events.some(e=>e[1]==='presence-alert'&&e[2].text.includes('Alice → AliceNew')));
+ const quiet=fixture({notifyNickChanges:false});await Runtime.prototype.receive.call(quiet.context,'net','presence-nick',{nick:'Alice',old:'Alice',newNick:'AliceNew'});assert.equal(quiet.sounds(),0);assert.ok(!quiet.events.some(e=>e[1]==='presence-alert'));
+});

@@ -87,3 +87,17 @@ Configuración → Apariencia y Colores del entorno permiten guardar el estilo a
 El nombre real se conserva sin el antiguo recorte a 200 caracteres, dentro del límite de una línea IRC. Su contador muestra bytes UTF-8 incluyendo estilos. La red puede imponer un límite menor. Un texto que ya se había guardado recortado debe introducirse de nuevo; cambiar la identidad requiere reconectar para que se anuncie al servidor.
 
 HexDreamsIRC.exe sigue leyendo la carpeta de datos histórica y el certificado personal existente. Los formatos de respaldo y cifrado mantienen compatibilidad con las versiones anteriores y Android.
+
+## Notify, eventos de sala y menciones
+
+Notify se ordena alfabéticamente y su + abre el formulario para añadir usuarios. Conexiones, debajo de la raya, contiene el mundo para agregar redes y permite seleccionarlas. La lista Notify sigue siendo independiente por red.
+
+Cuando llega un cambio de nick de alguien seguido, Notify muestra anterior → nuevo, sigue su apodo actual durante esa conexión y guarda los últimos 50 cambios de la sesión en la ventana Notify. Al salir de la red vuelve a vigilar el apodo guardado. Se pueden desactivar los avisos de cambios de nick y su sonido. No se deducen cambios de identidad a partir de desconexiones o de nicks parecidos.
+
+En la sala los cambios de nick aparecen en rojo. Los avisos de posibles clones también son rojos y comparan los hosts visibles que proporciona el servidor, sin averiguar IP ocultas ni asumir que dos usuarios con el mismo host son una sola persona.
+
+Vista de sala permite Misma ventana o Ventana dividida. Los mensajes y eventos mantienen su orden dentro de cada panel; el separador horizontal guarda su proporción, se arrastra con ratón, admite flechas y Home/End y vuelve al 25% con doble clic. En privados y WHOIS/WHO se conserva la vista habitual. Los filtros de búsqueda y de mostrar eventos siguen aplicándose.
+
+Notificaciones y tema y Chat y mensajes incluyen el resaltado de menciones y su color. Desactivarlo conserva los mensajes y las preferencias de sonido independientes. WHOIS solicita el idle al servidor del usuario y muestra explícitamente si no ha sido facilitado.
+
+Si Windows conserva el icono de un acceso fijado anterior, desfija ese acceso y fija el nuevo HexDreamsIRC.exe. Se conserva la carpeta histórica de datos y el certificado personal.

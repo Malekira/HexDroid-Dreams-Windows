@@ -144,12 +144,12 @@ class IrcClient extends EventEmitter {
       }
     } else if (c === 'NICK') {
       const next = p[0]; if (!next) return;
-      const own = fold(nick) === fold(this.nick); if (own) this.nick = next;
+      const own = fold(nick) === fold(this.nick),targets=[]; if (own) this.nick = next;
       for (const [channel, members] of this.members) if (members.has(fold(nick))) {
-        const old = members.get(fold(nick)); members.delete(fold(nick));
+        targets.push(channel);const old = members.get(fold(nick)); members.delete(fold(nick));
         members.set(fold(next), old.match(/^[~&@%+]*/)[0] + next); this.userList(channel);
       }
-      this.emit('nick', { old: nick, nick: next, own });
+      this.emit('nick', { old: nick, nick: next, own,targets });
     } else if (c === 'MODE' && this.members.has(fold(p[0]))) {
       // Refresh NAMES after privilege changes instead of guessing multi-mode arguments.
       this.sendRaw(`NAMES ${p[0]}`);

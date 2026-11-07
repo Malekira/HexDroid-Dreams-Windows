@@ -47,7 +47,7 @@
       const n = this.network(id), c = this.conversation(id, target);
       const existing=c.messages.find(m=>(message.messageId&&m.messageId===message.messageId)||(message.clientId&&m.clientId===message.clientId));
       if(existing){c.revision=(c.revision||0)+1;Object.assign(existing,message,{id:existing.id});return existing;}
-      const nick = fold(n.nick), words = fold(plain(message.text || '')).split(/[^a-z0-9_\-{}|~]+/);
+      const nick = fold(n.nick), words = fold(plain(message.text || '')).split(/[^\p{L}\p{N}_\-{}|~]+/u);
       const mention = !message.own && !message.event && !!nick && words.includes(nick);
       const m = { time:new Date().toISOString(), ...message, mention, id: `${Date.now()}-${++Workspace.sequence}` };
       c.messages.push(m); if (c.messages.length > 600) c.messages.splice(0, c.messages.length - 600);

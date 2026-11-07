@@ -49,6 +49,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.advertised = new Map();
       this.batches = new Map();
       this.pendingEcho = new Map();
+      this.clones=new (require("./clones").CloneTracker)(this);
       this.labels = new Map();
       this.joined = new Map();
       this.byteBuffer = Buffer.alloc(0);
@@ -229,6 +230,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           });
         }
         this.pendingEcho.clear();
+        this.clones.stop();
         this.emit("status", { state: "disconnected", text: "Desconectado" });
       });
     }
@@ -448,13 +450,13 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       }
     }
     handle(m) {
-      const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);
+      const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);this.clones.observe(m);if(c==="CHGHOST")this.clones.schedule();
       if(c==='381'||c==='221'||c==='MODE'&&fold(p[0])===fold(this.nick)){
         if(c==='381')this.userModes.add('o');else{if(c==='221')this.userModes.clear();let adding=true;for(const mode of (c==='221'?p.at(-1):p[1])||''){if(mode==='+')adding=true;else if(mode==='-')adding=false;else if(adding)this.userModes.add(mode);else this.userModes.delete(mode);}}
         this.emit('oper-state',{oper:this.userModes.has('o')||this.userModes.has('O'),modes:[...this.userModes].join('')});
       }
-      if(['311','312','313','317','318','319','330','301','401'].includes(c)){
-        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),...(c==='311'?{realName:require('./avatar-policy').displayRealName(p[5])}:{}),complete:c==='318',error:c==='401'});
+      if(['311','312','313','317','318','319','330','301','401','402'].includes(c)){
+        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),...(c==='311'?{realName:require('./avatar-policy').displayRealName(p[5])}:{}),complete:c==='318',error:c==='401'||c==='402'});
       }
       if(c==='321')this.emit('room-list',{reset:true});
       if(c==='322')this.emit('room-list',{name:p[1],members:Number(p[2])||0,topic:p[3]||''});
@@ -700,8 +702,9 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.currentMessage = m;
       try {
         super.handle(m);
+        if(["JOIN","PART","QUIT","KICK","NICK","CHGHOST","352","354","353","366"].includes(c))this.clones.schedule();
         if(c==='001'){this.syncAvatars();this.presence.start();}if(ownNickChange)try{this.publishOwnAvatar();}catch(e){this.emit('problem',e.message);}
-        if(c==='JOIN'&&fold(m.nick)===fold(this.nick)&&this.avatarDiscovery){this.syncAvatars();if(this.capabilities.has('draft/metadata-2'))this.sendRaw('METADATA '+p[0]+' SYNC');this.sendRaw('WHO '+p[0]+(this.whox?' %tcuhnfar,152':''));}
+        if(c==='JOIN'&&fold(m.nick)===fold(this.nick)){if(this.avatarDiscovery){this.syncAvatars();if(this.capabilities.has('draft/metadata-2'))this.sendRaw('METADATA '+p[0]+' SYNC');}this.sendRaw('WHO '+p[0]+(this.whox?' %tcuhnfar,152':''));}
       } finally {
         this.currentMessage = previous;
       }

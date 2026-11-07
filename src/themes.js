@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DreamsThemes = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
-  const keys = [
+  const keys = ["highlightMentions","mentionHighlightColor",
     "theme",
     "customColors",
     "roomAppearance",
