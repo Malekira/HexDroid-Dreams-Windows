@@ -114,8 +114,16 @@
     } else photo.textContent = nick.slice(0, 2);
     photo.onclick = () => run(() => showPhoto(id, nick));
     userPanel.append(photo);
-    if (details.error || !details.complete)
+    if (viewing.floating && (details.error || !details.complete))
       userPanel.append(el("p", "muted", details.error || "Consultando WHOIS…"));
+    if (viewing.floating && details.realName?.includes("\ufffd"))
+      userPanel.append(
+        el(
+          "p",
+          "note",
+          "El servidor entregó caracteres incompletos en el nombre real. Vuelve a guardar la identidad y reconectar; el límite del servidor puede cortar emojis o formato.",
+        ),
+      );
     const list = el("dl", "user-details");
     for (const [key, label] of Object.entries({
       realName: "Nombre real",
@@ -129,12 +137,38 @@
     })) {
       const term = el("dt", "", label),
         value = el("dd");
-      DreamsFormatting.render(value, details[key] || (key==="idle"?(details.complete?"No facilitado por el servidor":"Consultando…"):"—"));
+      DreamsFormatting.render(
+        value,
+        details[key] ||
+          (key === "idle"
+            ? details.complete
+              ? "No facilitado por el servidor"
+              : "Consultando…"
+            : "—"),
+      );
+      if (key === "channels" && details.channels) {
+        value.replaceChildren();
+        for (const channel of details.channels.split(/\s+/)) {
+          const target = channel.replace(/^[~&@%+]+(?=[#&!+])/, "");
+          if (/^[#&!+]/.test(target))
+            button(
+              channel,
+              () =>
+                api.send({
+                  id,
+                  target: active?.target || "*",
+                  text: "/join " + target,
+                }),
+              value,
+            );
+        }
+      }
       list.append(term, value);
     }
     const own = network(id).nick && fold(network(id).nick) === fold(nick),
       saved = profile(id)?.realName;
     if (
+      viewing.floating &&
       own &&
       details.complete &&
       saved &&
@@ -203,6 +237,7 @@
       },
       userPanel,
     );
+    button("Hacer WHOIS", () => window.openDreamsWhois(id, nick), userPanel);
     const actions = el("div", "profile-action-buttons");
     for (const b of [...userPanel.children].filter(
       (n) =>
@@ -211,7 +246,8 @@
         !n.classList.contains("profile-photo-button"),
     ))
       actions.append(b);
-    userPanel.append(actions, list);
+    userPanel.append(actions);
+    if (viewing.floating) userPanel.append(list);
   }
   window.refreshDreamsUserPhoto = () => {
     if (!viewing) return;
@@ -231,13 +267,18 @@
     if (!options.floating && whoisWindow.dialog.open)
       whoisWindow.dialog.close();
     (options.floating ? whoisWindow.body : $("users-panel")).append(userPanel);
+    if (!options.floating && !config.settings.showUsers) {
+      config.settings.showUsers = true;
+      applySettings();
+      persist().catch(() => {});
+    }
     viewing = { id, nick, details: {}, floating: !!options.floating };
     userPanel.hidden = false;
     $("user-list").hidden = true;
     document.querySelector(".user-search").hidden = true;
     document.querySelector(".users-hint").hidden = true;
     showProfile();
-    if (options.request !== false)
+    if (options.floating && options.request !== false)
       call("user.whois", { network: id, nick }).catch((e) => {
         if (viewing?.id === id && viewing.nick === nick) {
           viewing.details.error = e.message;
@@ -899,7 +940,7 @@
             break;
           }
           case "319":
-            d.channels = p[0];
+            d.channels = [d.channels, p[0]].filter(Boolean).join(" ");
             break;
           case "330":
             d.account = p[0];

@@ -1,17 +1,15 @@
-# HexDreams IRC 0.11.0 para Windows
+# HexDreams IRC 0.12.0 para Windows
 
-- Historial TXT activado por defecto: un archivo por sala o privado, separado por red, legible en Notepad, con fecha y hora local y sin códigos de color. Incluye mensajes y eventos de sala; las confirmaciones de envío no duplican las líneas.
-- Configuración → Historial permite abrir la carpeta TXT y desactivar su guardado. Los TXT son independientes de la búsqueda interna y se conservan hasta borrarlos manualmente. Para respaldarlos, copia esa carpeta; no se convierten automáticamente los mensajes anteriores.
-- Multimedia incorpora una opción independiente para las miniaturas junto a mensajes de salas y privados. Se mantienen visibles también en modo compacto cuando están activadas, aunque se oculten las fotos de la lista de usuarios.
-- Corregida la alineación del logo interno para que no sobresalga de la barra.
-- El icono de la ventana y de la barra de tareas utiliza explícitamente el logo, con identidad propia de Windows. Si tenías fijado un acceso anterior, desfíjalo y vuelve a fijar HexDreamsIRC.exe de esta carpeta.
-- Notify ordenado alfabéticamente. Su botón + añade usuarios. Debajo hay una raya y una sección Conexiones, con el mundo para agregar redes y una lista compacta para seleccionarlas.
-- Resaltado de mensajes que mencionen tu nick, activable y con selector de color en Notificaciones y tema o Chat y mensajes. El color se conserva al reiniciar.
-- WHOIS se dirige al servidor del usuario para obtener su idle. El perfil muestra Inactividad (idle); si la red no lo proporciona, lo indica en lugar de inventar un tiempo.
-- Notify avisa «nick anterior → nick nuevo» y conserva los cambios recientes en su ventana. Sigue el apodo nuevo durante la conexión; al desconectarse vuelve a vigilar el apodo guardado. Solo puede informar cambios que la red comunique al cliente.
-- Si el apodo nuevo también está guardado en Notify, ambos seguimientos se actualizan y la lista de conectados lo muestra una sola vez.
-- Cambios de nick en rojo en las salas compartidas.
-- Posibles clones en rojo, detectados por el mismo host visible dentro de la sala. Compartir host puede corresponder a usuarios distintos de una misma conexión; el aviso no confirma identidad.
-- Selector Vista de sala: Misma ventana o Ventana dividida. La segunda separa mensajes de usuarios y eventos de sala en dos paneles de la misma ventana. El separador se arrastra, admite flechas y Home/End y guarda su posición. Doble clic restaura la proporción inicial. Cada panel tiene desplazamiento independiente; volver a unificar conserva los mensajes y eventos disponibles.
+- Notify conserva solo el botón + de su cabecera. El engranaje general abre Configuración.
+- Eventos de sala muestran expulsiones con autor y motivo, cambios de modos (incluidos bans), rechazos de entrada y avisos de sanciones que el servidor comunica. Las Z-lines también aparecen cuando llegan como motivo de desconexión o aviso; no se inventan datos de otros usuarios.
+- Historial TXT con cuatro casillas independientes: salas, privados, status de red y WHOIS/WHO. Carpeta seleccionable, conservación en días y límite por archivo en MB; 0 significa sin límite. El límite de tamaño conserva las líneas más recientes; los días eliminan archivos sin actividad. La retención solo afecta a archivos propios del programa.
+- Abrir historial abre una ventana independiente, con árbol de logs por red y categoría a la izquierda y contenido legible a la derecha. Búsqueda por palabra en un archivo o en todos, con acceso al resultado. Los archivos grandes se cargan por partes sin cortar emojis.
+- Se elimina el bloque de búsqueda de la configuración general. Cambiar la ruta de TXT cambia el destino, sin mover los logs anteriores.
+- Clic en un nick de sala abre el panel lateral de foto y acciones, sin abrir privado ni solicitar WHOIS. El botón Hacer WHOIS abre la consulta completa, conservando el resultado en WHOIS/WHO. Las salas de la consulta permiten unirse con un clic.
+- WHOIS conserva emojis recibidos correctamente, con fuentes de emoji. Si el servidor envía caracteres incompletos en el nombre real se indica; no es posible recuperar texto que el servidor ya ha cortado.
+- Abrir un menú cierra el anterior. Menú Salas para añadir la sala actual a favoritas, unirse y quitar favoritas.
+- Agregar nuevo tema abre un editor con vista previa, colores del entorno y chat, fuente, tamaño, estilo y guardado. Se puede elegir colores fuertes o pastel para nicks, adaptados al fondo del chat.
+- Nuevo tema PurpleDreamsLight: entorno púrpura y azul, chat blanco y texto oscuro.
+- Exportar e importar configuración abre una ventana para seleccionar redes e identidades, apariencia y temas, notificaciones, multimedia, preferencias de historial y otras preferencias. Importar redes actualiza identificadores coincidentes y conserva las demás. El historial de búsqueda y las credenciales cifradas son opcionales; los TXT permanecen en su carpeta.
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Se mantienen redes, temas, preferencias, historial y certificado personal. Firma el nuevo EXE con Sign y comprueba con Verify usando tu certificado existente.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Se conservan los datos anteriores. Para firmar el nuevo EXE, utiliza Sign y Verify con tu certificado existente.

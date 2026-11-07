@@ -370,96 +370,14 @@
         call("secrets.forget", { network: p.id }),
       );
     } else if (section === "history") {
-      const textLogs=input('Guardar archivos TXT por sala y privado',config.settings.textLogsEnabled!==false,'checkbox');
-      note('Los TXT se guardan en UTF-8, con fecha y hora y sin códigos de color. Cada red tiene carpetas separadas de salas y privados.');
-      button('Abrir carpeta de historial TXT',()=>call('logs.text.open'));
-      note('Los TXT se conservan aparte; copia esa carpeta para respaldarlos. La búsqueda y su retención se configuran debajo.');
-      const enabled = input(
-          "Guardar historial para búsqueda en la aplicación",
-          config.settings.historyEnabled,
-          "checkbox",
-        ),
-        days = input(
-          "Retener durante días",
-          config.settings.historyDays ?? 30,
-          "number",
-        );
-      const protocol = input(
-        "Registro de protocolo cifrado (sin contenido de mensajes)",
-        config.settings.protocolLogging,
-        "checkbox",
-      );
-      protocol.disabled = !state.secureStorage;
-      note("0 días conserva indefinidamente.");
-      button("Cambiar carpeta del historial de búsqueda", () => call("history.folder"));
-      note(
-        "Este historial permite buscar y restaurar conversaciones dentro de la aplicación. Los archivos TXT se guardan aparte y no se eliminan con su retención.",
-      );
-      const queries=input('Guardar historial de consultas WHOIS y WHO',config.settings.queryHistoryEnabled!==false,'checkbox');
-      button("Guardar preferencias", () =>
-        settings({textLogsEnabled:textLogs.checked,queryHistoryEnabled:queries.checked,
-          historyEnabled: enabled.checked,
-          historyDays: Number(days.value),
-          protocolLogging: protocol.checked,
-        }),
-      );
-      const query = input("Texto a buscar"),
-        nick = input("Filtrar apodo (opcional)"),
-        all = input("Buscar en todas las redes", true, "checkbox"),
-        results = el("div", "history-results");
-      body.append(results);
-      button("Buscar", async () => {
-        const rows = await call("history.search", {
-          text: query.value,
-          nick: nick.value,
-          ...(!all.checked ? context() : {}),
-          limit: 500,
-        });
-        results.replaceChildren();
-        for (const m of rows) {
-          const row = el(
-            "p",
-            "",
-            `${new Date(m.time).toLocaleString()} ${m.network} ${m.target} <${m.nick}> ${m.text}`,
-          );
-          if (profile(m.network))
-            button(
-              "Abrir conversación",
-              () => {
-                dialog.close();
-                choose(m.network, m.target);
-              },
-              row,
-            );
-          results.append(row);
-        }
-        note(`${rows.length} resultados (máximo 500 por búsqueda).`, results);
-      });
-      button("Exportar resultados a TXT", () =>
-        call("history.export", {
-          text: query.value,
-          nick: nick.value,
-          ...(!all.checked ? context() : {}),
-        }),
-      );
-      button("Exportar resultados a ZIP", () =>
-        call("history.export", {
-          zip: true,
-          text: query.value,
-          nick: nick.value,
-          ...(!all.checked ? context() : {}),
-        }),
-      );
-      button("Ver diagnóstico de protocolo", async () => {
-        const rows = await call("protocol.read");
-        results.replaceChildren();
-        for (const r of rows)
-          note(`${r.time} ${r.direction} ${r.line}`, results);
-      });
-      button("Pedir historial al servidor", () =>
-        call("history.server", requireContext()),
-      );
-      button("Eliminar historial de búsqueda", () => call("history.clear"));
+      const fields={};for(const[key,label]of Object.entries({textLogRooms:'Guardar historial en TXT por sala',textLogPrivates:'Guardar historial en TXT por PV',textLogStatus:'Guardar historial de status de red',textLogQueries:'Guardar historial de WHOIS/WHO'}))fields[key]=input(label,config.settings.textLogsEnabled!==false&&config.settings[key]!==false,'checkbox');
+      const days=input('Tiempo de conservación (días)',config.settings.textLogDays||0,'number'),max=input('Límite por archivo (MB)',config.settings.textLogMaxMB||0,'number');days.min=max.min='0';
+      note('0 conserva indefinidamente y no limita el tamaño. Con límite de tamaño se conservan las líneas más recientes; la retención elimina los archivos sin actividad durante ese tiempo.');
+      const folder=el('p','note','Carpeta de historial TXT: …');body.append(folder);call('logs.text.status').then(r=>folder.textContent='Carpeta de historial TXT: '+r.directory);
+      note('Seleccionar otra ruta cambia el destino de los nuevos logs; no mueve los archivos anteriores.');
+      button('Seleccionar ruta',async()=>{const r=await call('logs.text.folder');if(r.directory)folder.textContent='Carpeta de historial TXT: '+r.directory;});
+      button('Abrir historial',()=>window.openDreamsHistory());
+      button('Guardar preferencias',()=>settings({...Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.checked])),textLogsEnabled:true,textLogDays:Number(days.value),textLogMaxMB:Number(max.value)}));
     } else if(section==='palette'){
       window.renderDreamsThemeManager?.(body);
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
@@ -473,6 +391,9 @@
             ["system", "Sistema"],
             ["matrix", "Matrix"],
             ["violet", "Morado y azul marino"],
+            ["purple-light","PurpleDreamsLight"],
+            ...(config.settings.savedThemes||[]).map(t=>[t.id,t.name]),
+            ["new-theme","Agregar nuevo tema…"],
           ],
           config.settings.theme || "dark",
         ),
@@ -491,6 +412,7 @@
           config.settings.flashOnMention,
           "checkbox",
         );
+      theme.onchange=()=>{if(theme.value==="new-theme"){theme.value=config.settings.theme;window.openDreamsThemeEditor();}};
       const minimize = input(
           "Minimizar a la bandeja",
           config.settings.minimizeToTray,
@@ -516,7 +438,7 @@
             .split(",")
             .map((x) => x.trim())
             .filter(Boolean),
-          theme: theme.value,
+          ...(theme.value===config.settings.theme?{}:theme.value==="purple-light"?DreamsThemes.purpleLight:theme.value==="violet"?DreamsThemes.violet:(config.settings.savedThemes||[]).find(t=>t.id===theme.value)?.settings||{theme:theme.value,customColors:{},roomAppearance:{}}),
           notifications: enabled.checked,
           notificationPreview: preview.checked,
           flashOnMention: flash.checked,
@@ -748,32 +670,9 @@
       note("Motor: " + (state.scriptRunning ? "en ejecución" : "detenido"));
       for (const item of state.debug) note(`${item.time} · ${item.text}`);
     } else if (section === "backup") {
-      const secrets = input(
-          "Incluir credenciales y claves cifradas",
-          false,
-          "checkbox",
-        ),
-        password = input(
-          "Frase de paso (mínimo 12 caracteres para exportar secretos)",
-          "",
-          "password",
-        );
-      note(
-        "La importación requiere confirmación y reemplaza las redes y preferencias. Conserva un respaldo antes de restaurar.",
-      );
-      const includeHistory=input('Incluir historial',false,'checkbox');
-      button("Exportar respaldo", () =>
-        call("backup.export", {
-          includeHistory:includeHistory.checked,
-          includeSecrets: secrets.checked,
-          password: password.value,
-        }),
-      );
-      button("Importar respaldo", async () => {
-        const r = await call("backup.import", { password: password.value });
-        if (r.reload) location.reload();
-        return r;
-      });
+      note('Elige qué apartados exportar o restaurar en una ventana aparte.');
+      button('Exportar configuración',()=>window.openDreamsBackup('export'));
+      button('Importar configuración',()=>window.openDreamsBackup('import'));
     } else if (section === "media") {
       const enabled=input('Activar multimedia',config.settings.mediaEnabled!==false,'checkbox'),avatars=input('Mostrar miniaturas en la lista de usuarios y perfiles',config.settings.showAvatars!==false,'checkbox'),automatic=input('Cargar automáticamente fotos desde mi plantilla',config.settings.autoAvatars===true,'checkbox'),template=input('URL común de fotos (usa {nick} o {nickLower})',config.settings.avatarUrlTemplate||'');
       const messageAvatars=input('Mostrar miniaturas junto a los mensajes',config.settings.showMessageAvatars!==false,'checkbox');

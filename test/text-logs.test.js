@@ -26,3 +26,18 @@ test('Runtime writes TXT after credential redaction and respects its separate op
 test('Network identifiers retain case sensitivity while IRC conversation names are case-insensitive',t=>{
  const logs=fixture(t);assert.notEqual(logs.file({id:'Net'},'Alice'),logs.file({id:'net'},'Alice'));assert.equal(logs.file(profile,'ALICE'),logs.file(profile,'Alice'));assert.equal(logs.file(profile,'*CONSULTAS*'),null);
 });
+test('Four log categories have independent switches; viewer searches status and WHOIS safely',t=>{
+ const logs=fixture(t);logs.configure({textLogRooms:false,textLogPrivates:true,textLogStatus:true,textLogQueries:true});
+ assert.equal(logs.append(profile,{target:'#room',nick:'A',text:'hidden'}),false);for(const target of ['Alice','*','*consultas*'])logs.append(profile,{target,nick:'A',text:'Buscar 💋',time});
+ assert.equal(logs.files().length,3);assert.equal(logs.search('buscar').length,3);const entry=logs.files()[0];assert.ok(logs.read(entry.id).text.includes('Buscar 💋'));assert.equal(logs.search('💋',entry.id).length,1);assert.throws(()=>logs.read('../settings.json'));assert.throws(()=>logs.read('/etc/passwd'));
+ const outside=fs.mkdtempSync(path.join(os.tmpdir(),'outside-'));t.after(()=>fs.rmSync(outside,{recursive:true,force:true}));fs.writeFileSync(path.join(outside,'secret.txt'),'secret');try{fs.symlinkSync(outside,path.join(logs.directory,'external'),'dir');assert.equal(logs.files().length,3);}catch(e){if(!['EPERM','EACCES'].includes(e.code))throw e;}
+});
+test('TXT retention and file limits retain recent lines and zero leaves history unlimited',t=>{
+ const logs=fixture(t);logs.configure({textLogDays:2,textLogMaxMB:1});logs.append(profile,{target:'Old',nick:'Me',text:'old'});const old=logs.file(profile,'Old');const date=new Date(Date.now()-3*86400000);fs.utimesSync(old,date,date);logs.lastPrune=0;logs.prune();assert.equal(fs.existsSync(old),false);
+ for(let i=0;i<140;i++)logs.append(profile,{target:'#size',nick:'Me',text:'row '+i+' '+('x'.repeat(10000))});const file=logs.file(profile,'#size');assert.ok(fs.statSync(file).size<=1048576);assert.ok(fs.readFileSync(file,'utf8').includes('row 139'));assert.ok(!fs.readFileSync(file,'utf8').includes('row 0 '));
+ logs.configure({textLogDays:0,textLogMaxMB:0});for(let i=0;i<110;i++)logs.append(profile,{target:'#size',nick:'Me',text:'z'.repeat(10000)});assert.ok(fs.statSync(file).size>1048576);
+});
+test('Retention only touches app-owned log paths and paged reads never split UTF-8 emoji',t=>{
+ const logs=fixture(t);logs.configure({textLogDays:1});fs.mkdirSync(logs.directory,{recursive:true});const unrelated=path.join(logs.directory,'notes.txt');fs.writeFileSync(unrelated,'Keep me');const old=new Date(Date.now()-5*86400000);fs.utimesSync(unrelated,old,old);logs.prune();assert.ok(fs.existsSync(unrelated));
+ logs.append(profile,{target:'#unicode',nick:'A',text:'small'});const file=logs.file(profile,'#unicode');fs.writeFileSync(file,'x'.repeat(1048575)+'💋🦆');const id=logs.files()[0].id,first=logs.read(id),second=logs.read(id,first.next);assert.ok(!first.text.includes('\ufffd'));assert.equal(second.text,'💋🦆');assert.equal(first.next,1048575);const match=logs.search('💋')[0];assert.ok(match);assert.ok(logs.read(match.id,match.offset).text.includes('💋'));
+});

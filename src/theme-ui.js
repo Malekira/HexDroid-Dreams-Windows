@@ -3,8 +3,8 @@
   function applyVisualTheme() {
     const root = document.documentElement,
       s = config.settings;
-    if (s.theme === "violet") {
-      root.dataset.theme = "violet";
+    if (["violet", "purple-light"].includes(s.theme)) {
+      root.dataset.theme = s.theme;
       for (const [key, value] of Object.entries(
         DreamsThemes.violet.customColors,
       ))
@@ -39,6 +39,7 @@
       select.replaceChildren();
       for (const [value, label] of [
         ["violet", "Morado y azul marino"],
+        ["purple-light", "PurpleDreamsLight"],
         ["dark", "Oscuro"],
         ["light", "Claro"],
         ...(config.settings.savedThemes || []).map((t) => [t.id, t.name]),
@@ -67,12 +68,15 @@
         t = (config.settings.savedThemes || []).find((t) => t.id === id);
       const style =
         t?.settings ||
-        (id === "violet"
-          ? DreamsThemes.violet
-          : { theme: id, customColors: {}, roomAppearance: {} });
+        (id === "purple-light"
+          ? DreamsThemes.purpleLight
+          : id === "violet"
+            ? DreamsThemes.violet
+            : { theme: id, customColors: {}, roomAppearance: {} });
       Object.assign(config.settings, structuredClone(style));
       await save();
     });
+    add("Agregar nuevo tema…", () => window.openDreamsThemeEditor());
     add("Guardar como tema", async () => {
       const label = name.value.trim();
       if (!label) throw new Error("Escribe un nombre para tu tema.");
@@ -108,13 +112,21 @@
       await save();
       fill();
     });
+    window.addEventListener("dreams-themes-changed", (event) => {
+      if (group.isConnected) {
+        fill();
+        if (event.detail) select.value = event.detail;
+      }
+    });
     fill();
     select.value =
-      config.settings.theme === "violet"
-        ? "violet"
-        : config.settings.theme === "light"
-          ? "light"
-          : "dark";
+      config.settings.theme === "purple-light"
+        ? "purple-light"
+        : config.settings.theme === "violet"
+          ? "violet"
+          : config.settings.theme === "light"
+            ? "light"
+            : "dark";
     row.append(select, name);
     group.append(heading, row, actions);
     parent.append(group);

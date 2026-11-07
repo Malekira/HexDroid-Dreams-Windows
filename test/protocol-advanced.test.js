@@ -396,3 +396,9 @@ test('Echo labels confirm their own send; history and other users never consume 
 test('WHOIS server-routing failures finish the floating profile instead of leaving an endless lookup',()=>{
  const{parseLine}=require('../src/irc'),c=new IrcClient({host:'localhost',port:6667,nick:'Me',tls:false,channels:[]});const profile=[];c.on('user-profile',e=>profile.push(e));c.on('problem',()=>{});c.handle(parseLine(':server 402 Me MissingNick :No such server'));assert.equal(profile[0].code,'402');assert.equal(profile[0].nick,'MissingNick');assert.equal(profile[0].error,true);
 });
+test('Room events include bans, rejected joins and server sanctions without inventing events',()=>{
+ const c=new IrcClient({id:'test',host:'localhost',port:6667,tls:false,nick:'Me',channels:[]});c.sendRaw=()=>{};c.joined.set('#room','#Room');c.members.set('#room',new Map([['me','Me'],['alice','Alice']]));const rows=[];c.on('room-event',e=>rows.push(e));c.on('problem',()=>{});const {parseLine}=require('../src/irc');
+ for(const line of [':Op!u@host MODE #Room +b *!*@bad',':s 474 Me #Room :Cannot join (+b)',':s NOTICE Me :Z-lined user Alice',':s NOTICE Me :Welcome',':Oper KILL Alice :Policy'])c.handle(parseLine(line));
+ assert.equal(rows.length,4);assert.ok(rows[3].text.includes("KILL"));assert.ok(rows[0].text.includes('+b *!*@bad'));assert.ok(rows[1].text.includes('Cannot join'));assert.ok(rows[2].text.includes('Z-lined'));
+ const profiles=[];c.on('user-profile',e=>profiles.push(e));c.receive(Buffer.from(':s 311 Me Alice u h * :\x0313💋🦆\x0f\r\n'));assert.equal(profiles[0].realName,'\x0313💋🦆\x0f');c.presence.stop();
+});

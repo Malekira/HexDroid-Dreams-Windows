@@ -1028,3 +1028,8 @@ html[data-theme="violet"] #messages .message.mention {
 }
 /* Compact spacing must not override the explicit message-thumbnail preference. */
 .compact #messages .message>.avatar {display:grid;width:24px;height:24px;flex:0 0 24px;margin-top:1px}
+html[data-theme="purple-light"] :is(.menubar,.sidebar,.statusbar,.dialog-header){background:linear-gradient(125deg,#38205e,#121d43)}
+html[data-theme="purple-light"] :is(dialog,.users-panel,.settings-nav){background:#191b3a}
+.user-details dd,.user-profile,.theme-live-preview{font-family:'Segoe UI','Segoe UI Emoji','Noto Color Emoji',sans-serif}
+.theme-live-preview{padding:14px;border:1px solid var(--border);border-radius:8px;margin:12px 0}.preview-input{padding:8px;border-radius:5px}.theme-editor-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.theme-editor-grid label{min-width:0}.theme-editor-grid input{width:100%}.favorite-room{display:flex;align-items:center}.favorite-room button:first-child{flex:1}.favorite-room button:last-child{font-size:11px;flex:0 0 auto}
+.theme-preview-environment{padding:8px;border-bottom:1px solid;margin:-8px -8px 12px;border-radius:5px}

@@ -47,6 +47,7 @@ class Runtime {
     } catch {}
     this.history = new HistoryStore(historyDirectory);
     this.textLogs=new (require("./text-logs").TextLogs)(directory);
+    try{const selected=JSON.parse(fs.readFileSync(path.join(directory,"text-log-folder.json"),"utf8")).directory;if(typeof selected==="string"&&path.isAbsolute(selected))this.textLogs.directory=selected;}catch{}
     this.protocolLog = new ProtocolLog(directory, electron.safeStorage);
     this.crypto = new CryptoManager(directory, this.vault);
     this.sessions = new SessionManager({
@@ -207,7 +208,7 @@ class Runtime {
   writeTextLog(id,message){
     if(this.getConfig().settings.textLogsEnabled===false||!this.textLogs)return;
     const profile=this.getConfig().profiles.find(p=>p.id===id);if(!profile)return;
-    try{this.textLogs.append(profile,message);}catch(error){if(!this.textLogErrorAt||Date.now()-this.textLogErrorAt>30000){this.textLogErrorAt=Date.now();this.emit(id,'problem',{text:'No se pudo guardar el historial TXT: '+error.message});}}
+    try{this.textLogs.configure(this.getConfig().settings);this.textLogs.append(profile,message);}catch(error){if(!this.textLogErrorAt||Date.now()-this.textLogErrorAt>30000){this.textLogErrorAt=Date.now();this.emit(id,'problem',{text:'No se pudo guardar el historial TXT: '+error.message});}}
   }
   async receive(id, type, data) {
     if(this.closed)return;
@@ -218,6 +219,7 @@ class Runtime {
     }
     if(type==='certificate'&&!data.trusted){this.pendingCertificates.set(id,data);const s=this.sessions.sessions.get(id);if(s){s.stopped=true;clearTimeout(s.retry);}}
     if (type === "problem") {
+      this.writeTextLog(id,{target:"*",event:true,text:String(data)});
       this.emit(id, type, { text: String(data) });
       return;
     }
@@ -282,6 +284,7 @@ class Runtime {
       });
       if (r.halted) return;
       data = { ...data, text: r.text };
+      this.writeTextLog(id,{...data,target:data.target||"*",nick:"Servidor",event:true});
       if(data.target==='*consultas*'&&this.getConfig().settings.queryHistoryEnabled!==false){this.history.append(id,{...data,target:'*consultas*',nick:'Servidor'});this.history.prune(this.getConfig().settings.historyDays);}
     }
     if (
@@ -310,6 +313,8 @@ class Runtime {
         data.state === "connected" ? "CONNECT" : "DISCONNECT",
         { network: id },
       );
+    if(type==='status')this.writeTextLog(id,{target:'*',event:true,text:data.text||data.state});
+    if(type==='room-event')this.writeTextLog(id,{...data,event:true});
     if(type==='channel')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.reason?' · '+data.reason:'')});
     if(type==='nick')for(const target of data.targets||[])this.writeTextLog(id,{target,event:true,time:data.time,text:data.old+' → '+data.nick+' cambió de nick'});
     if(type==='clones')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:'Posibles clones (mismo host): '+data.nicks.join(', ')});
@@ -570,6 +575,10 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'logs.text.list':this.textLogs.configure(this.getConfig().settings);this.textLogs.prune();return this.textLogs.files().map(item=>({...item,networkLabel:this.getConfig().profiles.find(p=>item.id.startsWith('red-'+require('./text-logs').filename(p.id,false)+'/'))?.name}));
+      case 'logs.text.read':return this.textLogs.read(data.id,data.offset);
+      case 'logs.text.search':return this.textLogs.search(data.text,data.id);
+      case 'logs.text.folder':{const directory=await this.pick({properties:['openDirectory','createDirectory']});if(!directory)return{cancelled:true};this.textLogs.directory=directory;fs.writeFileSync(path.join(this.directory,'text-log-folder.json'),JSON.stringify({directory}));return{directory};}
       case 'logs.text.status':return{directory:this.textLogs.directory,enabled:this.getConfig().settings.textLogsEnabled!==false};
       case 'logs.text.open':{const error=await this.electron.shell.openPath(this.textLogs.open());if(error)throw new Error(error);return{ok:true};}
       case 'notifications.list':return this.notificationLog||[];
@@ -1013,6 +1022,9 @@ class Runtime {
         this.memory.delete(id);
         return { ok: true };
       case "backup.export": {
+        const selected=require('./config-selection').exportConfig(this.getConfig(),data.sections);
+        if(data.includeHistory&&!selected.sections.includes('networks'))throw Error('Incluye redes para exportar el historial asociado.');
+        if(data.includeSecrets&&!selected.sections.includes('networks'))throw Error('Incluye redes para exportar sus credenciales.');
         const secrets = data.includeSecrets
           ? {
               vault: this.vault.exportValues(),
@@ -1021,10 +1033,11 @@ class Runtime {
             }
           : null;
         const contents = await createBackup(
-          this.getConfig(),
+          selected.config,
           secrets,
           data.password,
-          data.includeHistory ? this.history.query({limit:100001},100001).filter(m=>this.getConfig().profiles.some(p=>p.id===m.network)) : undefined,
+          data.includeHistory ? this.history.query({limit:100001},100001).filter(m=>selected.config.profiles.some(p=>p.id===m.network)) : undefined,
+          selected.sections,
         );
         const file = await this.destination({
           defaultPath: "HexDreams-backup.json",
@@ -1043,6 +1056,10 @@ class Runtime {
           fs.readFileSync(file, "utf8"),
           data.password,
         );
+        const selectedSections=require('./config-selection').selection(data.sections);
+        backup.config=require('./config-selection').importConfig(this.getConfig(),backup.config,selectedSections,backup.sections);
+        if(!selectedSections.includes('networks'))delete backup.secrets;
+        if(!data.includeHistory)delete backup.history;
         if (backup.secrets) {
           if (
             !backup.secrets ||
@@ -1075,7 +1092,7 @@ class Runtime {
         if (
           !(await this.confirm(
             "¿Restaurar el respaldo?",
-            `${backup.config.profiles.length} redes. Reemplazará las preferencias actuales${backup.history ? ' y el historial ('+backup.history.length+' registros)' : ''}; las conexiones se cerrarán.`,
+            `Se restaurarán: ${selectedSections.join(', ')}. Las redes con el mismo identificador se actualizarán; las demás se conservan${backup.history ? '. Incluye historial ('+backup.history.length+' registros)' : ''}. Las conexiones se cerrarán.`,
           ))
         )
           return { cancelled: true };

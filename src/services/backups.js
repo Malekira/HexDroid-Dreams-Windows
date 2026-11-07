@@ -11,13 +11,14 @@ async function derive(password, salt) {
     maxmem: 64 * 1024 * 1024,
   });
 }
-async function createBackup(config, secrets, password, history) {
+async function createBackup(config, secrets, password, history, sections) {
   const result = {
     format: "hexdroid-dreams-backup",
     version: 1,
     created: new Date().toISOString(),
     config: sanitizeData(config),
   };
+  if(sections)result.sections=require("./config-selection").selection(sections);
   if(history)result.history=validateHistory(history,result.config);
   if (secrets) {
     if (typeof password !== "string" || password.length < 12)
@@ -51,6 +52,7 @@ async function readBackup(text, password) {
   if (parsed.format !== "hexdroid-dreams-backup" || parsed.version !== 1)
     throw new Error("Formato de respaldo no reconocido.");
   const result = { config: sanitizeData(parsed.config) };
+  if(parsed.sections)result.sections=require("./config-selection").selection(parsed.sections);
   if(parsed.history)result.history=validateHistory(parsed.history,result.config);
   if (parsed.secrets) {
     const s = parsed.secrets;

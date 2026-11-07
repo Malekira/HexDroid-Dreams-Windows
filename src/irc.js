@@ -136,7 +136,7 @@ class IrcClient extends EventEmitter {
       const channel = p[0], who = c === 'KICK' ? p[1] : nick; if (!channel || !who) return;
       const own = fold(who) === fold(this.nick);
       this.members.get(fold(channel))?.delete(fold(who)); if (!own) this.userList(channel);
-      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own,...(c==='PART'?identity:{}),reason:p[c==='KICK'?2:1]||'' });
+      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own,by:c==='KICK'?nick:undefined,...(c==='PART'?identity:{}),reason:p[c==='KICK'?2:1]||'' });
       if (own) this.members.delete(fold(channel));
     } else if (c === 'QUIT') {
       for (const [channel, members] of this.members) if (members.delete(fold(nick))) {

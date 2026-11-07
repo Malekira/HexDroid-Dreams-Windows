@@ -109,3 +109,13 @@ Guardar archivos TXT por sala y privado está activado por defecto. Cada red tie
 Configuración → Historial → Abrir carpeta de historial TXT abre la carpeta de archivos. Su guardado es independiente del historial para búsqueda en la aplicación y se puede desactivar. La retención y el borrado del historial de búsqueda no eliminan los TXT. Para copiarlos o respaldarlos, conserva la carpeta TXT; el respaldo estructurado de la aplicación maneja su historial de búsqueda aparte. El registro TXT comienza con los mensajes nuevos; el historial anterior puede exportarse desde la búsqueda si estaba guardado.
 
 En Multimedia, Mostrar miniaturas junto a los mensajes controla las fotos de los mensajes de salas y privados, independientemente de Mostrar miniaturas en la lista de usuarios y perfiles. Activar multimedia sigue siendo el control general. El modo compacto respeta esa elección; quienes no tengan foto conservan sus iniciales cuando las miniaturas están activadas.
+
+## Historial y configuración en 0.12.0
+
+Historial permite activar por separado salas, privados, status de red y consultas WHOIS/WHO en TXT. El botón Abrir historial abre un visor independiente con árbol por red/categoría y búsqueda de palabras en un archivo o en todos. El visor solo puede leer y buscar logs; no tiene acceso a las acciones de conexión o configuración.
+
+La ruta seleccionada recibe los logs nuevos sin mover archivos anteriores. El tiempo de conservación elimina archivos que no se modificaron durante los días indicados. El límite de MB conserva las líneas más recientes de cada archivo. Cero desactiva cada límite. La limpieza ignora archivos ajenos a la estructura de logs del programa. La búsqueda interna SQLite anterior se conserva para compatibilidad y restauración de conversaciones.
+
+Respaldos permite seleccionar apartados de configuración antes de exportar o importar. Una selección omitida en el respaldo no restaura valores iniciales sobre el equipo receptor. Redes con el mismo id se actualizan; otras redes se conservan. Los secretos siguen cifrados y requieren frase de paso. El historial incluido es el de búsqueda de la aplicación; los TXT se copian desde su carpeta.
+
+Los colores fuertes o pastel de los nicks se ajustan a la luminosidad del fondo de chat. PurpleDreamsLight combina el entorno púrpura/azul con chat blanco. Agregar nuevo tema permite editar y guardar una configuración visual con vista previa.

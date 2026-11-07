@@ -26,16 +26,12 @@
     list = $("network-list");
   const notifyHeader = el("div", "notify-sidebar-title");
   notifyHeader.append(el("strong", "", "Notify"));
-  const configure = el("button", "icon-button", "⚙");
-  configure.type = "button";
-  configure.setAttribute("aria-label", "Configurar Notify");
-  configure.onclick = () => $("notify-button").click();
   const addUser = el("button", "icon-button", "+");
   addUser.id = "notify-add-user";
   addUser.type = "button";
   addUser.setAttribute("aria-label", "Agregar usuario a Notify");
   addUser.onclick = () => window.addDreamsNotifyUser?.();
-  notifyHeader.append(configure, addUser);
+  notifyHeader.append(addUser);
   const separator = el("hr", "sidebar-section-divider"),
     connectionsHeader = el(
       "div",

@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DreamsThemes = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
-  const keys = ["showMessageAvatars","highlightMentions","mentionHighlightColor",
+  const keys = ["nickPalette","showMessageAvatars","highlightMentions","mentionHighlightColor",
     "theme",
     "customColors",
     "roomAppearance",
@@ -40,6 +40,7 @@
     },
     ownNickColor: "#bf9cff",
   };
+  const purpleLight={...structuredClone(violet),theme:'purple-light',nickPalette:'strong',roomAppearance:{background:'#ffffff',inputBackground:'#f7f4ff',text:'#211630',style:'normal'},ownNickColor:'#6c209e'};
   function snapshot(settings) {
     if (!settings || typeof settings !== "object") settings = {};
     return Object.fromEntries(
@@ -48,5 +49,5 @@
         .map((k) => [k, structuredClone(settings[k])]),
     );
   }
-  return { keys, violet, snapshot };
+  return { keys, violet, purpleLight, snapshot };
 });

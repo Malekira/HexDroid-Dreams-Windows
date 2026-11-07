@@ -226,10 +226,8 @@ async function run() {
     await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toBeVisible();
 
     await page.getByRole('button',{name:'@Alice',exact:true}).click();
-    await expect(page.locator('#user-profile')).toContainText('Alice Test');
-    await expect(page.locator('#user-profile')).toContainText('0 h 2 min 5 s');
-    await expect(page.locator('#user-profile')).toContainText('user');
-    await expect(page.locator('#user-profile')).toContainText('host');
+    await expect(page.locator('#user-profile .user-details')).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Hacer WHOIS',exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Mencionar',exact:true}).click();
     await expect(page.locator('#message-input')).toHaveValue('Alice: ');
     await page.locator('#message-input').fill('');
@@ -307,9 +305,11 @@ async function run() {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.advanced-dialog')).toBeVisible();
     await page.getByRole('button',{name:'Historial',exact:true}).click();
-    await page.getByLabel('Guardar historial para búsqueda en la aplicación',{exact:true}).check();
+    await page.getByLabel('Guardar historial en TXT por sala',{exact:true}).check();
+    await page.evaluate(async()=>{const c=await window.dreams.load();c.settings.historyEnabled=true;await window.dreams.save(c);});
     await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
+    await page.evaluate(async()=>{config.settings.historyEnabled=true;await persist();});
     await page.locator('.advanced-dialog .dialog-header button').click();
     await page.locator('#message-input').fill('persisted SQLite desktop message');
     await page.locator('#message-input').press('Enter');
@@ -344,18 +344,29 @@ async function run() {
     const textFiles=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));
     const roomLog=textFiles.filter(f=>String(f).includes(path.sep+'salas'+path.sep)).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n');
     expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);
+    console.log('Prueba Electron: visor TXT en ventana independiente');
+    const viewerPromise=app.waitForEvent('window');
+    await page.evaluate(()=>window.dreams.advanced('history.window'));
+    const viewer=await viewerPromise;await viewer.waitForLoadState();
+    await expect(viewer.locator('#tree button').first()).toBeVisible();
+    await viewer.getByRole('textbox',{name:'Buscar palabra',exact:true}).fill('Historial TXT privado');
+    await viewer.getByRole('button',{name:'Buscar',exact:true}).click();
+    await expect(viewer.locator('#results')).toContainText('Historial TXT privado 🦆');
+    await viewer.locator('#results button').first().click();await expect(viewer.locator('#content')).toContainText('Historial TXT privado 🦆');
+    const denied=await viewer.evaluate(async()=>{try{await window.historyApi.call('backup.export');return false;}catch{return true;}});expect(denied).toBe(true);await viewer.close();
     console.log('Prueba Electron: respaldo con historial y restauración');
     const backupFile=path.join(root,'backup-with-history.json');
     await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},backupFile);
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Respaldos',exact:true}).click();
-    await page.getByLabel('Incluir historial',{exact:true}).check();
-    await page.getByRole('button',{name:'Exportar respaldo',exact:true}).click();
+    await page.getByRole('button',{name:'Exportar configuración',exact:true}).click();
+    await page.getByLabel('Incluir historial de conversaciones de la aplicación',{exact:true}).check();
+    await page.getByRole('button',{name:'Exportar',exact:true}).click();
     await expect.poll(()=>fs.existsSync(backupFile)).toBe(true);
     const backup=JSON.parse(fs.readFileSync(backupFile,'utf8'));expect(backup.history.some(m=>m.text==='persisted SQLite desktop message')).toBe(true);expect(backup.history.some(m=>m.target==='*consultas*')).toBe(true);
     await page.locator('#settings-dialog .dialog-header button').click();
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});dialog.showMessageBox=async()=>({response:1});},backupFile);
-    const imported=await page.evaluate(()=>window.dreams.advanced('backup.import'));expect(imported.error).toBeUndefined();expect(imported.reload).toBe(true);
+    const imported=await page.evaluate(()=>window.dreams.advanced('backup.import',{includeHistory:true}));expect(imported.error).toBeUndefined();expect(imported.reload).toBe(true);
     await page.evaluate(async()=>{const c=await window.dreams.load();c.settings.autoAvatars=false;await window.dreams.save(c);});
     await closeApplication(app); app = null;
 

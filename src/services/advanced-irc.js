@@ -698,6 +698,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.capabilities.has("soju.im/bouncer-networks")
       )
         this.sendRaw("BOUNCER BIND " + this.profile.bouncerNetwork);
+      if(c==='KILL')for(const [key,target]of this.joined)if(this.members.get(key)?.has(fold(p[0])))this.emit('room-event',{target,text:p[0]+' recibió KILL de '+m.nick+' · '+(p[1]||''),eventType:'sanction'});
+      if(c==='MODE'&&/^[#&!+]/.test(p[0]||''))this.emit('room-event',{target:p[0],text:m.nick+' cambió modos: '+p.slice(1).join(' '),eventType:'sanction'});
+      if(['474','475','471','473','477','489'].includes(c)&&/^[#&!+]/.test(p[1]||''))this.emit('room-event',{target:p[1],text:'Servidor · '+p.slice(1).join(' '),eventType:'sanction'});
+      if(c==='465'||c==='ERROR'||c==='NOTICE'&&!m.prefix.includes('!')&&/\b(?:[zgkq]-?line[ds]?|bann?ed|ban|expuls|kill)\b/i.test(p.at(-1)||''))for(const [key,target] of this.joined)if(this.members.has(key))this.emit('room-event',{target,text:'Servidor · '+(p.at(-1)||''),eventType:'sanction'});
       const previous = this.currentMessage;
       this.currentMessage = m;
       try {
