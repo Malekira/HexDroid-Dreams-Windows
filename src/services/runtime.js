@@ -263,6 +263,7 @@ class Runtime {
         buffer: data.target,
         chan: data.target,
         nick: data.nick,
+        own: data.own,
         text: data.text,
       });
       if (result.halted) return;
@@ -313,6 +314,7 @@ class Runtime {
         data.state === "connected" ? "CONNECT" : "DISCONNECT",
         { network: id },
       );
+    if(type==='nick')await this.scripts.event('NICK',{network:id,buffer:data.nick,chan:data.nick,nick:data.old,newnick:data.nick,own:data.own});
     if(type==='status')this.writeTextLog(id,{target:'*',event:true,text:data.text||data.state});
     if(type==='room-event')this.writeTextLog(id,{...data,event:true});
     if(type==='channel')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.reason?' · '+data.reason:'')});
@@ -483,7 +485,7 @@ class Runtime {
     if (action.type === "echo") {
       const [buffer, ...rest] = action.args;
       this.emit(id, "message", {
-        target: buffer || target,
+        target: buffer === "-s" ? "*" : buffer || target,
         text: rest.join(" "),
         event: true,
         nick: "script",
@@ -845,6 +847,16 @@ class Runtime {
             .confirm(data.nick, data.fingerprint);
         return { ok: true };
       case "script.reload":await this.scripts.restart();return{ok:true};
+      case 'script.list':return this.scripts.list();
+      case 'script.read':return this.scripts.read(data.id);
+      case 'script.validate':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');new (require('../scripts/interpreter').HexVM)().install([{id:'validation',name:'validation',source:data.source,enabled:false,permissions:[],domains:[]}]);return{ok:true};}
+      case 'script.save':{
+        if(typeof data.name!=='string'||!data.name.trim()||data.name.length>100)throw Error('Nombre de script no válido.');
+        if(data.id)return this.scripts.update(data.id,{...data,name:data.name.trim()});
+        const id=this.scripts.install(data.name.trim(),data.source);return this.scripts.read(id);
+      }
+      case 'script.openFile':{const file=await this.pick({filters:[{name:'Scripts .hex',extensions:['hex']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>262144)throw Error('El script supera 256 KB.');return{name:path.basename(file),source:fs.readFileSync(file,'utf8')};}
+      case 'script.exportSource':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');const file=await this.destination({defaultPath:path.basename(String(data.name||'script.hex')),filters:[{name:'Scripts .hex',extensions:['hex']}]});if(file)fs.writeFileSync(file,data.source,{encoding:'utf8',mode:0o600});return{ok:!!file};}
       case "script.import": {
         const file = await this.pick({
           filters: [{ name: "Hex scripts", extensions: ["hex"] }],

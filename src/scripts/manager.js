@@ -61,7 +61,7 @@ class ScriptManager extends EventEmitter {
       typeof s.name !== "string" ||
       s.name.length > 100 ||
       typeof s.source !== "string" ||
-      s.source.length > 262144 ||
+      Buffer.byteLength(s.source, "utf8") > 262144 ||
       !Array.isArray(s.permissions) ||
       s.permissions.some((p) => !PERMISSIONS.includes(p)) ||
       !Array.isArray(s.domains) ||
@@ -106,6 +106,40 @@ class ScriptManager extends EventEmitter {
     this.scripts.push(script);
     this.save();
     return script.id;
+  }
+  read(id) {
+    const script = this.scripts.find((s) => s.id === id);
+    if (!script) throw Error("Script no encontrado.");
+    return {
+      id: script.id,
+      name: script.name,
+      source: script.source,
+      revision: crypto
+        .createHash("sha256")
+        .update(script.name + "\0" + script.source)
+        .digest("hex"),
+    };
+  }
+  async update(id, { name, source, revision }) {
+    const old = this.scripts.find((s) => s.id === id);
+    if (!old) throw Error("Script no encontrado.");
+    if (revision !== this.read(id).revision)
+      throw Error(
+        "El script cambió desde que lo abriste. Vuelve a cargarlo antes de guardar.",
+      );
+    const next = {
+      ...old,
+      name,
+      source,
+      enabled: false,
+      permissions: [],
+      domains: [],
+    };
+    this.validate(next);
+    Object.assign(old, next);
+    this.save();
+    await this.restart();
+    return this.read(id);
   }
   async configure(id, { enabled, permissions, domains }) {
     const old = this.scripts.find((s) => s.id === id);

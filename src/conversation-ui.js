@@ -165,23 +165,36 @@
           "",
           (entry.kind === "notice" ? "NOTICE" : "Mención") + " · " + entry.nick,
         );
-      const time = el("time", "", new Date(entry.time).toLocaleString("es"));
+      const time = el(
+        "time",
+        "",
+        new Date(entry.time).toLocaleString("es", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      );
+      time.title = new Date(entry.time).toLocaleString("es");
       const where = el(
-          "p",
-          "muted",
+          "span",
+          "notification-location muted",
           (profile(entry.network)?.name || entry.network) +
             " · " +
             entry.target,
         ),
-        text = el("p", "notification-text", entry.text),
-        go = el("button", "secondary", "Abrir conversación");
+        text = el("span", "notification-text", entry.text),
+        go = el("button", "secondary", "↗");
+      go.setAttribute("aria-label", "Abrir conversación");
+      go.title = "Abrir conversación";
       go.type = "button";
       go.disabled = !profile(entry.network);
       go.onclick = () => {
         choose(entry.network, entry.target);
         dialog.close();
       };
-      row.append(head, time, where, text, go);
+      row.append(time, head, where, text, go);
       log.append(row);
     }
     badge();

@@ -203,15 +203,17 @@
         ),
         label = el("span", "notify-status" + (online ? " online" : ""), status);
       row.append(name, label);
-      action(row, "Abrir privado", () => {
+      const actions = el("div", "notify-row-actions");
+      row.append(actions);
+      action(actions, "Abrir privado", () => {
         dialog.close();
         choose(notifyNetwork, target);
       });
-      action(row, "WHOIS", () => {
+      action(actions, "WHOIS", () => {
         dialog.close();
         window.openDreamsWhois(notifyNetwork, target);
       });
-      action(row, "Quitar", async () => {
+      action(actions, "Quitar", async () => {
         await saveNames(
           notifyNetwork,
           names.filter((n) => fold(n) !== fold(nick)),

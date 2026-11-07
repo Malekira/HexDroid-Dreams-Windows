@@ -192,6 +192,14 @@ async function run() {
       const cryptoResult=await page.evaluate(async()=>{const id=(await window.dreams.load()).profiles[0].id;const setup=await window.dreams.advanced('crypto.configure',{network:id,target:'#dreams',scheme:'AGM',key:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='});const sent=await window.dreams.send({id,target:'#dreams',text:'encrypted desktop fixture'});const blocked=await window.dreams.send({id,target:'#dreams',text:'/raw PRIVMSG #dreams :must-not-leak'});await window.dreams.advanced('crypto.configure',{network:id,target:'#dreams',scheme:'none'});return{setup,sent,blocked};});expect(cryptoResult.setup.error).toBeUndefined();expect(cryptoResult.sent.error).toBeUndefined();expect(cryptoResult.blocked.error).toContain('cifrado');await expect.poll(()=>received.some(line=>line.startsWith('PRIVMSG #dreams :+AGM '))).toBe(true);expect(received.some(line=>line.includes('must-not-leak')||line.includes(':encrypted desktop fixture'))).toBe(false);
 
     }
+    console.log('Prueba Electron: editor de scripts');
+    await page.locator('#scripts-menu>summary').click();await page.getByRole('button',{name:'Editor de scripts…',exact:true}).click();
+    await page.getByLabel('Nombre del script',{exact:true}).fill('Editor fixture.hex');await page.getByLabel('Código del script',{exact:true}).fill('alias editorfixture { echo -s Hola =) }');
+    await page.locator('#script-editor-dialog').getByRole('button',{name:'Validar',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Sintaxis válida');
+    await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Guardado y desactivado');
+    const edited=await page.evaluate(async()=>{const scripts=await window.dreams.advanced('script.list');const script=scripts.find(s=>s.name==='Editor fixture.hex');return{...script,...await window.dreams.advanced('script.read',{id:script.id})};});expect(edited.enabled).toBe(false);expect(edited.permissions).toEqual([]);expect(edited.source).toBe('alias editorfixture { echo -s Hola =) }');
+    await page.getByLabel('Código del script',{exact:true}).fill('on TEXT {');await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Bloque .hex sin cerrar');
+    await page.getByLabel('Código del script',{exact:true}).fill(edited.source);await page.locator('#script-editor-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: multimedia guardada y miniaturas');
     // Supply an image at the HTTP boundary; keep IPC, native decoding, cache and UI real.
     await app.evaluate(({app})=>{

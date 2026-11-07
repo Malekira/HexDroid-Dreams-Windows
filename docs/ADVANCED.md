@@ -119,3 +119,11 @@ La ruta seleccionada recibe los logs nuevos sin mover archivos anteriores. El ti
 Respaldos permite seleccionar apartados de configuración antes de exportar o importar. Una selección omitida en el respaldo no restaura valores iniciales sobre el equipo receptor. Redes con el mismo id se actualizan; otras redes se conservan. Los secretos siguen cifrados y requieren frase de paso. El historial incluido es el de búsqueda de la aplicación; los TXT se copian desde su carpeta.
 
 Los colores fuertes o pastel de los nicks se ajustan a la luminosidad del fondo de chat. PurpleDreamsLight combina el entorno púrpura/azul con chat blanco. Agregar nuevo tema permite editar y guardar una configuración visual con vista previa.
+
+## Editor y compatibilidad de scripts en 0.13.0
+
+Scripts → Editor de scripts permite crear borradores, abrir archivos incluso con errores de sintaxis, cargar scripts instalados, validar sin ejecutar, guardar en la aplicación o exportar a un archivo .hex. Guardar una revisión de un script instalado lo desactiva y revoca sus permisos; habilitarlo requiere revisarlos de nuevo desde Administrar scripts. Si el script cambió después de abrirlo, el editor no sobrescribe esa revisión. Cerrar o cambiar de archivo solicita descartar los cambios no guardados.
+
+El intérprete reconoce paréntesis de cierre literales en caritas como `=)`, condiciones if/elseif/else dentro de vistas y las variables de contexto `$isprivate` y `$isme`. NICK entrega el nick anterior en `$nick` y el nuevo en `$newnick`. Las vistas se actualizan por propietario y red; al cerrar una se entrega `SIGNAL:view_closed` solo a su propietario.
+
+Historial, Configuración y Salas favoritas están en Ver. Las favoritas se editan desde Ver → Salas favoritas → Configuración; las entradas del submenú permiten unirse, sin controles de eliminación mezclados.

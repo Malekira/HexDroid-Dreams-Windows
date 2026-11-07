@@ -32,56 +32,43 @@
       for (const menu of document.querySelectorAll(".menu[open]"))
         menu.open = false;
   });
-  const menu = el("details", "menu"),
-    summary = el("summary", "", "Salas"),
-    popup = el("div", "menu-popup");
-  menu.id = "rooms-menu";
-  menu.append(summary, popup);
   const nav = document.querySelector(".menubar nav"),
-    red = [...nav.children].find(
-      (n) => n.querySelector("summary")?.textContent === "Red",
-    );
-  red.after(menu);
-  function action(label, fn, parent = popup) {
-    const b = el("button", "", label);
+    view = [...nav.querySelectorAll(".menu")].find(
+      (m) => m.querySelector("summary")?.textContent === "Ver",
+    ),
+    popup = view.querySelector(".menu-popup");
+  popup.querySelector("[data-action=settings]")?.remove();
+  const favoriteMenu = el("details", "favorites-submenu"),
+    favoriteSummary = el("summary", "", "Salas favoritas"),
+    favoritePopup = el("div", "favorites-popup");
+  favoriteMenu.id = "favorites-menu";
+  favoriteMenu.append(favoriteSummary, favoritePopup);
+  function button(text, fn, parent = popup) {
+    const b = el("button", "", text);
     b.type = "button";
     b.onclick = () =>
       run(async () => {
-        menu.open = false;
+        view.open = false;
         await fn();
       });
     parent.append(b);
     return b;
   }
-  function fill() {
-    popup.replaceChildren();
-    action("Unirse a sala", () =>
-      document.querySelector("[data-action=join]").click(),
-    );
-    action("Agregar sala actual a favoritas", async () => {
-      const c = selected();
-      if (c?.kind !== "channel") throw Error("Selecciona una sala.");
-      config.settings.favoriteRooms ||= [];
-      if (
-        !config.settings.favoriteRooms.some(
-          (r) => r.network === active.id && fold(r.name) === fold(c.name),
-        )
-      )
-        config.settings.favoriteRooms.push({
-          network: active.id,
-          name: c.name,
-        });
-      await persist();
-      fill();
-    });
-    action("Abrir historial", window.openDreamsHistory);
-    popup.append(el("hr"));
+  const history = button("Historial", window.openDreamsHistory),
+    settings = button("Configuración", () => openSettings());
+  popup.prepend(history, settings, favoriteMenu, el("hr"));
+  const dialog = el("dialog", "utility-dialog favorite-manager");
+  dialog.id = "favorite-manager-dialog";
+  document.body.append(dialog);
+  function favorites() {
+    favoritePopup.replaceChildren();
+    button("Configuración", () => window.openDreamsFavorites(), favoritePopup);
+    favoritePopup.append(el("hr"));
     for (const item of [...(config.settings.favoriteRooms || [])].sort((a, b) =>
       a.name.localeCompare(b.name),
     )) {
       if (!profile(item.network)) continue;
-      const row = el("div", "favorite-room");
-      action(
+      const b = button(
         item.name + " · " + profile(item.network).name,
         () =>
           api.send({
@@ -89,26 +76,96 @@
             target: "*",
             text: "/join " + item.name,
           }),
-        row,
+        favoritePopup,
       );
-      action(
-        "Quitar " + item.name,
-        async () => {
-          config.settings.favoriteRooms = config.settings.favoriteRooms.filter(
-            (r) => r !== item,
-          );
-          await persist();
-          fill();
-        },
-        row,
-      );
-      popup.append(row);
+      b.title = item.name + " · " + profile(item.network).name;
     }
+    if (favoritePopup.querySelectorAll("button").length === 1)
+      favoritePopup.append(el("span", "menu-note", "Sin salas favoritas"));
   }
-  menu.addEventListener("toggle", () => {
-    if (menu.open) fill();
+  favoriteMenu.addEventListener("toggle", () => {
+    if (favoriteMenu.open) favorites();
   });
-  fill();
+  window.openDreamsFavorites = () => {
+    dialog.replaceChildren();
+    const header = el("header", "dialog-header"),
+      close = el("button", "secondary", "Cerrar"),
+      body = el("div", "form-content");
+    header.append(el("h2", "", "Configurar salas favoritas"), close);
+    close.onclick = () => dialog.close();
+    dialog.append(header, body);
+    const row = el("div", "favorite-add"),
+      net = el("select"),
+      room = el("input"),
+      add = el("button", "secondary", "Añadir");
+    net.setAttribute("aria-label", "Red de la sala favorita");
+    for (const p of config.profiles) {
+      const o = el("option", "", p.name);
+      o.value = p.id;
+      net.append(o);
+    }
+    if (active) net.value = active.id;
+    room.setAttribute("aria-label", "Sala favorita");
+    room.placeholder = "#sala";
+    const c = selected();
+    if (c?.kind === "channel") room.value = c.name;
+    row.append(net, room, add);
+    const list = el("div", "favorite-list"),
+      feedback = el("p", "form-error");
+    body.append(row, list, feedback);
+    const draw = () => {
+      list.replaceChildren();
+      for (const item of [...(config.settings.favoriteRooms || [])].sort(
+        (a, b) => a.name.localeCompare(b.name),
+      )) {
+        const line = el("div", "favorite-setting"),
+          name = el("strong", "", item.name),
+          networkName = el(
+            "span",
+            "muted",
+            profile(item.network)?.name || item.network,
+          ),
+          remove = el("button", "secondary", "Quitar");
+        remove.setAttribute("aria-label", "Quitar favorita " + item.name);
+        remove.onclick = () =>
+          run(async () => {
+            config.settings.favoriteRooms =
+              config.settings.favoriteRooms.filter((r) => r !== item);
+            await persist();
+            draw();
+            favorites();
+          });
+        line.append(name, networkName, remove);
+        list.append(line);
+      }
+      if (!list.children.length)
+        list.append(el("p", "muted", "No hay salas favoritas."));
+    };
+    add.onclick = () =>
+      run(async () => {
+        let name = room.value.trim();
+        if (!/^[#&!+]/.test(name)) name = "#" + name;
+        if (!profile(net.value) || !/^[#&!+][^\s,:\0]{1,199}$/.test(name)) {
+          feedback.textContent =
+            "Selecciona una red y escribe una sala válida.";
+          return;
+        }
+        config.settings.favoriteRooms ||= [];
+        if (
+          !config.settings.favoriteRooms.some(
+            (r) => r.network === net.value && fold(r.name) === fold(name),
+          )
+        )
+          config.settings.favoriteRooms.push({ network: net.value, name });
+        await persist();
+        feedback.textContent = "";
+        draw();
+        favorites();
+      });
+    draw();
+    dialog.showModal();
+  };
+  favorites();
 })();
 (() => {
   const d = el("dialog", "feature-dialog theme-editor");

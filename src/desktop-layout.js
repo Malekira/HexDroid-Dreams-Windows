@@ -447,6 +447,7 @@
     window.openDreamsAdvanced
       ? window.openDreamsAdvanced("scripts")
       : openSettings("diagnostics");
+  scriptButton("Editor de scripts…",()=>window.openDreamsScriptEditor());
   scriptButton("Administrar scripts .hex", openScripts);
   scriptButton("Importar script .hex…", async () => {
     await execute("script.import");

@@ -47,7 +47,7 @@ function splitTop(source, delimiter) {
     }
     if (quote) continue;
     if (c === "(") depth++;
-    else if (c === ")") depth--;
+    else if (c === ")") depth = Math.max(0, depth - 1);
     if (!depth && source.startsWith(delimiter, i)) {
       result.push(source.slice(start, i));
       start = i + delimiter.length;
@@ -82,7 +82,7 @@ function tokens(text) {
       if (c === '"') quote = !quote;
       if (!quote) {
         if (c === "(") depth++;
-        if (c === ")") depth--;
+        if (c === ")") depth = Math.max(0, depth - 1);
         if (/\s/.test(c) && depth === 0) break;
       }
       end++;
@@ -97,7 +97,24 @@ function parse(source) {
     throw new Error("Script demasiado grande.");
   const text = source
     .split(/\r?\n/)
-    .map((line) => line.split(";")[0])
+    .map((line) => {
+      let quote = false,
+        escape = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (c === "\\" && quote) {
+          escape = true;
+          continue;
+        }
+        if (c === '"') quote = !quote;
+        if (c === ";" && !quote) return line.slice(0, i);
+      }
+      return line;
+    })
     .join("\n");
   let at = 0,
     nodes = 0;
@@ -138,7 +155,7 @@ function parse(source) {
         }
         if (!quote) {
           if (c === "(") depth++;
-          else if (c === ")") depth--;
+          else if (c === ")") depth = Math.max(0, depth - 1);
           if (depth === 0 && ["{", "}", "\n", "|"].includes(c)) break;
         }
         header += c;
@@ -158,7 +175,12 @@ function parse(source) {
         out.push({ header, body: block(true, level + 1) });
       } else out.push({ header });
     }
-    if (nested) throw new Error("Bloque .hex sin cerrar.");
+    if (nested)
+      throw new Error(
+        "Bloque .hex sin cerrar (línea " +
+          text.slice(0, at).split("\n").length +
+          ").",
+      );
     return out;
   }
   return block();
@@ -345,7 +367,27 @@ class HexVM {
                 : m[2]
                   ? ctx.args.slice(n - 1).join(" ")
                   : ctx.args[n - 1] || "";
-          } else value = ctx.fields[m[1].toLowerCase()] ?? "";
+          } else {
+            const key = m[1].toLowerCase(),
+              fields = ctx.fields;
+            if (key === "isprivate")
+              value = String(
+                !!(fields.buffer || fields.chan) &&
+                  !["*", "*consultas*"].includes(
+                    fields.buffer || fields.chan,
+                  ) &&
+                  !/^[#&!+]/.test(fields.buffer || fields.chan),
+              );
+            else if (key === "isme")
+              value = String(
+                fields.own === true ||
+                  (!!fields.nick &&
+                    !!fields.me &&
+                    require("../irc").fold(fields.nick) ===
+                      require("../irc").fold(fields.me)),
+              );
+            else value = fields[key] ?? "";
+          }
           if (!quoted && start === 0 && i === raw.length) return bounded(value);
           result += str(value);
           continue;
@@ -859,10 +901,30 @@ class HexVM {
   }
   view(nodes, ctx) {
     const output = [];
-    for (const node of nodes) {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
       this.tick(ctx);
       const parts = tokens(node.header),
         type = parts.shift().toLowerCase();
+      if (type === "if") {
+        let chosen = false,
+          j = i;
+        for (; j < nodes.length; j++) {
+          const branch = nodes[j],
+            word = branch.header.split(/\s/)[0].toLowerCase();
+          if (j !== i && !["elseif", "else"].includes(word)) break;
+          if (
+            !chosen &&
+            (word === "else" ||
+              this.condition(branch.header.slice(word.length).trim(), ctx))
+          ) {
+            chosen = true;
+            output.push(...this.view(branch.body || [], ctx));
+          }
+        }
+        i = j - 1;
+        continue;
+      }
       if (type === "foreach") {
         const variable = parts.shift(),
           value = this.value(parts.join(" "), ctx),
@@ -893,6 +955,8 @@ class HexVM {
         ].includes(type)
       )
         throw new Error("Elemento de vista .hex no soportado: " + type);
+      if ((ctx.viewCount = (ctx.viewCount || 0) + 1) > 2000)
+        throw new Error("Vista .hex demasiado grande.");
       const values = parts.map((p) => str(this.value(p, ctx))),
         entry = {
           type,
