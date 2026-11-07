@@ -80,3 +80,9 @@ test('Notify follows observed nickname changes without false disconnects and res
 test('An old ISON response cannot mark a watched user offline after an observed nick change',()=>{
  const f=fixture();f.p.poll();f.p.handle({command:'NICK',nick:'Alice',params:['AliceNew']});f.p.handle({command:'303',params:['Me','']});assert.equal(f.p.snapshot()[0].online,true);f.p.poll();assert.equal(f.wire.at(-1),'ISON AliceNew');f.p.stop();
 });
+test('A nickname change onto another watched name updates both entries and subsequent renames emit one alert',()=>{
+ const f=fixture(['Alice','Bob']);f.p.update('Alice',true);f.p.update('Bob',false);f.events.length=0;
+ f.p.handle({command:'NICK',nick:'Alice',params:['Bob']});assert.ok(f.p.snapshot().every(p=>p.online));assert.equal(f.events.filter(e=>e.type==='presence-nick').length,1);assert.ok(f.events.filter(e=>e.type==='presence').every(e=>e.renamed));
+ f.events.length=0;f.p.handle({command:'NICK',nick:'Bob',params:['Carol']});assert.deepEqual(f.p.snapshot().map(p=>p.currentNick),['Carol','Carol']);assert.equal(f.events.filter(e=>e.type==='presence-nick').length,1);assert.deepEqual(f.events[0].watched,['Alice','Bob']);
+ f.p.handle({command:'QUIT',nick:'Carol',params:['bye']});assert.deepEqual(f.p.snapshot(),[{nick:'Alice',online:false},{nick:'Bob',online:false}]);assert.equal(f.events.filter(e=>e.type==='presence'&&!e.duplicate).length,1);f.p.stop();
+});

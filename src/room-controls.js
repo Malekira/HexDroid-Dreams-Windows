@@ -317,8 +317,10 @@
       if (event.type === "presence-nick") {
         const names = currentNicks.get(event.id) || {},
           state = states.get(event.id) || {};
-        names[fold(event.nick)] = event.newNick;
-        state[fold(event.nick)] = true;
+        for (const watched of event.watched || [event.nick]) {
+          names[fold(watched)] = event.newNick;
+          state[fold(watched)] = true;
+        }
         currentNicks.set(event.id, names);
         states.set(event.id, state);
         const history = nickHistory.get(event.id) || [];

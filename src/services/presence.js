@@ -55,7 +55,14 @@ class Presence {
     if (!this.client.ready) return;
     if (this.monitor) {
       this.client.sendRaw("MONITOR C");
-      const names = this.names.map((n) => this.aliases.get(fold(n)) || n);
+      const names = [
+        ...new Map(
+          this.names.map((n) => {
+            const current = this.aliases.get(fold(n)) || n;
+            return [fold(current), current];
+          }),
+        ).values(),
+      ];
       for (let i = 0; i < names.length; i += 5)
         this.client.sendRaw("MONITOR + " + names.slice(i, i + 5).join(","));
     }
@@ -71,7 +78,14 @@ class Presence {
     if (!c.ready || c.closed) return;
     const names = this.monitor
       ? []
-      : this.names.map((n) => this.aliases.get(fold(n)) || n);
+      : [
+          ...new Map(
+            this.names.map((n) => {
+              const current = this.aliases.get(fold(n)) || n;
+              return [fold(current), current];
+            }),
+          ).values(),
+        ];
     if (
       c.profile.recoverNick &&
       fold(c.nick) !== fold(c.profile.nick) &&
@@ -90,26 +104,32 @@ class Presence {
       this.pending.push({ names: m[1].split(/ +/), time: Date.now() });
     }
   }
-  update(nick, online) {
-    const name = this.names.find(
+  update(nick, online, options = {}) {
+    const names = this.names.filter(
       (n) => fold(this.aliases.get(fold(n)) || n) === fold(nick),
     );
-    if (!name) return;
-    const key = fold(name),
-      initial = !this.states.has(key);
-    if (!initial && this.states.get(key) === online) return;
-    this.states.set(key, online);
-    const currentNick = this.aliases.get(key) || name;
-    this.client.emit("presence", {
-      nick: name,
-      online,
-      initial,
-      ...(currentNick !== name ? { currentNick } : {}),
-    });
-    if (!online && this.aliases.has(key)) {
-      this.aliases.delete(key);
-      if (this.monitor && this.client.ready) this.configure(this.names);
+    let reset = false,
+      emitted = 0;
+    for (const name of names) {
+      const key = fold(name),
+        initial = !this.states.has(key);
+      if (!initial && this.states.get(key) === online) continue;
+      this.states.set(key, online);
+      const currentNick = this.aliases.get(key) || name;
+      this.client.emit("presence", {
+        nick: name,
+        online,
+        initial,
+        ...(currentNick !== name ? { currentNick } : {}),
+        ...(options.renamed ? { renamed: true } : {}),
+        ...(emitted++ ? { duplicate: true } : {}),
+      });
+      if (!online && this.aliases.has(key)) {
+        this.aliases.delete(key);
+        reset = true;
+      }
     }
+    if (reset && this.monitor && this.client.ready) this.configure(this.names);
   }
   handle(m) {
     const p = m.params,
@@ -124,16 +144,18 @@ class Presence {
         const key = fold(name);
         this.aliases.set(key, p[0]);
         this.states.set(key, true);
+      }
+      if (matches.length)
         this.client.emit("presence-nick", {
-          nick: name,
+          nick: matches[0],
+          watched: matches,
           old: m.nick,
           newNick: p[0],
           online: true,
         });
-      }
       if (matches.length && this.monitor && this.client.ready)
         this.configure(this.names);
-      this.update(p[0], true);
+      this.update(p[0], true, { renamed: matches.length > 0 });
     }
     if (m.command === "303") {
       const request = this.pending.shift();

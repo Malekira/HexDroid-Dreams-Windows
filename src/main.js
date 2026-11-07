@@ -40,7 +40,7 @@ function createWindow() {
     title: 'HexDreams IRC', icon:path.join(__dirname,'assets','logo.png'), backgroundColor: '#0c1019', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   window.setIcon(electron.nativeImage.createFromPath(path.join(__dirname,'assets','logo.png')).resize({width:256,height:256}));
-  if(process.platform==='win32'&&app.isPackaged)window.setRelaunchDetails({appId:'org.hexdreams.irc',appDisplayName:'HexDreams IRC',iconPath:process.execPath,iconIndex:0,relaunchCommand:'"'+process.execPath+'"'});
+  if(process.platform==='win32'&&app.isPackaged)window.setAppDetails({appId:'org.hexdreams.irc',relaunchDisplayName:'HexDreams IRC',appIconPath:process.execPath,appIconIndex:0,relaunchCommand:'"'+process.execPath+'"'});
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());

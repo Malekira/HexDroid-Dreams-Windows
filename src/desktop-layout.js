@@ -135,7 +135,7 @@
   let notifyView = "";
   window.renderDreamsNotify = () => {
     const id = active?.id,
-      online = (id ? window.getDreamsNotify?.(id) || [] : [])
+      allOnline = (id ? window.getDreamsNotify?.(id) || [] : [])
         .filter((p) => p.online === true)
         .sort((a, b) =>
           (a.currentNick || a.nick).localeCompare(
@@ -144,6 +144,13 @@
             { sensitivity: "base" },
           ),
         );
+    const people = new Map();
+    for (const person of allOnline) {
+      const key = fold(person.currentNick || person.nick);
+      if (!people.has(key) || fold(person.nick) === key)
+        people.set(key, person);
+    }
+    const online = [...people.values()];
     const signature = JSON.stringify([
       id,
       online.map((p) => [p.nick, p.currentNick]),
@@ -155,6 +162,10 @@
       const nick = person.currentNick || person.nick;
       const b = el("button", "notify-online-row");
       b.type = "button";
+      b.title =
+        person.nick !== nick
+          ? "Seguimiento de " + person.nick + " → " + nick
+          : nick;
       b.setAttribute("aria-label", "Notify " + nick + " en línea");
       b.append(el("span", "online-dot", "●"), el("span", "", nick));
       b.onclick = () => choose(id, nick);

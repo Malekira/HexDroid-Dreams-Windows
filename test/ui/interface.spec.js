@@ -395,3 +395,6 @@ test('Notify is alphabetical, has its own add button, and the internal logo stay
  await expect(page.locator('.connections-sidebar-title')).toContainText('Conexiones');await expect(page.locator('.connections-sidebar-title').getByRole('button',{name:'Añadir red',exact:true})).toBeVisible();
  const bar=await page.locator('.menubar').boundingBox(),logo=await page.locator('.brand-logo').boundingBox();expect(logo.y).toBeGreaterThanOrEqual(bar.y);expect(logo.y+logo.height).toBeLessThanOrEqual(bar.y+bar.height);expect(logo.height).toBeLessThanOrEqual(22);
 });
+test('One connected nickname is displayed once when two saved Notify entries follow it',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{window.getDreamsNotify=()=>[{nick:'Alice',currentNick:'Bob',online:true},{nick:'Bob',online:true}];window.renderDreamsNotify();});await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(1);await expect(page.locator('#sidebar-notify-list')).toHaveText('●Bob');
+});

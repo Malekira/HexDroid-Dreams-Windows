@@ -231,7 +231,7 @@ class Runtime {
         if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const notification=new this.electron.Notification({title:'Notify · Cambio de nick',body:text,silent:true});notification.show();}
       }
     }
-    if(type==='presence'&&!data.initial){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
+    if(type==='presence'&&!data.initial&&!data.renamed&&!data.duplicate){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
     if (type === "message") {
       if (
         !data.own &&
