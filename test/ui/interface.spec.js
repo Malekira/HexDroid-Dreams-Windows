@@ -134,7 +134,7 @@ test('Private drafts, channels and conversations with identical names stay isola
   await page.locator('#network-select').selectOption(ids[0]);
   await expect(page.locator('#message-input')).toHaveValue('private draft');
   await page.keyboard.press('Control+Tab');
-  await expect(page.getByRole('heading',{name:'#dreams',exact:true})).toBeVisible();
+  await expect(page.locator('.mdi-active .mdi-title')).toContainText('#dreams');
   await expect(page.locator('#message-input')).toHaveValue('');
   await page.locator('#network-select').selectOption(ids[1]);
   await expect(page.locator('#message-input')).toHaveValue('second network draft');
@@ -169,7 +169,6 @@ test('Channel drag order, keyboard context menus, private silence and closure pe
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click({button:'right'});
   await page.getByRole('menuitem',{name:'Silenciar resaltado de actividad',exact:true}).click();
   await expect(page.locator('.conversation.is-muted')).toHaveCount(1);
-  await page.reload();
   await expect(page.locator('#tree-rooms .tree-name').first()).toHaveAttribute('aria-label','Sala #general');
   await expect(page.locator('.conversation.is-muted')).toHaveCount(1);
   await page.getByRole('button',{name:'Privado Luna',exact:true}).click({button:'right'});
@@ -178,6 +177,7 @@ test('Channel drag order, keyboard context menus, private silence and closure pe
   expect(await page.evaluate(() => (window.__sent || []).some(m => m.text === '/quit'))).toBe(false);
   await page.getByRole('button',{name:'Sala #general',exact:true}).click({button:'right'}); await page.keyboard.press('Escape');
   await expect(page.locator('#context-menu')).toBeHidden();
+  await page.reload();await expect(page.locator('#tree-rooms .tree-name')).toHaveCount(0);await expect(page.locator('.conversation')).toHaveCount(0);
 });
 test('Message formatting, selection, clipboard, search and user permissions have functional actions', async ({page}) => {
   await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
@@ -278,11 +278,11 @@ test('Topic can be hidden, resized upward and restored after reloading',async({p
  await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:Array(12).fill('Un tema largo con varias líneas').join('\n')});});
  const before=await page.locator('#messages').evaluate(n=>n.clientHeight);await page.getByRole('button',{name:'Ocultar topic',exact:true}).click();await expect(page.locator('#conversation-subtitle')).toBeHidden();expect(await page.locator('#messages').evaluate(n=>n.clientHeight)).toBeGreaterThan(before);
  await page.reload();await expect(page.locator('#conversation-subtitle')).toBeHidden();await page.getByRole('button',{name:'Mostrar topic',exact:true}).click();
- await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});
+ await page.locator('#connection-button').click();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});
  const separator=page.getByRole('separator',{name:'Altura del topic',exact:true});await separator.focus();await page.keyboard.press('End');
  const bounds=await separator.boundingBox(),top=await page.locator('#conversation-subtitle').evaluate(n=>n.getBoundingClientRect().top);
  await page.mouse.move(bounds.x+40,bounds.y+2);await page.mouse.down();await page.mouse.move(bounds.x+40,top+60);await page.mouse.up();await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
- await page.reload();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
+ await page.reload();await page.locator('#connection-button').click();await page.evaluate(()=>{const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;window.__emit({id,type:'topic',target:'#general',text:'Topic recibido al reconectar'});});await expect(page.locator('#conversation-subtitle')).toHaveCSS('height','60px');
 });
 test('Notify lists are saved independently for each network',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Primera');await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();await expect(page.locator('#notify-list')).toContainText('Alice');await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
@@ -294,7 +294,7 @@ test('Compact toolbar and alphabetic Explorer tree replace the old private panel
  await expect.poll(()=>page.locator('#tree-rooms .tree-name').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')))).toEqual(['Sala #dreams','Sala #general']);
  expect(await page.locator('.chat-heading').evaluate(n=>n.getBoundingClientRect().height)).toBeLessThanOrEqual(28);
  for(const id of ['connection-button','join-button','notify-button','topic-toggle','room-appearance-button'])expect(await page.locator('#'+id).evaluate(n=>!!n.closest('.menubar'))).toBe(true);
- const title=await page.locator('#conversation-title').boundingBox(),modes=await page.locator('#channel-modes').boundingBox();expect(Math.abs(title.y-modes.y)).toBeLessThan(8);
+ await expect(page.locator('.mdi-active .mdi-title')).toContainText('#general +nt');
  await page.getByRole('button',{name:'Privado Alpha',exact:true}).click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toHaveAttribute('aria-current','true');
  await page.locator('#tree-privates>summary').click();await expect(page.getByRole('button',{name:'Privado Alpha',exact:true})).toBeHidden();await expect(page.getByRole('tab')).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.treePrivatesOpen)).toBe(false);await page.reload();await expect(page.locator('#tree-privates')).not.toHaveAttribute('open','');
 });
@@ -382,7 +382,7 @@ test('Room events can be separated, resized and restored without removing user m
  const divider=page.getByRole('separator',{name:'Altura de eventos de sala',exact:true});await divider.focus();await page.keyboard.press('End');await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dreams-test')).settings.eventsPanePercent)).toBe(65);
  const handle=await divider.boundingBox(),area=await page.locator('#conversation-panes').boundingBox();await page.mouse.move(handle.x+40,handle.y+2);await page.mouse.down();await page.mouse.move(handle.x+40,area.y+area.height*.7);await page.mouse.up();await expect.poll(()=>page.evaluate(()=>Math.round(JSON.parse(localStorage.getItem('dreams-test')).settings.eventsPanePercent))).toBe(30);
  await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('unified');await expect(page.locator('#channel-events-pane')).toBeHidden();await expect(page.locator('#messages .event-nick-change')).toBeVisible();await expect(page.locator('#messages .message-text')).toHaveText('Mensaje normal');
- await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('split');await page.reload();await expect(page.locator('#channel-events-pane')).toBeVisible();await expect(page.getByRole('combobox',{name:'Vista de sala',exact:true})).toHaveValue('split');
+ await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('split');await page.reload();await page.locator('#connection-button').click();await expect(page.locator('#channel-events-pane')).toBeVisible();await expect(page.getByRole('combobox',{name:'Vista de sala',exact:true})).toHaveValue('split');
 });
 test('Mention highlight has its own color and can be disabled without suppressing the message',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>window.__emit({id:config.profiles[0].id,type:'message',target:'#general',nick:'Alice',text:'Dreamer: hola'}));await expect(page.locator('.message.mention')).toContainText('Dreamer: hola');
@@ -425,4 +425,37 @@ test('Compact backups, Notify, notifications and profile buttons align without w
 });
 test('Script views refresh in place and notify their owner when closed',async({page})=>{
  await page.addInitScript(()=>{window.__scriptSignals=[];window.dreams.advanced=async(name,data)=>{if(name==='script.signal')window.__scriptSignals.push(data.signal);if(['history.search','notifications.list','presence.status'].includes(name))return[];return{scripts:[],debug:[]};};});await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Original'}]});window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Actualizado'}]});});await expect(page.locator('dialog.script-view')).toHaveCount(1);await expect(page.locator('dialog.script-view')).toContainText('Actualizado');await page.locator('dialog.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__scriptSignals)).toContain('view_closed');
+});
+
+test('Notify opens user actions; WHO and WHOIS stay in the current conversation; disconnect closes windows',async({page})=>{
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.evaluate(()=>{window.getDreamsNotify=()=>[{nick:'Alice',online:true}];window.renderDreamsNotify();});
+ await page.getByRole('button',{name:'Notify Alice en línea',exact:true}).click();
+ await expect(page.locator('#user-profile')).toContainText('Alice');await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveCount(0);
+ await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'query',target:'*consultas*',kind:'who'});window.__emit({id,type:'message',target:'*consultas*',event:true,text:'Resultado WHO'});});
+ await expect(page.getByRole('button',{name:'Sala #general',exact:true})).toHaveAttribute('aria-current','true');await expect(page.locator('#messages')).not.toContainText('Resultado WHO');
+ await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#messages')).toContainText('Resultado WHO');
+ await page.locator('#connection-button').click();await expect(page.locator('.mdi-window')).toHaveCount(0);await expect(page.locator('#tree-rooms .tree-name')).toHaveCount(0);await expect(page.locator('#tree-privates .tree-name')).toHaveCount(0);
+});
+test('Internal chat windows tile, update in background, activate once, move and resize with independent drafts',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4173');await addNetwork(page);
+ await page.locator('#message-input').fill('borrador general');await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();await expect(page.locator('#message-input')).toBeFocused();await page.locator('#message-input').fill('borrador dreams');
+ await page.evaluate(()=>window.arrangeDreamsWindows('tile'));
+ const general=page.locator('.mdi-window[data-target="#general"]'),dreams=page.locator('.mdi-window[data-target="#dreams"]');await expect(general).toBeVisible();await expect(dreams).toBeVisible();
+ const a=await general.boundingBox(),b=await dreams.boundingBox();expect(a.x>=b.x+b.width-1||b.x>=a.x+a.width-1||a.y>=b.y+b.height-1||b.y>=a.y+a.height-1).toBe(true);
+ await page.evaluate(()=>window.__emit({id:config.profiles[0].id,type:'message',target:'#general',nick:'Nora',text:'mensaje en segundo plano'}));await expect(general.locator('.mdi-text').filter({hasText:'mensaje en segundo plano'})).toBeVisible();
+ await general.locator('.mdi-title').click();await expect(general).toHaveClass(/mdi-active/);await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador general');
+ await page.evaluate(()=>window.arrangeDreamsWindows('cascade'));const before=await general.boundingBox(),bar=await general.locator('.mdi-titlebar').boundingBox();await page.mouse.move(bar.x+60,bar.y+13);await page.mouse.down();await page.mouse.move(bar.x+90,bar.y+43);await page.mouse.up();const moved=await general.boundingBox();expect(moved.x).toBeGreaterThan(before.x);expect(moved.y).toBeGreaterThan(before.y);
+ const grip=general.getByRole('separator',{name:'Tamaño de ventana #general',exact:true});await grip.focus();await page.keyboard.press('ArrowLeft');expect((await general.boundingBox()).width).toBeLessThan(moved.width);
+ await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();await expect(page.locator('#message-input')).toHaveValue('borrador dreams');await expect(general.locator('.mdi-text').filter({hasText:'mensaje en segundo plano'})).toBeVisible();expect(errors).toEqual([]);await page.screenshot({path:'dist/HexDreams-ventanas-internas.png'});
+});
+test('Live nick and command suggestions include active scripts; Tab cycles the original prefix in both directions',async({page})=>{
+ await page.addInitScript(()=>{window.__commands=[{name:'abrazo',description:'Dar un abrazo',script:'Sociales'}];window.dreams.advanced=async(name)=>name==='script.commands'?window.__commands:{};});
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>window.__emit({id:config.profiles[0].id,type:'users',target:'#general',users:['@Alice','+Alberto','Atlas']}));
+ const input=page.locator('#message-input'),popup=page.locator('#composer-suggestions');await input.fill('Al');await expect(popup).toContainText('Alice');await expect(popup).toContainText('Alberto');await input.press('Tab');await expect(input).toHaveValue('Alberto ');await input.press('Tab');await expect(input).toHaveValue('Alice ');await input.press('Tab');await expect(input).toHaveValue('Alberto ');await input.press('Shift+Tab');await expect(input).toHaveValue('Alice ');
+ await input.fill('/abr');await expect(popup).toContainText('/abrazo');await expect(popup).toContainText('Dar un abrazo');await input.press('ArrowDown');await input.press('Enter');await expect(input).toHaveValue('/abrazo ');expect(await page.evaluate(()=>window.__sent||[])).toHaveLength(0);
+ await input.fill('/joi');await expect(popup).toContainText('/join');await input.press('Tab');await expect(input).toHaveValue('/join ');
+ await page.evaluate(()=>window.__emit({type:'script-commands',commands:[]}));await input.fill('/abr');await expect(popup).toBeHidden();
+ await page.keyboard.press('Control+Shift+Z');
+ await page.evaluate(()=>choose(config.profiles[0].id,'Alberto'));await input.fill('Al');await expect(popup).toContainText('Alberto');await input.press('Tab');await expect(input).toHaveValue('Alberto ');
 });

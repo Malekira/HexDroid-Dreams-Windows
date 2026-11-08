@@ -428,10 +428,11 @@
           (config.settings.highlightWords || []).join(", "),
         );
       const highlightMentions=input('Resaltar mensajes que mencionen mi nick',config.settings.highlightMentions!==false,'checkbox'),mentionHighlightColor=input('Color del resaltado de menciones',config.settings.mentionHighlightColor||'#7650aa','color');
+      const autoAway=input('Activar Autoaway',config.settings.autoAwayEnabled===true,'checkbox'),awayMinutes=input('Inactividad para Autoaway (minutos)',config.settings.autoAwayMinutes||10,'number'),awayMessage=input('Mensaje de Autoaway',config.settings.autoAwayMessage||'Ausente por inactividad'),awayReturn=input('Quitar Autoaway al volver',config.settings.autoAwayReturn!==false,'checkbox');awayMinutes.min='1';awayMinutes.max='1440';awayMessage.maxLength=100;
       const sendTyping=input('Enviar aviso «Estoy escribiendo»',config.settings.sendTyping!==false,'checkbox');
       const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Resaltar conversaciones con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Resaltar conversaciones por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
       button("Guardar", () =>
-        settings({highlightMentions:highlightMentions.checked,mentionHighlightColor:mentionHighlightColor.value,sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
+        settings({autoAwayEnabled:autoAway.checked,autoAwayMinutes:Number(awayMinutes.value),autoAwayMessage:awayMessage.value,autoAwayReturn:awayReturn.checked,highlightMentions:highlightMentions.checked,mentionHighlightColor:mentionHighlightColor.value,sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
           minimizeToTray: minimize.checked,
           closeToTray: closeTray.checked,
           highlightWords: highlights.value
@@ -610,63 +611,13 @@
       button("Actualizar transferencias", () => show());
     } else if (section === "scripts") {
       note(
-        "Los scripts se importan desactivados y se ejecutan en un intérprete aislado. Concede solo los permisos que necesiten.",
+        "Los scripts se importan desactivados. Al activarlos reciben automáticamente todos los permisos disponibles.",
       );
       button("Importar archivo .hex", async () => {
         await call("script.import");
         await show();
       });
-      for (const script of state.scripts) {
-        const card = el("section", "advanced-card");
-        body.append(card);
-        note(script.name, card);
-        const enabled = input("Habilitado", script.enabled, "checkbox", card),
-          checks = {};
-        for (const permission of [
-          "read",
-          "intercept",
-          "send",
-          "raw",
-          "http",
-          "ui",
-          "persist",
-          "crypto",
-        ])
-          checks[permission] = input(
-            permission,
-            script.permissions.includes(permission),
-            "checkbox",
-            card,
-          );
-        const domains = input(
-          "Dominios HTTPS autorizados (separados por comas)",
-          script.domains.join(", "),
-          "text",
-          card,
-        );
-        button(
-          "Aplicar permisos",
-          () =>
-            call("script.configure", {
-              id: script.id,
-              enabled: enabled.checked,
-              permissions: Object.keys(checks).filter((k) => checks[k].checked),
-              domains: domains.value
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            }),
-          card,
-        );
-        button(
-          "Eliminar",
-          async () => {
-            await call("script.remove", { id: script.id });
-            await show();
-          },
-          card,
-        );
-      }
+      for(const script of state.scripts){const card=el('section','advanced-card script-card');body.append(card);note(script.name,card);const enabled=input('Activado',script.enabled,'checkbox',card);enabled.onchange=()=>run(()=>call('script.configure',{id:script.id,enabled:enabled.checked}));button('Ayuda',()=>window.openDreamsScriptHelp(script.id),card);}
       note("Motor: " + (state.scriptRunning ? "en ejecución" : "detenido"));
       for (const item of state.debug) note(`${item.time} · ${item.text}`);
     } else if (section === "backup") {
@@ -899,7 +850,6 @@
   window.resetDreamsAvatars=()=>{avatarRequests.clear();for(const n of networks.values()){n.avatarEpoch=(n.avatarEpoch||0)+1;n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}};
   window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||(config.settings.showAvatars===false&&config.settings.showMessageAvatars===false)||!config.settings.autoAvatars)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(config.settings.showAvatars!==false?c?.users||[]:[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const version=n.userStates?.[fold(nick)]?.avatarVersion||0,epoch=n.avatarEpoch||0,key=active.id+'|'+fold(nick)+'|'+version+'|'+epoch+'|'+config.settings.avatarUrlTemplate+'|'+(profile(active.id)?.photoUrl||'');if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;if(avatarQueue.length>=200)break;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);avatarQueue.push({id:active.id,nick,version,epoch,template:config.settings.avatarUrlTemplate,photoUrl:profile(active.id)?.photoUrl||''});}drainAvatars();};
   api.onEvent(event=>{if(event.type==='attention'&&event.flash){const workspace=document.querySelector('.workspace');workspace.classList.remove('mention-flash');void workspace.offsetWidth;workspace.classList.add('mention-flash');setTimeout(()=>workspace.classList.remove('mention-flash'),2200);}if(event.type==='attention'){const c=conversation(event.id,event.target);c.mentionUntil=Date.now()+4000;renderTabs();}});
-  setTimeout(async()=>{if(config.settings.queryHistoryEnabled===false)return;for(const p of config.profiles){try{const rows=await call('history.search',{network:p.id,target:'*consultas*',limit:200});if(rows.length){for(const m of rows){const c=conversation(p.id,'*consultas*');if(!c.messages.some(live=>live.text===m.text&&live.time===m.time))workspace.addMessage(p.id,'*consultas*',{...m,event:true,historical:true});}render();}}catch{}}},500);
   const historyLoaded = new Set(),
     originalChoose = choose;
   choose = function (id, target) {

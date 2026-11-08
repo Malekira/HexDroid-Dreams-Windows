@@ -37,6 +37,8 @@ async function run() {
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
         if (line === 'WHOIS Absent Absent') socket.write(':local 401 Dreamer Absent :No such nick\r\n');
+        if (line.startsWith('AWAY :'))socket.write(':local 306 Dreamer :You have been marked away\r\n');
+        if (line==='AWAY')socket.write(':local 305 Dreamer :You are no longer away\r\n');
         if (line === 'WHO Alice') socket.write(':local 352 Dreamer #dreams ident host local Alice H :0 Alice WHO result\r\n:local 315 Dreamer Alice :End of WHO\r\n');
         if (line === 'WHOIS Alice' || line === 'WHOIS Alice Alice') socket.write(':local 311 Dreamer Alice user host * :\x02\x0313Alice Test\x0f\r\n:local 317 Dreamer Alice 125 123456 :seconds idle\r\n:local 318 Dreamer Alice :End of WHOIS\r\n');
         if (line.startsWith('PART #dreams')) socket.write(':Dreamer!u@local PART #dreams :bye\r\n');
@@ -116,6 +118,7 @@ async function run() {
     await page.getByRole('button',{name:'Privado Alice',exact:true}).click({button:'right'});
     await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
     await expect.poll(() => received.includes('WHOIS Alice Alice')).toBe(true);
+    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveAttribute('aria-current','true');
     await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');
     await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();
     await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();
@@ -172,17 +175,31 @@ async function run() {
     await page.getByRole('button',{name:'Negrita',exact:true}).click();
     await page.getByRole('button',{name:'Color IRC',exact:true}).click();
     await page.getByRole('menuitem',{name:'Sin color',exact:true}).click();
-    console.log('Prueba Electron: importar script y confirmar permisos');
+    console.log('Prueba Electron: Autoaway y retorno automático');
+    await app.evaluate(({powerMonitor})=>{global.__testIdleSeconds=120;powerMonitor.getSystemIdleTime=()=>global.__testIdleSeconds;});
+    await page.evaluate(async()=>{config.settings.autoAwayEnabled=true;config.settings.autoAwayMinutes=1;config.settings.autoAwayMessage='Autoaway de prueba';config.settings.autoAwayReturn=true;await persist();});
+    await expect.poll(()=>received.includes('AWAY :Autoaway de prueba')).toBe(true);
+    await app.evaluate(()=>{global.__testIdleSeconds=0;});
+    await expect.poll(()=>received.includes('AWAY')).toBe(true);
+    await page.evaluate(async()=>{config.settings.autoAwayEnabled=false;await persist();});
+    if(process.platform==='win32'){
+      expect(await app.evaluate(({globalShortcut})=>globalShortcut.isRegistered('CommandOrControl+Shift+Z'))).toBe(true);
+      await page.keyboard.press('Control+Shift+Z');await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible())).toBe(false);
+      await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.show();win.focus();});
+    }
+    console.log('Prueba Electron: importar script, permisos automáticos y ayuda');
     const fixture=path.join(root,'desktop.hex');fs.writeFileSync(fixture,'alias desktophello { msg $buffer scripted desktop transmission }');
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});dialog.showMessageBox=async()=>({response:1});},fixture);
     const scriptImport=await page.evaluate(()=>window.dreams.advanced('script.import'));
     expect(scriptImport.error).toBeUndefined();expect(typeof scriptImport.id).toBe('string');
     const scriptConfigure=await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true,permissions:['send'],domains:[]}),scriptImport.id);
     expect(scriptConfigure.error).toBeUndefined();
-    await page.locator('#scripts-menu>summary').click();
-    await expect(page.locator('#scripts-menu').getByRole('button',{name:'/desktophello',exact:true})).toBeVisible();
-    await page.locator('#scripts-menu').getByRole('button',{name:'/desktophello',exact:true}).click();
-    await expect(page.locator('#message-input')).toHaveValue('/desktophello ');
+    const scriptHelp=await page.evaluate(id=>window.dreams.advanced('script.help',{id}),scriptImport.id);
+    expect(scriptHelp.commands.some(c=>c.name==='desktophello'&&c.description)).toBe(true);
+    const available=await page.evaluate(()=>window.dreams.advanced('script.commands'));
+    expect(available.some(c=>c.name==='desktophello')).toBe(true);
+    await page.locator('#message-input').fill('/desktop');
+    await expect(page.locator('#composer-suggestions')).toContainText('/desktophello');
 
     await page.locator('#message-input').fill('/desktophello');await page.locator('#message-input').press('Enter');
     await expect.poll(()=>received.includes('PRIVMSG #dreams :scripted desktop transmission')).toBe(true);
@@ -197,7 +214,7 @@ async function run() {
     await page.getByLabel('Nombre del script',{exact:true}).fill('Editor fixture.hex');await page.getByLabel('Código del script',{exact:true}).fill('alias editorfixture { echo -s Hola =) }');
     await page.locator('#script-editor-dialog').getByRole('button',{name:'Validar',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Sintaxis válida');
     await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Guardado y desactivado');
-    const edited=await page.evaluate(async()=>{const scripts=await window.dreams.advanced('script.list');const script=scripts.find(s=>s.name==='Editor fixture.hex');return{...script,...await window.dreams.advanced('script.read',{id:script.id})};});expect(edited.enabled).toBe(false);expect(edited.permissions).toEqual([]);expect(edited.source).toBe('alias editorfixture { echo -s Hola =) }');
+    const edited=await page.evaluate(async()=>{const scripts=await window.dreams.advanced('script.list');const script=scripts.find(s=>s.name==='Editor fixture.hex');return{...script,...await window.dreams.advanced('script.read',{id:script.id})};});expect(edited.enabled).toBe(false);expect(edited.permissions).toContain('raw');expect(edited.source).toBe('alias editorfixture { echo -s Hola =) }');
     await page.getByLabel('Código del script',{exact:true}).fill('on TEXT {');await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Bloque .hex sin cerrar');
     await page.getByLabel('Código del script',{exact:true}).fill(edited.source);await page.locator('#script-editor-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: multimedia guardada y miniaturas');
@@ -325,6 +342,9 @@ async function run() {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Scripts .hex',exact:true}).click();
     await expect(page.locator('.advanced-content')).toContainText('Los scripts se importan desactivados');
+    const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activado',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
+    await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+
     await page.getByRole('button',{name:'Notificaciones y tema',exact:true}).click();
     await page.getByLabel('Tema',{exact:true}).selectOption('light');
     await page.getByRole('button',{name:'Guardar',exact:true}).click();
@@ -349,6 +369,7 @@ async function run() {
     const textLogInfo=await page.evaluate(()=>window.dreams.advanced('logs.text.status'));
     await expect.poll(()=>{if(!fs.existsSync(textLogInfo.directory))return false;const files=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));return files.some(f=>String(f).includes(path.sep+'privados'+path.sep))&&files.some(f=>String(f).includes(path.sep+'salas'+path.sep));}).toBe(true);
     await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('Historial TXT privado 🦆');
+    await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).includes(path.sep+'salas'+path.sep)&&String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('Historial TXT de sala');
     const textFiles=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));
     const roomLog=textFiles.filter(f=>String(f).includes(path.sep+'salas'+path.sep)).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n');
     expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);
@@ -385,12 +406,11 @@ async function run() {
     const restoredLeft = await page.evaluate(() => Math.min(420,innerWidth - 365));
     await expect(page.locator('.sidebar')).toHaveCSS('width', restoredLeft + 'px');
     await expect(page.locator('#users-panel')).toBeHidden();
-    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveCount(0);
+    await expect(page.locator('.mdi-window')).toHaveCount(0);
     expect(fs.existsSync(path.join(dataPath,'window-state.json'))).toBe(true);
     await expect(page.locator('#connection-button')).toHaveText('Conectar');
-    await page.getByRole('button',{name:'Consulta *consultas*',exact:true}).click();
-    await expect(page.locator('#messages')).toContainText('Alice Test');
-    await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toHaveCount(0);
     await page.locator('#connection-button').click();
     await expect(page.locator('.message-text').last()).toHaveText('Desktop IPC works');
     await expect(page.locator('.message-text').filter({hasText:'persisted SQLite desktop message'})).toHaveCount(1);

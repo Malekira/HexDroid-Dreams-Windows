@@ -45,6 +45,7 @@ class ScriptManager extends EventEmitter {
         for (const script of data.slice(0, 50)) {
           try {
             this.validate(script);
+            script.permissions = [...PERMISSIONS];
             this.scripts.push(script);
           } catch (e) {
             this.report(script.id, "Script guardado desactivado: " + e.message);
@@ -81,6 +82,7 @@ class ScriptManager extends EventEmitter {
       { mode: 0o600 },
     );
     fs.renameSync(this.file + ".tmp", this.file);
+    this.emit("changed");
   }
   list() {
     return this.scripts.map((s) => ({
@@ -98,7 +100,7 @@ class ScriptManager extends EventEmitter {
       id: crypto.randomUUID(),
       name,
       source,
-      permissions: [],
+      permissions: [...PERMISSIONS],
       domains: [],
       enabled: false,
     };
@@ -132,7 +134,7 @@ class ScriptManager extends EventEmitter {
       name,
       source,
       enabled: false,
-      permissions: [],
+      permissions: [...PERMISSIONS],
       domains: [],
     };
     this.validate(next);
@@ -141,10 +143,47 @@ class ScriptManager extends EventEmitter {
     await this.restart();
     return this.read(id);
   }
+  help(id) {
+    const s = this.scripts.find((s) => s.id === id);
+    if (!s) throw Error("Script no encontrado.");
+    this.helpCache ||= new Map();
+    const key = crypto.createHash("sha256").update(s.source).digest("hex");
+    let cached = this.helpCache.get(id);
+    if (cached?.key !== key) {
+      cached = { key, commands: require("./catalog").catalog(s.source) };
+      this.helpCache.set(id, cached);
+    }
+    return {
+      id: s.id,
+      name: s.name,
+      enabled: s.enabled,
+      commands: cached.commands,
+    };
+  }
+  completions() {
+    const byName = new Map();
+    for (const script of this.scripts.filter((s) => s.enabled))
+      for (const command of this.help(script.id).commands)
+        byName.set(command.name.toLowerCase(), {
+          ...command,
+          script: script.name,
+        });
+    return [...byName.values()];
+  }
+  domainsFor(script, callers, url) {
+    for (const id of new Set([script, ...(callers || [])]))
+      this.allowed(id, "http");
+    return [new URL(url).hostname.replace(/^\[|\]$/g, "")];
+  }
   async configure(id, { enabled, permissions, domains }) {
     const old = this.scripts.find((s) => s.id === id);
     if (!old) throw new Error("Script no encontrado.");
-    const next = { ...old, enabled: enabled === true, permissions, domains };
+    const next = {
+      ...old,
+      enabled: enabled === true,
+      permissions: [...PERMISSIONS],
+      domains: Array.isArray(domains) ? domains : old.domains,
+    };
     this.validate(next);
     Object.assign(old, next);
     this.save();
@@ -358,13 +397,7 @@ class ScriptManager extends EventEmitter {
                 : "text/plain; charset=utf-8";
           this.web
             .request(action.url, {
-              domains: s.domains.filter((domain) =>
-                (action.callers || []).every((id) =>
-                  this.scripts
-                    .find((s) => s.id === id)
-                    ?.domains.includes(domain),
-                ),
-              ),
+              domains: this.domainsFor(owner, action.callers, action.url),
               method: action.method,
               headers,
               body,

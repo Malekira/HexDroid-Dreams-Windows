@@ -1,17 +1,17 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.4.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.14.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.13.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.14.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.13.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.14.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
-4. Pulsa **Guardar y conectar**. Usa el botón **+** de la conversación para entrar en más salas.
+4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
 
 Necesita Windows 10/11 de 64 bits. La distribución de prueba no está firmada digitalmente; Windows puede mostrar la advertencia de editor desconocido. El código fuente y sus dependencias fijadas se entregan para revisión. No desactives las protecciones de Windows.
 
@@ -19,16 +19,16 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 
 ## Interfaz de escritorio
 
-- Privados exclusivamente a la izquierda, con búsqueda, orden manual/por nombre/sin leer, contadores y menciones. Su menú permite cerrar, marcar leído y silenciar el resaltado de actividad.
-- Canales exclusivamente en las pestañas superiores, reordenables mediante arrastre o menú contextual; el orden y los silencios se conservan al reiniciar.
+- Árbol izquierdo compacto con Notify, conexiones, salas y privados. Un clic en Notify abre las acciones del usuario; abrir un privado requiere su acción explícita.
+- Salas y privados en ventanas internas con usuarios incluidos. Arrastra su barra o sus bordes; usa **Ver → Ventanas → Mosaico / Cascada** para ver varias conversaciones. Se cierran al desconectar y no se restauran al reiniciar.
 - Selector de red compacto en la barra superior. Canales, privados, borradores y posición de lectura permanecen separados por red, incluso con apodos o salas iguales.
 - Ambos paneles laterales tienen divisores arrastrables, controles por teclado y botones para ocultarlos/restaurarlos. Se conservan los anchos preferidos y se adaptan temporalmente a ventanas pequeñas.
 - Usuarios ordenados por los rangos anunciados, búsqueda, doble clic para privado y menú WHOIS/WHO/invitación/moderación. Las acciones privilegiadas se deshabilitan si el rango local no las autoriza; el servidor siempre decide si acepta una petición.
 - Chat con formato IRC/mIRC y ANSI básico seguro, selección y copia de mensajes, búsqueda en los mensajes cargados, primer mensaje sin leer y salto al final. Fuente, tamaño, color del apodo propio, interlineado y separación configurables.
-- Borradores y posiciones de lectura individuales durante la sesión, historial de lo escrito en memoria, completado con Tab, Enter para enviar y Shift+Enter para varias líneas.
+- Borradores y posiciones de lectura individuales durante la sesión, historial de lo escrito en memoria, sugerencias de apodos y comandos (incluidos scripts activos), Tab/Shift+Tab para recorrer coincidencias del prefijo original, Enter para enviar y Shift+Enter para varias líneas.
 - Ventana con tamaño/posición/maximización persistentes y recuperación si se desconecta un monitor. Configuración arriba a la derecha con búsqueda de opciones.
 
-Atajos: **Ctrl+Tab / Ctrl+Shift+Tab** cambia de canal; **Ctrl+P** muestra/oculta privados; **Ctrl+U** muestra/oculta usuarios; **Ctrl+F** busca mensajes; **Ctrl+J** abre una sala; **Ctrl+N** añade red; **Ctrl+,** abre configuración. Selecciona mensajes con Ctrl+clic y copia con Ctrl+C.
+Atajos: **Ctrl+Shift+Z** oculta en la bandeja sin desconectar; **Ctrl+Tab / Ctrl+Shift+Tab** cambia de canal; **Ctrl+P** muestra/oculta privados; **Ctrl+U** muestra/oculta usuarios; **Ctrl+F** busca mensajes; **Ctrl+J** abre una sala; **Ctrl+N** añade red; **Ctrl+,** abre configuración. Selecciona mensajes con Ctrl+clic y copia con Ctrl+C.
 
 Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/notice`, `/me`, `/whois`, `/who`, `/topic`, `/mode`, `/invite`, `/kick`, `/ban`, `/unban`, `/op`, `/deop`, `/voice`, `/devoice`, `/away`, `/back`, `/list`, `/time`, `/version`, `/motd`, `/admin`, `/info`, `/raw`, `/quote`, `/markread` y `/quit`. Para texto que empiece por `/`, escribe `//`.
 
@@ -44,7 +44,10 @@ El engranaje superior derecho abre redes/autenticación, historial, notificacion
 - Notificaciones nativas, bandeja y segundo plano; silencios y palabras destacadas; temas claro/oscuro/sistema/Matrix.
 - DCC SEND/CHAT/SSEND/SCHAT, aceptación explícita, transferencia TLS verificada, envío pasivo, progreso, cancelación, puertos y reanudación.
 - AGM, FiSH y AGE; claves e identidades en el almacén seguro, control de huellas y bloqueo de texto claro en destinos protegidos.
-- Intérprete `.hex` aislado con alias, eventos, variables y colecciones, bucles, HTTP/JSON por dominio y permiso, vistas/botones y archivos seleccionados por el usuario. Sin `eval` ni acceso arbitrario al sistema de archivos.
+- Intérprete `.hex` aislado con alias, eventos, variables y colecciones, bucles, HTTP/JSON, vistas/botones y archivos seleccionados por el usuario. Sin `eval` ni acceso arbitrario al sistema de archivos.
+- Scripts con activación/desactivación y permisos automáticos. Cada script tiene **Ayuda** en su configuración con comandos, usos y descripciones. Los comandos no ocupan el menú Scripts.
+- Autoaway configurable por inactividad del equipo, con mensaje y retorno automático opcional. Respeta las ausencias manuales.
+- WHO/WHOIS conservan la conversación activa; WHOIS abre su ficha y guarda resultados en WHOIS / WHO.
 - Respaldos con secretos cifrados opcionales; scripts restaurados desactivados.
 
 Consulta [las notas y límites de esta versión](RELEASE-NOTES.md) y [el estado de las etapas](docs/IMPLEMENTATION.md). No es una versión estable ni una certificación de paridad con Android.
@@ -53,7 +56,7 @@ Consulta [las notas y límites de esta versión](RELEASE-NOTES.md) y [el estado 
 
 Los archivos TXT por sala y privado se guardan por defecto, con fecha, hora y texto sin códigos de color. Se abren desde Configuración → Historial → Abrir carpeta de historial TXT. El historial de búsqueda dentro de la aplicación se activa por separado. Los borradores se conservan solo durante la sesión. Se mantienen hasta 600 mensajes cargados por conversación y 100 entradas de composición; la base de historial tiene su propia retención. Las fotos y sus miniaturas se configuran en Multimedia, con opciones independientes para la lista de usuarios y los mensajes.
 
-Las contraseñas se mantienen en memoria salvo que marques guardar. En Windows se usa `safeStorage` de Electron respaldado por DPAPI; si el proveedor seguro no está disponible se rechaza guardar secretos, sin alternativa en texto claro. Las configuraciones anteriores conservan sus perfiles y disposición. Guarda un respaldo antes de probar cambios de cifrado o restauraciones.
+Las contraseñas se mantienen en memoria salvo que marques guardar. En Windows se usa `safeStorage` de Electron respaldado por DPAPI; si el proveedor seguro no está disponible se rechaza guardar secretos, sin alternativa en texto claro. Las configuraciones anteriores conservan sus perfiles, temas y preferencias; las conversaciones abiertas pertenecen a la sesión. Guarda un respaldo antes de probar cambios de cifrado o restauraciones.
 
 DCC utiliza conexiones directas. DCC, HTTP de scripts y vistas previas se bloquean por defecto al usar proxy para evitar fugas de IP. Las claves compartidas deben intercambiarse por un canal seguro. AGE necesita validación cruzada con el cliente Android real; las pruebas entre componentes Windows no la sustituyen.
 
@@ -85,7 +88,7 @@ El empaquetado genera `dist/HexDreamsIRC-win32-x64/HexDreamsIRC.exe`; distribuye
 
 ## Validación
 
-`npm test` ejecuta 65 pruebas y comprueba protocolo, TLS/SASL, almacenamiento seguro, cifrado, DCC, scripts, multimedia y modelo de conversaciones. `npm run test:ui` comprueba 10 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
+`npm test` ejecuta 124 pruebas y comprueba protocolo, TLS/SASL, almacenamiento seguro, cifrado, DCC, scripts, multimedia y modelo de conversaciones. `npm run test:ui` comprueba 38 flujos en Chromium, incluido arrastre, ambos divisores, reapertura, aislamiento entre redes, borradores, menús, búsqueda y ráfagas de 900 mensajes. Su transporte está simulado explícitamente.
 
 `npm run test:desktop` utiliza un perfil temporal explícito, separado de los datos personales, y ejecuta **Electron real** y un servidor IRC TCP local: mensajes, privados separados, borradores, líneas múltiples, WHOIS, modos, salida/reentrada de canales, ambos anchos, reapertura, geometría, instancia única y recuperación de configuración dañada. Los menús envían comandos reales por IPC y TCP.
 

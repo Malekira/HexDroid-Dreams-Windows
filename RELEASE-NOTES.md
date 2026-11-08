@@ -1,12 +1,19 @@
-# HexDreams IRC 0.13.0 para Windows
+# HexDreams IRC 0.14.0 para Windows
 
-- Corregido el falso error «Bloque .hex sin cerrar» al encontrar caritas como `=)` en texto. Los comentarios respetan los puntos y coma dentro de comillas; los errores de bloque incluyen línea.
-- Compatibilidad del control de privados: variables `$isprivate` y `$isme`, evento NICK con `$newnick`, condiciones dentro de vistas, y `echo -s` en el status de red. Una vista abierta se actualiza en su propia ventana; al cerrarla se envía `SIGNAL:view_closed` al script propietario.
-- Scripts → Editor de scripts: crear o abrir archivos, editar scripts instalados, validar sintaxis, guardar en la aplicación y guardar archivos .hex. Incluye posición del cursor y contador de bytes. Guardar cambios deja el script desactivado y sin permisos; se habilita desde Administrar scripts. Una validación fallida no modifica el instalado y se detectan ediciones concurrentes.
-- Ver → Historial, Ver → Configuración y Ver → Salas favoritas → Configuración / lista de salas. Favoritas se agregan y eliminan desde su configuración; el menú solo contiene accesos compactos, sin botones Quitar. Se conserva la pertenencia por red.
-- Exportar/importar configuración usa filas compactas, con el texto y su casilla en la misma línea.
-- Notify muestra filas más bajas, nick y estado alineados y acciones pequeñas del mismo tamaño a la derecha.
-- Notificaciones muestra hora, tipo/nick, red/sala y mensaje en filas compactas, con un botón pequeño para abrir la conversación. Los mensajes completos se conservan y el diseño se ajusta al ancho.
-- Botones de acciones de usuario con columnas y alturas iguales: dos columnas en el panel lateral y tres en WHOIS.
+- Salas y privados en ventanas internas independientes, con su lista de usuarios, borrador y posición de lectura. Se pueden mover, redimensionar, maximizar y organizar desde Ver → Ventanas → Mosaico o Cascada.
+- Un clic en sala o conversación enfoca la escritura. Un clic en Notify abre las acciones del usuario, sin abrir un privado.
+- WHO y WHOIS no cambian automáticamente de conversación. WHOIS conserva su ficha y los resultados también quedan en WHOIS / WHO.
+- Autoaway en Configuración → Notificaciones y tema: tiempo de inactividad del equipo, mensaje y retorno automático opcional. Las ausencias manuales se respetan.
+- Ctrl+Shift+Z oculta el programa en la bandeja de notificaciones y mantiene las conexiones.
+- Sugerencias de nicks al escribir y de comandos al comenzar con `/`, incluidos los scripts activos. Tab y Shift+Tab recorren las coincidencias usando las letras originales.
+- Scripts con permisos automáticos y un único control de activación. Cada script tiene un botón Ayuda con comandos y descripciones; se retira la lista de comandos del menú Scripts. Importar o editar deja el script desactivado hasta activarlo.
+- Desconectar cierra las conversaciones de esa red. Al salir no se restauran salas ni privados abiertos; las redes, preferencias y archivos de historial se conservan.
+- Se corrige el reenvío de eventos de sanciones de sala al escritorio.
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Se conservan los datos anteriores. Vuelve a importar tu .hex; para el control de privados habilita únicamente los permisos que utiliza: lectura, interceptación, envío y UI. No necesita raw, HTTP ni claves. Firma el nuevo EXE con Sign y Verify usando tu certificado existente.
+## Uso
+
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Conserva tu configuración y tu certificado de firma existente. Autoaway se activa por separado. La descarga es una versión de prueba sin firma distribuida; la firma personal se realiza con Sign/Verify en tu Windows.
+
+## Validación
+
+Pruebas de lógica, Chromium y Electron real con un servidor IRC local; la publicación de Windows ejecuta estas comprobaciones y prueba también el ejecutable empaquetado. Las conversaciones de prueba son simuladas; el comportamiento de comandos depende del servidor IRC.

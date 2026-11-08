@@ -4,8 +4,8 @@ const crypto = require("node:crypto"),
   path = require("node:path");
 const { imageMime } = require("./web");
 class ScriptMedia {
-  constructor({ pick, confirm, web, signal, allowed }) {
-    Object.assign(this, { pick, confirm, web, signal, allowed });
+  constructor({ pick, confirm, web, signal, allowed, domainsFor }) {
+    Object.assign(this, { pick, confirm, web, signal, allowed, domainsFor });
     this.tokens = new Map();
     this.denied = new Map();
     this.picking = false;
@@ -139,7 +139,7 @@ class ScriptMedia {
       if (stat.size !== chosen.size || stat.mtimeMs !== chosen.mtime)
         throw new Error("El archivo seleccionado cambió. Vuelve a elegirlo.");
       const permissions = this.allowed(owner, "http", action.callers);
-      const domains = permissions.domains.filter((domain) =>
+      const domains = this.domainsFor?this.domainsFor(owner,action.callers,url):permissions.domains.filter((domain) =>
         (action.callers || []).every((id) =>
           this.allowed(id, "http").domains.includes(domain),
         ),

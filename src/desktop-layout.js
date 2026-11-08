@@ -130,7 +130,7 @@
   }
   let notifyView = "";
   window.renderDreamsNotify = () => {
-    const id = active?.id,
+    const id = active?.id||selectedNetworkId,
       allOnline = (id ? window.getDreamsNotify?.(id) || [] : [])
         .filter((p) => p.online === true)
         .sort((a, b) =>
@@ -164,7 +164,7 @@
           : nick;
       b.setAttribute("aria-label", "Notify " + nick + " en línea");
       b.append(el("span", "online-dot", "●"), el("span", "", nick));
-      b.onclick = () => choose(id, nick);
+      b.onclick = () => window.openDreamsUser?.(id, nick);
       b.oncontextmenu = (e) =>
         contextMenu.show(e, person.nick, [
           { label: "Abrir privado", action: () => choose(id, nick) },
@@ -459,32 +459,7 @@
   scripts.popup.addEventListener("click", (e) => {
     if (e.target.closest("button")) scripts.node.open = false;
   });
-  const scriptsInfo = el("div", "scripts-menu-info");
-  scripts.popup.append(scriptsInfo);
-  scripts.node.addEventListener("toggle", () => {
-    if (scripts.node.open && api.advanced)
-      execute("status")
-        .then((state) => {
-          scriptsInfo.replaceChildren();
-          for (const alias of state.aliases || []) {
-            const b = el("button", "", "/" + alias);
-            b.type = "button";
-            b.disabled = $("message-input").disabled;
-            b.onclick = () => {
-              $("message-input").value = "/" + alias + " ";
-              $("message-input").dispatchEvent(new Event("input"));
-              $("message-input").focus();
-              scripts.node.open = false;
-            };
-            scriptsInfo.append(b);
-          }
-          for (const script of (state.scripts || []).filter((s) => s.enabled))
-            scriptsInfo.append(el("span", "", script.name || script.id));
-          if (!scriptsInfo.childElementCount)
-            scriptsInfo.append(el("span", "muted", "Sin scripts activos"));
-        })
-        .catch((e) => notify(e.message, true));
-  });
+  if(launchers)launchers.hidden=true;
   const formatBar = document.querySelector("#composer .format-bar");
   if ($("emoji-button"))
     formatBar.insertBefore($("emoji-button"), formatBar.querySelector("span"));

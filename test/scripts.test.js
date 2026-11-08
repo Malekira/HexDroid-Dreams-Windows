@@ -70,69 +70,11 @@ test("Script budgets stop infinite loops and parsing bounds excessive nesting", 
     parse("on TEXT {" + "column {".repeat(100) + "}".repeat(101)),
   );
 });
-test("Worker scripts are disabled at import and cannot send without explicit permission", async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dreams-script-")),
-    sent = [];
-  const manager = new ScriptManager(root, { host: async (a) => sent.push(a) });
-  t.after(() => {
-    manager.close();
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-  const id = manager.install("example.hex", "on TEXT { msg $chan automatic }");
-  assert.equal(manager.list()[0].enabled, false);
-  await manager.configure(id, {
-    enabled: true,
-    permissions: ["read"],
-    domains: [],
-  });
-  await manager.event("TEXT", { network: "one", chan: "#room", text: "hello" });
-  assert.equal(sent.length, 0);
-  assert.ok(manager.debug.some((e) => e.text.includes("permiso")));
-  await manager.configure(id, {
-    enabled: true,
-    permissions: ["read", "send"],
-    domains: [],
-  });
-  await manager.event("TEXT", { network: "one", chan: "#room", text: "hello" });
-  assert.equal(sent[0].type, "msg");
-  assert.equal(sent[0].fields.network, "one");
+test("Scripts stay disabled after import and get all permissions when activated",async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'dreams-auto-perms-')),sent=[];const manager=new ScriptManager(root,{host:async a=>sent.push(a)});t.after(()=>{manager.close();fs.rmSync(root,{recursive:true,force:true});});const id=manager.install('example.hex','on TEXT { msg $chan automatic }');assert.equal(manager.list()[0].enabled,false);await manager.event('TEXT',{network:'one',chan:'#room',text:'hello'});assert.equal(sent.length,0);await manager.configure(id,{enabled:true});assert.deepEqual(manager.list()[0].permissions,require('../src/scripts/manager').PERMISSIONS);await manager.event('TEXT',{network:'one',chan:'#room',text:'hello'});assert.equal(sent[0].type,'msg');await manager.configure(id,{enabled:false});await manager.event('TEXT',{network:'one',chan:'#room',text:'again'});assert.equal(sent.length,1);
 });
-test("A low-privilege script cannot borrow send permission through another script alias or signal", async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dreams-script-deputy-")),
-    sent = [];
-  const manager = new ScriptManager(root, { host: async (a) => sent.push(a) });
-  t.after(() => {
-    manager.close();
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-  const privileged = manager.install(
-    "sender.hex",
-    "alias privileged { msg #room hidden }\non SIGNAL:borrowed { msg #room signal }",
-  );
-  await manager.configure(privileged, {
-    enabled: true,
-    permissions: ["read", "send"],
-    domains: [],
-  });
-  const low = manager.install(
-    "reader.hex",
-    "on TEXT { privileged | signal borrowed }",
-  );
-  await manager.configure(low, {
-    enabled: true,
-    permissions: ["read"],
-    domains: [],
-  });
-  await manager.event("TEXT", {
-    network: "net",
-    buffer: "#room",
-    text: "event",
-  });
-  assert.equal(sent.length, 0);
-  assert.equal(
-    manager.debug.filter((e) => e.text.includes("permiso")).length,
-    2,
-  );
+test("Disabled scripts cannot invoke actions or supply aliases through enabled scripts",async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'dreams-auto-callers-')),sent=[];const manager=new ScriptManager(root,{host:async a=>sent.push(a)});t.after(()=>{manager.close();fs.rmSync(root,{recursive:true,force:true});});const sender=manager.install('sender.hex','alias privileged { msg #room hello }'),reader=manager.install('reader.hex','alias reader { privileged }');await manager.configure(sender,{enabled:true});assert.throws(()=>manager.allowed(sender,'send',[reader]),/permiso/);assert.equal((await manager.alias('reader',{network:'one',buffer:'#room'})).handled,false);await manager.configure(reader,{enabled:true});await manager.alias('reader',{network:'one',buffer:'#room'});assert.equal(sent.length,1);assert.deepEqual(manager.domainsFor(reader,[sender],'https://example.org/a'),['example.org']);await manager.configure(reader,{enabled:false});assert.throws(()=>manager.domainsFor(sender,[reader],'https://example.org/a'),/permiso/);
 });
 test("Read permission alone cannot rewrite or suppress messages", () => {
   const vm = new HexVM();
@@ -279,6 +221,6 @@ on TEXT { if ($isprivate == true && $isme == false) { set -l %key $join($list($n
 alias accept { setat %states $join($list($network,$lower($1)),::) accepted }
 alias panel { view { column { foreach %key $keys(%states) { if ($get(%states,%key) == pending) { text %key } } } } }`}]);vm.dispatch('LOAD');const fields={network:'A',buffer:'Alice',nick:'Alice',me:'Me',text:'Hello'};assert.equal(vm.dispatch('TEXT',fields).halted,true);assert.equal(vm.dispatch('TEXT',{...fields,network:'B'}).halted,true);assert.equal(vm.dispatch('TEXT',{...fields,nick:'Bob',buffer:'Bob'}).halted,true);vm.alias('accept',fields,['Alice']);assert.equal(vm.dispatch('TEXT',fields).halted,false);assert.equal(vm.dispatch('TEXT',{...fields,nick:'Bob',buffer:'Bob'}).halted,true);assert.equal(vm.dispatch('TEXT',{...fields,nick:'Me',own:true}).halted,false);assert.equal(vm.dispatch('TEXT',{...fields,buffer:'#room'}).halted,false);const tree=JSON.stringify(vm.alias('panel',fields).actions);assert.ok(tree.includes('A::bob'));assert.ok(tree.includes('B::alice'));assert.ok(!tree.includes('A::alice'));
 });
-test('Script editor updates validate first, reject stale revisions and require re-enabling permissions',async t=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'hex-edit-'));const manager=new ScriptManager(root);t.after(()=>{manager.close();fs.rmSync(root,{recursive:true,force:true});});const id=manager.install('Original.hex','alias hello { echo -s Hola }'),before=manager.read(id);assert.equal(before.source,'alias hello { echo -s Hola }');await assert.rejects(()=>manager.update(id,{name:'Broken.hex',source:'on TEXT {',revision:before.revision}));assert.equal(manager.read(id).revision,before.revision);await manager.configure(id,{enabled:true,permissions:['ui'],domains:[]});await manager.update(id,{name:'Edited.hex',source:'alias hello { echo -s Hola =) }',revision:before.revision});const changed=manager.read(id);assert.notEqual(changed.revision,before.revision);assert.equal(manager.list()[0].enabled,false);assert.deepEqual(manager.list()[0].permissions,[]);await assert.rejects(()=>manager.update(id,{name:'Stale.hex',source:'alias stale { return }',revision:before.revision}),/cambió/);
+test('Script editor updates validate first, reject stale revisions and require reactivation',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'hex-edit-'));const manager=new ScriptManager(root);t.after(()=>{manager.close();fs.rmSync(root,{recursive:true,force:true});});const id=manager.install('Original.hex','alias hello { echo -s Hola }'),before=manager.read(id);assert.equal(before.source,'alias hello { echo -s Hola }');await assert.rejects(()=>manager.update(id,{name:'Broken.hex',source:'on TEXT {',revision:before.revision}));assert.equal(manager.read(id).revision,before.revision);await manager.configure(id,{enabled:true,permissions:['ui'],domains:[]});await manager.update(id,{name:'Edited.hex',source:'alias hello { echo -s Hola =) }',revision:before.revision});const changed=manager.read(id);assert.notEqual(changed.revision,before.revision);assert.equal(manager.list()[0].enabled,false);assert.deepEqual(manager.list()[0].permissions,require('../src/scripts/manager').PERMISSIONS);await assert.rejects(()=>manager.update(id,{name:'Stale.hex',source:'alias stale { return }',revision:before.revision}),/cambió/);
 });

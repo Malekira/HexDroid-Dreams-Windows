@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const api = window.dreams;
 let appVersion = '0.4.0';
-let config = { settings: {}, profiles: [] }, active = null, toastTimer, saveQueue = Promise.resolve();
+let config = { settings: {}, profiles: [] }, active = null, selectedNetworkId = null, toastTimer, saveQueue = Promise.resolve();
 let workspace = new DreamsWorkspace.Workspace();
 let networks = workspace.networks;
 const selectedMessages = new Set();
@@ -54,7 +54,7 @@ function captureConversation() {
 }
 function choose(id,target,focus = true) {
   captureConversation(); if (active) network(active.id).lastTarget = active.target;
-  active = { id,target }; workspace.choose(id,target); selectedMessages.clear(); $('selection-count').textContent = '';
+  selectedNetworkId=id; active = { id,target }; workspace.choose(id,target); selectedMessages.clear(); $('selection-count').textContent = '';
   $('message-input').value = conversation(id,target).draft; $('message-search').value = '';
   render(); previewFormat(); if (focus && !$('message-input').disabled) $('message-input').focus();
   persist().catch(() => {});
@@ -81,7 +81,7 @@ function renderSidebar() {
   }
   const addOption=existing.get('__add_network__');existing.delete('__add_network__');for(const option of existing.values())option.remove();
   if(!addOption){const add=el('option','','Agregar red…');add.value='__add_network__';picker.append(add);}else if(picker.lastElementChild!==addOption)picker.append(addOption);
-  picker.value=active?.id||config.profiles[0]?.id||'__add_network__';picker.disabled=false;
+  picker.value=active?.id||selectedNetworkId||config.profiles[0]?.id||'__add_network__';picker.disabled=false;
   if (draggedItem) return;
   window.renderDreamsTree?.();
 }
@@ -168,7 +168,7 @@ function renderUsers() {
 function statusPrefix(user,n){let i=0;while(i<user.length&&n.prefixes.includes(user[i]))i++;return user.slice(0,i);}
 function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.includes(user[i])) i++; return user.slice(i).split("!")[0]; }
 function renderHeader() {
-  const p = active && profile(active.id), n = p && network(p.id), c = selected();
+  const p = profile(active?.id||selectedNetworkId||config.profiles[0]?.id), n = p && network(p.id), c = selected();
   const connection = n?.state !== 'disconnected' && n?.connection || p;
   $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a HexDreams IRC';
   $('channel-symbol').textContent = c ? c.name === '*' ? '◈' : /^[#&+!]/.test(c.name) ? '#' : '◌' : '✦';
@@ -187,7 +187,7 @@ function renderHeader() {
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;
-  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=n?avatarFor(active.id,n.nick):null;if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
+  const ownAvatar=document.querySelector('.sidebar-footer>.avatar');const selfPhoto=n?avatarFor(p.id,n.nick):null;if(selfPhoto){const img=el('img');img.src=selfPhoto;img.alt='Tu foto en '+p.name;ownAvatar.replaceChildren(img);}else ownAvatar.textContent='H';
   $('self-nick').textContent = n?.nick || 'Tu espacio IRC'; $('connection-summary').textContent = connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}` : 'Sin conexión';
   for (const id of ['global-status','footer-dot']) $(id).className = 'status-dot' + (connected ? ' online' : n?.state === 'connecting' ? ' connecting' : '');
   $('footer-info').textContent = p ? `${connection.host}:${connection.port} · Usuarios: ${c?.users.length || 0} · ${connection.tls ? 'TLS' : 'TCP'}` : 'HexDreams IRC ' + appVersion;
@@ -349,7 +349,7 @@ function openNetwork(id) {
   $('profile-channels').value = p?.channels.join(', ') || ''; $('profile-tls').checked = p?.tls ?? true; $('profile-password').value = ''; $('network-error').textContent = '';
   if (!$('network-dialog').open) $('network-dialog').showModal(); $('profile-name').focus();
 }
-async function toggleConnection(id = active?.id) {
+async function toggleConnection(id = active?.id||selectedNetworkId||config.profiles[0]?.id) {
   if (!id) { openNetwork(); return; }
   const n = network(id);
   if (n.state !== 'disconnected') { const r = await api.disconnect(id); if (r?.error) notify(r.error, true); return; }
@@ -431,12 +431,7 @@ $('message-input').addEventListener('input',() => { if (selected()) selected().d
 $('message-input').addEventListener('keydown', e => {
   const c = selected(); if (!c || e.isComposing) return;
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit(); }
-  else if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) {
-    const input = e.target, before = input.value.slice(0,input.selectionStart), match = /([^ \n]*)$/.exec(before), word = match[0];
-    const candidates = word.startsWith('/') ? ['/join','/part','/nick','/query','/whois','/who','/me','/msg','/notice','/topic','/mode','/raw','/quit','/markread'] : c.users.map(u => bareNick(u,network(active.id)));
-    const found = candidates.find(name => fold(name).startsWith(fold(word)) && word);
-    if (found) { e.preventDefault(); input.setRangeText(found + ' ',before.length - word.length,input.selectionEnd,'end'); input.dispatchEvent(new Event('input')); }
-  } else if (['ArrowUp','ArrowDown'].includes(e.key) && (e.ctrlKey || !e.target.value || c.historyIndex >= 0) && c.history.length) {
+  else if (['ArrowUp','ArrowDown'].includes(e.key) && (e.ctrlKey || !e.target.value || c.historyIndex >= 0) && c.history.length) {
     e.preventDefault(); if (c.historyIndex < 0) c.historyDraft = e.target.value;
     c.historyIndex = e.key === 'ArrowUp' ? Math.min(c.history.length-1,c.historyIndex + 1) : Math.max(-1,c.historyIndex - 1);
     e.target.value = c.historyIndex < 0 ? c.historyDraft || '' : c.history[c.history.length - 1 - c.historyIndex]; c.draft = e.target.value; previewFormat();
@@ -477,11 +472,12 @@ api.onEvent(event => {
       n.state = event.state; if (event.nick) n.nick = event.nick; if (event.connection) n.connection = event.connection;
       addMessage(id, '*', { event: true, text: event.text });
       if(event.state==='disconnected')n.ircOper=false;
-      if (event.state === 'disconnected') for (const c of n.conversations.values()) { c.joined = false; c.users = []; }
+      if(event.state==='connected'&&!active&&id===(selectedNetworkId||config.profiles[0]?.id))choose(id,'*',false);
+      if (event.state === 'disconnected') {n.conversations.clear();n.lastTarget='*';if(active?.id===id){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);persist().catch(()=>{});}
       break;
     case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
     case 'server': addMessage(id,event.target||'*',{event:true,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
-    case 'query': if(event.whois){conversation(id,event.target);window.openDreamsWhois?.(id,event.whois,{request:false});}else choose(id,event.target); break;
+    case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
     case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
@@ -522,7 +518,7 @@ api.onEvent(event => {
   try {
     const result = await api.load(); if (result.error) throw new Error(result.error);
     config = { profiles:result.profiles, settings: { fontSize:14,sidebarWidth:240,usersWidth:192,showPrivates:true,showUsers:true,showTopic:true,timestamps:true,showEvents:true,compact:false,autoScroll:true,fontFamily:'Segoe UI',lineHeight:1.65,messageSpacing:9,ownNickColor:'#c0adf1',privateSort:'manual',...result.settings } };
-    workspace = new DreamsWorkspace.Workspace(config.profiles,result.workspace); networks = workspace.networks; active = workspace.active;
+    workspace = new DreamsWorkspace.Workspace(config.profiles,{}); networks = workspace.networks; active = null;workspace.active=null;selectedNetworkId=config.profiles[0]?.id||null;
     appVersion = result.version || '0.4.0';
     if (active) $('message-input').value = selected().draft;
     applySettings(); previewFormat();render();

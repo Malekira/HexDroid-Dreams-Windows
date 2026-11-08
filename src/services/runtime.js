@@ -33,6 +33,8 @@ class Runtime {
     this.launchers = new Map();
     this.badge = 0;
     this.notificationLog = [];
+    this.autoAway=new (require('./auto-away').AutoAway)();
+
     try {
       this.sts = JSON.parse(
         fs.readFileSync(path.join(directory, "sts.json"), "utf8"),
@@ -59,6 +61,7 @@ class Runtime {
         return c;
       },
     });
+    this.awayTimer=setInterval(()=>{try{this.autoAway.tick([...this.sessions.sessions.values()].map(s=>({id:s.profile.id,client:s.stopped?null:s.client})),this.getConfig().settings,this.electron.powerMonitor?.getSystemIdleTime()||0);}catch(e){this.emit(null,'problem',{text:e.message});}},1000);this.awayTimer.unref();
     this.web = new WebClient({
       canConnect: () =>
         ![...this.sessions.sessions.values()].some(
@@ -81,11 +84,13 @@ class Runtime {
         ...f,
       }),
     });
+    this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions()}));
     this.scriptMedia = new ScriptMedia({
       web: this.web,
       pick: (o) => this.pick(o),
       confirm: (m, d) => this.confirm(m, d),
       allowed: (...args) => this.scripts.allowed(...args),
+      domainsFor: (...args)=>this.scripts.domainsFor(...args),
       signal: (owner, name, fields, result, args) =>
         this.scripts
           .event(
@@ -315,6 +320,8 @@ class Runtime {
         { network: id },
       );
     if(type==='nick')await this.scripts.event('NICK',{network:id,buffer:data.nick,chan:data.nick,nick:data.old,newnick:data.nick,own:data.own});
+    if(type==='away-state')this.autoAway?.observe(id,data.away);
+    if(type==='status'&&data.state==='disconnected')this.autoAway?.forget(id);
     if(type==='status')this.writeTextLog(id,{target:'*',event:true,text:data.text||data.state});
     if(type==='room-event')this.writeTextLog(id,{...data,event:true});
     if(type==='channel')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.reason?' · '+data.reason:'')});
@@ -411,6 +418,7 @@ class Runtime {
       const result = await this.scripts.alias(m[1], fields, m[2].split(/\s+/));
       if (result.handled) return { ok: true };
     }
+    if(/^\/(away|back)(?:\s|$)/i.test(text)){const match=/^\/(away|back)\s*(.*)$/i.exec(text);this.autoAway?.setManual(id,match[1].toLowerCase()==="away"&&!!match[2]);}
     executeInput(this.sessions.get(id), target, text, (type, data) =>
       this.emit(id, type, data),
     );
@@ -848,6 +856,8 @@ class Runtime {
         return { ok: true };
       case "script.reload":await this.scripts.restart();return{ok:true};
       case 'script.list':return this.scripts.list();
+      case 'script.help':return this.scripts.help(data.id);
+      case 'script.commands':return this.scripts.completions();
       case 'script.read':return this.scripts.read(data.id);
       case 'script.validate':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');new (require('../scripts/interpreter').HexVM)().install([{id:'validation',name:'validation',source:data.source,enabled:false,permissions:[],domains:[]}]);return{ok:true};}
       case 'script.save':{
@@ -873,14 +883,6 @@ class Runtime {
       }
       case "script.configure":
         this.scriptMedia.clear();
-        if (
-          data.enabled &&
-          !(await this.confirm(
-            "¿Habilitar este script?",
-            `Permisos: ${(data.permissions || []).join(", ")}\nDominios: ${(data.domains || []).join(", ")}`,
-          ))
-        )
-          return { cancelled: true };
         await this.scripts.configure(data.id, data);
         return { ok: true };
       case "script.remove":
@@ -1091,7 +1093,7 @@ class Runtime {
               throw new Error("Scripts de respaldo inválidos.");
             for (const script of backup.secrets.scripts) {
               script.enabled = false;
-              script.permissions = [];
+              script.permissions = [...require("../scripts/manager").PERMISSIONS];
               script.domains = [];
               this.scripts.validate(script);
             }
@@ -1121,7 +1123,7 @@ class Runtime {
           if (Array.isArray(backup.secrets.scripts)) {
             for (const s of backup.secrets.scripts) {
               s.enabled = false;
-              s.permissions = [];
+              s.permissions = [...require("../scripts/manager").PERMISSIONS];
               s.domains = [];
               this.scripts.validate(s);
             }
@@ -1284,6 +1286,7 @@ class Runtime {
   }
   close() {
     if(this.closed)return;this.closed=true;
+    clearInterval(this.awayTimer);
     this.sessions.close();
     this.scripts.close();
     this.dcc.close();

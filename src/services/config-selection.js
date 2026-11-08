@@ -15,6 +15,7 @@ const groups = {
     "nickPalette",
   ],
   notifications: [
+    "autoAwayEnabled","autoAwayMinutes","autoAwayMessage","autoAwayReturn",
     "notifications",
     "notificationPreview",
     "notificationSound",

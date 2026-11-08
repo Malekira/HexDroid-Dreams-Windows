@@ -451,6 +451,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     handle(m) {
       const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);this.clones.observe(m);if(c==="CHGHOST")this.clones.schedule();
+      if(c==='305'||c==='306')this.emit('away-state',{away:c==='306'});
       if(c==='381'||c==='221'||c==='MODE'&&fold(p[0])===fold(this.nick)){
         if(c==='381')this.userModes.add('o');else{if(c==='221')this.userModes.clear();let adding=true;for(const mode of (c==='221'?p.at(-1):p[1])||''){if(mode==='+')adding=true;else if(mode==='-')adding=false;else if(adding)this.userModes.add(mode);else this.userModes.delete(mode);}}
         this.emit('oper-state',{oper:this.userModes.has('o')||this.userModes.has('O'),modes:[...this.userModes].join('')});

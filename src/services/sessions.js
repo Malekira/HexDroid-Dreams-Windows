@@ -62,7 +62,7 @@ class SessionManager extends EventEmitter {
       "certificate",
       "sts",
       "protocol",
-      "features", "user-profile", "room-list", "presence", "avatar-publish", "oper-state", "presence-nick", "clones",
+      "features", "user-profile", "room-list", "presence", "avatar-publish", "oper-state", "presence-nick", "clones", "room-event", "away-state",
     ];
     for (const type of events)
       client.on(type, (data) => {

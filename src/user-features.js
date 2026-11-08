@@ -907,6 +907,7 @@
   }
   if (api.advanced)
     api.onEvent((event) => {
+      if(event.type==="status"&&event.state==="disconnected"&&viewing?.id===event.id)closeProfile();
       if (event.type === "certificate" && !event.trusted)
         showCertificate(event);
       if (

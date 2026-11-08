@@ -163,6 +163,7 @@ function createWindow() {
   });
   window.on("closed", () => {
     window = null;
+    if(historyWindow&&!historyWindow.isDestroyed())historyWindow.close();
   });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -186,12 +187,14 @@ else {
         log(message);
       });
       config = store.load();
+      config.workspace={networks:[],active:null};config=store.save(config);
       register("config:load", () => ({
         ...config,
         warnings: startupWarnings,
         version: app.getVersion(),
       }));
       register("config:save", (data) => {
+        if(quitting)return config;
         config = store.save(data);
         return config;
       });
@@ -210,6 +213,7 @@ else {
       });
       register("irc:send", (data) => runtime.send(data));
       register("advanced:action", (name, data) => {
+        if(name==="app.hide"){if(!tray)throw Error("La bandeja del sistema no está disponible.");window.hide();return{ok:true};}
         if (name === "history.window") {
           if (historyWindow && !historyWindow.isDestroyed()) {
             historyWindow.show();
@@ -286,6 +290,7 @@ else {
           window?.focus();
         };
         tray.on("double-click", show);
+        try{electron.globalShortcut.register("CommandOrControl+Shift+Z",()=>window?.hide());}catch(error){log("Atajo de bandeja: "+error.message);}
         tray.setContextMenu(
           electron.Menu.buildFromTemplate([
             { label: "Abrir HexDreams IRC", click: show },
@@ -308,6 +313,8 @@ else {
     .catch(fatal);
   app.on("before-quit", () => {
     quitting = true;
+    electron.globalShortcut.unregisterAll();
+    if(store&&config)try{config.workspace={networks:[],active:null};store.save(config);}catch(error){log(error.message);}
     runtime?.close();
     tray?.destroy();
     log("Cierre normal");

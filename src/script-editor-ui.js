@@ -57,7 +57,7 @@
     baseline = snapshot();
     last = select.value = data.id || "";
     feedback.textContent =
-      "Guardar en la aplicación lo deja desactivado y sin permisos. Se habilita desde Administrar scripts.";
+      "Guardar en la aplicación lo deja desactivado. Al activarlo recibe todos los permisos.";
     positionText();
   }
   async function fill() {
@@ -123,7 +123,7 @@
     load(data);
     await fill();
     feedback.textContent =
-      "Guardado y desactivado. Revisa los permisos antes de habilitarlo.";
+      "Guardado y desactivado. Puedes activarlo desde Administrar scripts.";
   });
   button("Guardar archivo…", async () => {
     const result = await call("script.exportSource", {
