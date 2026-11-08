@@ -66,3 +66,6 @@ test("Network restore updates matching ids and retains unrelated networks and pr
   );
   assert.equal(restored.settings.theme, "dark");
 });
+test('Default backup selection round-trips new writing and NOTICE preferences with networks',async()=>{
+ const source=make('violet');source.settings.dictionaryEnabled=true;source.settings.dictionary=[{from:'XDD',to:'😂',enabled:true,matchCase:false}];source.settings.nickCompletion={enabled:true,template:'👋 {nick}',color:'#123abc'};source.settings.noticeDestinations=['status'];source.settings.notifyPrivates=false;source.settings.notifyMentions=true;const exported=exportConfig(source);const backup=await readBackup(await createBackup(exported.config,null,undefined,undefined,exported.sections));const restored=importConfig(make('light'),backup.config,undefined,backup.sections);assert.equal(restored.settings.dictionary[0].to,'😂');assert.equal(restored.settings.nickCompletion.template,'👋 {nick}');assert.deepEqual(restored.settings.noticeDestinations,['status']);assert.equal(restored.settings.notifyPrivates,false);assert.equal(restored.settings.notifyMentions,true);assert.equal(restored.profiles[0].host,'one.example');
+});

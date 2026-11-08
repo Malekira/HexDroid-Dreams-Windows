@@ -1,18 +1,19 @@
-# HexDreams IRC 0.15.0 para Windows
+# HexDreams IRC 0.16.0 para Windows
 
-- Configuración reorganizada según las correcciones de la versión 15: Redes e identidad, Apariencia y Herramientas. Se conservan las funciones de conexión y autenticación existentes.
-- En Editar red: color del nick propio y color/estilo de escritura por red. El formato personalizado es opcional; las redes anteriores conservan su comportamiento.
-- Colores del entorno reúne temas, fuente, tamaño, mensajes compactos, hora y paleta de nicks fuertes/pastel. Los temas tienen Aplicar, Agregar, Guardar y Eliminar; el editor incluye vista previa y controles compactos. Los temas incluidos no se eliminan.
-- Chat reúne altura de línea y separación. Paneles reúne anchos, visibilidad, entradas/salidas, ident/host, seguimiento y vista de eventos. Notificaciones y Multimedia tienen sus propias secciones, con controles de estilo uniforme. Se puede elegir un color de menciones por red.
-- Menús y submenús con tipografía, tamaño, espaciado y resaltado comunes. Orden por jerarquía y función; los submenús se abren hacia la derecha, por encima de las ventanas, y los listados largos tienen desplazamiento.
-- Ver/ocultar usuarios es independiente por conversación durante la sesión. Status no tiene usuarios y puede cerrarse si está desconectado. Los privados muestran el perfil del interlocutor.
-- Zona de escritura más compacta, conservando la fuente y el tamaño del texto.
-- Historial con nombres de red legibles en el árbol, los títulos y los resultados de búsqueda. Si una red ya no está configurada se recupera su nombre desde el encabezado del TXT.
+- Implementa las correcciones del PDF de versión 16 y lo anotado después de la versión 15, con controles compactos.
+- Diccionario de reemplazos en Configuración → Chat y notificaciones → Diccionario y nick completion. Permite agregar, editar, eliminar y activar reglas, con coincidencia de palabras completas y mayúsculas opcionales. Reemplaza al pulsar espacio o enviar; conserva los nombres y destinatarios de comandos.
+- Nick completion con plantilla, emojis, colores, fondo, negrita, cursiva y subrayado. Incluye `{nick}`, `{red}` y `{sala}`, ayudas, ejemplos y vista previa. El editor muestra texto legible y el formato se aplica al enviar; Tab/Shift+Tab siguen recorriendo las coincidencias originales. Los borradores conservan el formato durante la sesión.
+- Se elimina el selector duplicado de colores de nicks y se corrige el tamaño, ancho y contraste de las sugerencias sobre fondos claros y oscuros.
+- Cada ventana interna tiene Minimizar. Se restaura desde la barra inferior o el árbol sin perder el borrador. Ver → Ventanas incorpora mosaico vertical y horizontal, además de cascada y maximizar.
+- Configuración separa General, Away, NOTICE, notificaciones, resaltado y sonido. Privados y menciones se notifican por separado. NOTICE admite destino original o copias en PV, sala y Status, color/fondo/estilo local y aviso de Windows independiente; no duplica los avisos de la campana por cada copia.
+- Archivo reúne conexión, redes, salas, favoritas, listado y configuración. Ver reúne historial, visor de logs, ventanas y paneles. Se elimina Red; Comandos y Scripts conservan sus funciones.
+- Barra superior compacta y ordenada: Red, conexión, consola, Salas, Topic, Notify, Tema, configuración y campana. Tema reúne los temas incluidos y guardados, con acceso a su configuración. Usuarios queda en cada conversación. Se conserva el logo y se muestra el contador y aviso del límite del nombre real.
+- Las nuevas preferencias forman parte del respaldo y se conservan al importar y reiniciar. Los directorios de datos, logs y firma permanecen iguales.
 
 ## Uso
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Se conservan redes, preferencias y archivos de historial. Conserva tu certificado existente para la firma personal con Sign/Verify; el ZIP distribuido no está firmado.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Activa y configura tus reemplazos y plantilla de nick desde Diccionario y nick completion. Conserva tu certificado existente para la firma personal con Sign/Verify; el ZIP distribuido no está firmado.
 
 ## Validación
 
-126 pruebas de lógica e integración y 42 flujos en Chromium, además de Electron real con IRC local TCP/TLS, scripts, formato, historial, reinicio y geometría. La publicación Windows vuelve a ejecutar las pruebas y verifica también el ejecutable empaquetado antes de crear la descarga.
+135 pruebas de lógica e integración, 49 flujos de interfaz en Chromium y Electron real con IRC TCP/TLS. Incluye envío de reemplazos y nicks con formato, minimización y restauración de borradores, NOTICE, respaldos e historial. Windows repite las pruebas y verifica el ejecutable empaquetado antes de publicar la descarga.

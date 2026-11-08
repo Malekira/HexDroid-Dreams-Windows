@@ -197,78 +197,7 @@
     return r;
   };
   // A network can use a different mention colour while retaining the common default.
-  window.addEventListener("dreams-settings-rendered", (e) => {
-    const body = document.querySelector(".advanced-content");
-    const heading = body.firstElementChild;
-    if (heading?.matches("p.note"))
-      heading.replaceWith(el("h3", "", heading.textContent));
-    if (e.detail === "notifications") {
-      const field = [...body.querySelectorAll("label")].find(
-        (l) => l.textContent.trim() === "Color del resaltado de menciones",
-      );
-      if (field) {
-        const color = field.querySelector("input"),
-          nets = el("select");
-        nets.setAttribute("aria-label", "Red del color de menciones");
-        const common = el("option", "", "Todas las redes");
-        common.value = "";
-        nets.append(common);
-        for (const p of config.profiles) {
-          const o = el("option", "", p.name);
-          o.value = p.id;
-          nets.append(o);
-        }
-        field.append(nets);
-        nets.onchange = () => {
-          color.dataset.network = nets.value;
-          color.value =
-            profile(nets.value)?.mentionHighlightColor ||
-            config.settings.mentionHighlightColor ||
-            "#7650aa";
-        };
-        color.addEventListener("change", () => {
-          const p = profile(nets.value);
-          if (p) {
-            p.mentionHighlightColor = color.value;
-            run(save);
-          }
-        });
-      }
+  window.addEventListener('dreams-settings-rendered',()=>{const h=document.querySelector('.advanced-content')?.firstElementChild;if(h?.matches('p.note'))h.replaceWith(el('h3','',h.textContent));});
 
-      const ordered = [
-        "Notificar privados y menciones",
-        "Resaltar mensajes que mencionen mi nick",
-        "Color del resaltado de menciones",
-        "Enviar aviso «Estoy escribiendo»",
-        "Avisar con la ventana activa",
-        "Avisar también en la sala que estoy viendo",
-        "Sonido al mencionar mi nick",
-        "Sonido de mensajes privados",
-        "Sonido de todos los mensajes de sala",
-        "Destacar la ventana",
-        "Resaltar conversaciones con mensajes nuevos",
-        "Resaltar conversaciones por entradas y salidas",
-        "Mostrar contenido en la notificación",
-        "Minimizar a la bandeja",
-        "Cerrar ventana mantiene conexiones en la bandeja",
-        "Palabras destacadas (separadas por comas)",
-        "Activar Autoaway",
-        "Inactividad para Autoaway (minutos)",
-        "Mensaje de Autoaway",
-        "Quitar Autoaway al volver",
-      ];
-      const saveButton = [...body.querySelectorAll("button")].find(
-        (b) => b.textContent === "Guardar",
-      );
-      for (const text of ordered) {
-        const l = [...body.querySelectorAll("label.advanced-field")].find(
-          (l) => l.firstChild?.textContent === text,
-        );
-        if (l) body.insertBefore(l, saveButton);
-      }
-    }
-    if (e.detail === "media")
-      body.querySelector("p.note")?.classList.add("section-note");
-  });
   sync();
 })();

@@ -61,7 +61,7 @@
   const names = {
     networks: "Autenticación y proxy",
     history: "Historial",
-    notifications: "Notificaciones",
+    general:"Configuración general",away:"Configuración de Away",notice:"Configuración de NOTICE",notifications:"Configuración de notificaciones",highlight:"Configuración de resaltado",sound:"Configuración de sonido",
     palette:"Colores del entorno",
     dcc: "Transferencias DCC",
     crypto: "Cifrado",
@@ -382,55 +382,8 @@
       window.renderDreamsThemeManager?.(body);
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
       button('Guardar colores del entorno',()=>settings({customColors:Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]))}));button('Restaurar colores del tema',()=>settings({customColors:{}}));
-    } else if (section === "notifications") {
-      const enabled = input(
-          "Notificar privados y menciones",
-          config.settings.notifications,
-          "checkbox",
-        ),
-        preview = input(
-          "Mostrar contenido en la notificación",
-          config.settings.notificationPreview,
-          "checkbox",
-        ),
-        flash = input(
-          "Destacar la ventana",
-          config.settings.flashOnMention,
-          "checkbox",
-        );
-
-      const minimize = input(
-          "Minimizar a la bandeja",
-          config.settings.minimizeToTray,
-          "checkbox",
-        ),
-        closeTray = input(
-          "Cerrar ventana mantiene conexiones en la bandeja",
-          config.settings.closeToTray,
-          "checkbox",
-        ),
-        highlights = input(
-          "Palabras destacadas (separadas por comas)",
-          (config.settings.highlightWords || []).join(", "),
-        );
-      const highlightMentions=input('Resaltar mensajes que mencionen mi nick',config.settings.highlightMentions!==false,'checkbox'),mentionHighlightColor=input('Color del resaltado de menciones',config.settings.mentionHighlightColor||'#7650aa','color');
-      const autoAway=input('Activar Autoaway',config.settings.autoAwayEnabled===true,'checkbox'),awayMinutes=input('Inactividad para Autoaway (minutos)',config.settings.autoAwayMinutes||10,'number'),awayMessage=input('Mensaje de Autoaway',config.settings.autoAwayMessage||'Ausente por inactividad'),awayReturn=input('Quitar Autoaway al volver',config.settings.autoAwayReturn!==false,'checkbox');awayMinutes.min='1';awayMinutes.max='1440';awayMessage.maxLength=100;
-      const sendTyping=input('Enviar aviso «Estoy escribiendo»',config.settings.sendTyping!==false,'checkbox');
-      const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Resaltar conversaciones con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Resaltar conversaciones por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
-      button("Guardar", () =>
-        settings({autoAwayEnabled:autoAway.checked,autoAwayMinutes:Number(awayMinutes.value),autoAwayMessage:awayMessage.value,autoAwayReturn:awayReturn.checked,highlightMentions:highlightMentions.checked,mentionHighlightColor:mentionHighlightColor.dataset.network?config.settings.mentionHighlightColor:mentionHighlightColor.value,sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
-          minimizeToTray: minimize.checked,
-          closeToTray: closeTray.checked,
-          highlightWords: highlights.value
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
-
-          notifications: enabled.checked,
-          notificationPreview: preview.checked,
-          flashOnMention: flash.checked,
-        }),
-      );
+    } else if (['general','away','notice','notifications','highlight','sound'].includes(section)) {
+      window.renderDreamsChatPreferences(body,section,settings);
     } else if (section === "crypto") {
       const c = requireContext();
       note("Conversación seleccionada: " + c.target);

@@ -175,6 +175,11 @@ async function run() {
     await page.getByRole('button',{name:'Negrita',exact:true}).click();
     await page.getByRole('button',{name:'Color IRC',exact:true}).click();
     await page.getByRole('menuitem',{name:'Sin color',exact:true}).click();
+    console.log('Prueba Electron: diccionario, nick completion y minimización');
+    await page.evaluate(async()=>{config.settings.dictionaryEnabled=true;config.settings.dictionary=[{from:'XDD',to:'😂',enabled:true,matchCase:false}];config.settings.nickCompletion={enabled:true,template:'👋 {nick} 💜',color:'#123abc',bold:true};await persist();});
+    await page.locator('#message-input').fill('XDD ');await expect(page.locator('#message-input')).toHaveValue('😂 ');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG #dreams :😂 ')).toBe(true);
+    await page.locator('#message-input').fill('Al');await page.locator('#message-input').press('Tab');await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.getByRole('button',{name:'Minimizar ventana #dreams',exact:true}).click();await page.getByRole('button',{name:'Restaurar conversación #dreams',exact:true}).click();await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG #dreams :\x0f\x02\x04123abc👋 Alice 💜\x0f ')).toBe(true);
+    await page.evaluate(async()=>{config.settings.dictionary=[];config.settings.nickCompletion={enabled:false,template:'{nick}'};await persist();});
     console.log('Prueba Electron: Autoaway y retorno automático');
     await app.evaluate(({powerMonitor})=>{global.__testIdleSeconds=120;powerMonitor.getSystemIdleTime=()=>global.__testIdleSeconds;});
     await page.evaluate(async()=>{config.settings.autoAwayEnabled=true;config.settings.autoAwayMinutes=1;config.settings.autoAwayMessage='Autoaway de prueba';config.settings.autoAwayReturn=true;await persist();});
@@ -311,7 +316,7 @@ async function run() {
     const photoFile=path.join(root,'identity.png');fs.copyFileSync(path.join(__dirname,'../src/assets/tray.png'),photoFile);
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},photoFile);
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
-    await expect(page.locator('.settings-group')).toHaveCount(3);
+    await expect(page.locator('.settings-group')).toHaveCount(4);
     const settingsSize=await page.locator('#settings-dialog').boundingBox();
     await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
     await page.locator('#profile-username').fill('desktop_ident');await page.locator('#profile-realName').fill('Desktop Real Name');
@@ -345,7 +350,7 @@ async function run() {
     const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activado',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
 
-    await page.locator('.settings-nav').getByRole('button',{name:'Notificaciones',exact:true}).click();
+    await page.locator('.settings-nav').getByRole('button',{name:'Configuración de notificaciones',exact:true}).click();
     await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();
     await page.getByLabel('Tema',{exact:true}).selectOption('light');
     await page.getByRole('button',{name:'Aplicar',exact:true}).click();
@@ -356,10 +361,12 @@ async function run() {
     await expect(page.locator('html')).toHaveCSS('--bg','#123456');
     await page.locator('.advanced-dialog .dialog-header button').click();
     await expect(page.getByRole('button',{name:'Herramientas',exact:true})).toHaveCount(0);
-    await page.getByRole('button',{name:'Cambiar a tema oscuro',exact:true}).click();
+    await page.locator('#theme-quick-menu>summary').click();await page.locator('#theme-quick-menu').getByRole('button',{name:'Oscuro',exact:true}).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-    await page.getByRole('button',{name:'Cambiar a tema claro',exact:true}).click();
+    await page.locator('#theme-quick-menu>summary').click();await page.locator('#theme-quick-menu').getByRole('button',{name:'Claro',exact:true}).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+    await expect(page.locator('html')).toHaveCSS('--bg','#f5f6fa');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();await page.getByLabel('Fondo de conversación',{exact:true}).fill('#123456');await page.getByRole('button',{name:'Guardar colores del entorno',exact:true}).click();await page.locator('#settings-dialog .dialog-header button').click();
     const dataPath = await app.evaluate(({ app }) => app.getPath('userData'));
     expect(path.resolve(dataPath)).toBe(path.resolve(profileDirectory));
     // Ensure all queued preference writes have reached the actual main process.
@@ -427,6 +434,11 @@ async function run() {
     await page.locator('#notification-bell').click();await expect(page.locator('#notification-dialog')).toContainText('campanita de prueba');await expect(page.locator('#notification-dialog')).toContainText('NOTICE registrado');
     await expect.poll(()=>page.evaluate(async()=>(await window.dreams.advanced('notifications.list')).every(n=>n.read))).toBe(true);
     await page.getByRole('button',{name:'Vaciar registro',exact:true}).click();await expect(page.locator('#notification-dialog')).toContainText('Sin menciones ni NOTICE');await page.locator('#notification-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+    console.log('Prueba Electron: destinos de NOTICE sin cambiar la sala activa');
+    await page.evaluate(async()=>{config.settings.noticeDestinations=['status'];await persist();});
+    for(const socket of sockets)socket.write(':Alice!u@local NOTICE #dreams :NOTICE redirigido al status\r\n');
+    await expect.poll(()=>page.evaluate(()=>network(config.profiles[0].id).conversations.get('*')?.messages.some(m=>m.notice&&m.text==='NOTICE redirigido al status'))).toBe(true);
+    await expect(page.locator('#messages')).not.toContainText('NOTICE redirigido al status');await page.evaluate(async()=>{config.settings.noticeDestinations=['original'];await persist();});
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');

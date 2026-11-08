@@ -394,27 +394,7 @@
     draw();
     d.showModal();
   };
-  const panel = document.querySelector("[data-panel=appearance]"),
-    label = el("label", "setting-row", "Colores de los nicks"),
-    select = el("select");
-  select.setAttribute("aria-label", "Colores de los nicks");
-  for (const [value, text] of [
-    ["strong", "Fuertes"],
-    ["pastel", "Pastel"],
-  ]) {
-    const o = el("option", "", text);
-    o.value = value;
-    select.append(o);
-  }
-  select.value = config.settings.nickPalette || "strong";
-  select.onchange = async () => {
-    config.settings.nickPalette = select.value;
-    lastMessageView = "";
-    render();
-    await persist();
-  };
-  label.append(select);
-  panel.append(label);
+
 })();
 (() => {
   const dialog = el("dialog", "feature-dialog");

@@ -35,7 +35,15 @@
     reset() {
       this.state = null;
     }
-    next(value, start, end, key, values, direction = 1) {
+    next(
+      value,
+      start,
+      end,
+      key,
+      values,
+      direction = 1,
+      format = (name) => name,
+    ) {
       let s = this.state;
       if (
         !s ||
@@ -59,7 +67,7 @@
       }
       s.index =
         (s.index + direction + s.candidates.length) % s.candidates.length;
-      const replacement = s.candidates[s.index] + " ";
+      const replacement = format(s.candidates[s.index], s.start) + " ";
       s.lastValue = s.prefix + replacement + s.suffix;
       s.lastCaret = s.prefix.length + replacement.length;
       this.state = s;
@@ -67,6 +75,8 @@
         value: s.lastValue,
         caret: s.lastCaret,
         name: s.candidates[s.index],
+        start: s.start,
+        end: s.lastCaret - 1,
       };
     }
   }

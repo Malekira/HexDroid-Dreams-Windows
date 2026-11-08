@@ -188,12 +188,13 @@
     const t = DreamsCompletion.token(input.value, input.selectionStart),
       value =
         input.value.slice(0, t.start) +
-        c.name +
+        (t.command ? c.name : window.dreamsNickText(c.name, t.start)) +
         " " +
         input.value.slice(input.selectionEnd),
-      caret = t.start + c.name.length + 1;
+      caret = value.length - input.value.slice(input.selectionEnd).length;
     cycle.reset();
     replace(value, caret);
+    if (!t.command) window.markDreamsNick?.(t.start, caret - 1);
     hide();
     input.focus();
   }
@@ -233,11 +234,14 @@
           active?.id + "|" + active?.target,
           values,
           e.shiftKey ? -1 : 1,
+          (name, start) =>
+            name.startsWith("/") ? name : window.dreamsNickText(name, start),
         );
         if (r) {
           e.preventDefault();
           e.stopImmediatePropagation();
           replace(r.value, r.caret);
+          if (!r.name.startsWith("/")) window.markDreamsNick?.(r.start, r.end);
           hide();
         }
         return;

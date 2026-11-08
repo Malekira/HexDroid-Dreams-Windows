@@ -12,7 +12,32 @@
   desktop.setAttribute("aria-label", "Escritorio de conversaciones");
   parking.append(live);
   desktop.append(parking);
-  const windows = new Map();
+  const windows = new Map(),
+    minimizedBar = el("div", "mdi-minimized-bar");
+  minimizedBar.hidden = true;
+  minimizedBar.setAttribute("aria-label", "Conversaciones minimizadas");
+  desktop.append(minimizedBar);
+  function tasks() {
+    minimizedBar.replaceChildren();
+    for (const w of windows.values())
+      if (w.minimized) {
+        const b = el(
+          "button",
+          "",
+          w.target + " · " + (profile(w.id)?.name || ""),
+        );
+        b.type = "button";
+        b.setAttribute("aria-label", "Restaurar conversación " + w.target);
+        b.onclick = () => {
+          w.minimized = false;
+          activate(w);
+          render();
+        };
+        minimizedBar.append(b);
+      }
+    minimizedBar.hidden = !minimizedBar.children.length;
+  }
+
   let z = 1,
     rendering = false;
   const key = (id, target) => id + "\0" + fold(target),
@@ -21,7 +46,11 @@
   function area() {
     return {
       w: Math.max(1, desktop.clientWidth),
-      h: Math.max(1, desktop.clientHeight),
+      h: Math.max(
+        1,
+        desktop.clientHeight -
+          ([...windows.values()].some((w) => w.minimized) ? 28 : 0),
+      ),
     };
   }
   function normal(index = 0) {
@@ -45,6 +74,7 @@
     return b;
   }
   function apply(w) {
+    w.node.hidden = !!w.minimized;
     const b = bounds(w);
     Object.assign(w.node.style, {
       left: b.x + "px",
@@ -158,7 +188,35 @@
     const close = el("button", "mdi-window-control", "×");
     close.type = "button";
     close.setAttribute("aria-label", "Cerrar ventana " + c.name);
-    w.header.append(w.title, w.maxButton, close);
+    w.minButton = el("button", "mdi-window-control", "−");
+    w.minButton.type = "button";
+    w.minButton.setAttribute("aria-label", "Minimizar ventana " + c.name);
+    w.usersButton = el("button", "mdi-window-control mdi-users-button", "♙");
+    w.usersButton.type = "button";
+    w.usersButton.onclick = (e) => {
+      e.stopPropagation();
+      activate(w, false);
+      togglePanel("showUsers");
+    };
+    w.minButton.onclick = (e) => {
+      e.stopPropagation();
+      captureConversation();
+      w.minimized = true;
+      if (isActive(w)) {
+        const next = [...windows.values()].find(
+          (other) => other !== w && !other.minimized,
+        );
+        if (next) choose(next.id, next.target);
+        else {
+          active = null;
+          workspace.active = null;
+          $("message-input").value = "";
+        }
+      }
+      render();
+      persist().catch(() => {});
+    };
+    w.header.append(w.title, w.usersButton, w.minButton, w.maxButton, close);
     w.host = el("div", "mdi-window-content");
     w.mirror = el("div", "mdi-mirror");
     w.host.append(w.mirror);
@@ -206,7 +264,7 @@
     w.node.addEventListener(
       "click",
       (e) => {
-        if (isActive(w)) return;
+        if (isActive(w) || e.target.closest(".mdi-window-control")) return;
         const user = e.target.closest("[data-mdi-user]")?.dataset.mdiUser;
         activate(w);
         if (user) window.openDreamsUser?.(w.id, user);
@@ -238,7 +296,7 @@
         n.state,
         c.joined,
         c.muted,
-        s,
+        { ...s, dictionary: undefined, nickCompletion: undefined },
       ]);
     if (signature === w.signature) {
       const field = w.mirror.querySelector("textarea");
@@ -336,6 +394,17 @@
           (m.reason ? " · " + m.reason : ""),
       );
       row.append(text);
+      if (m.notice) {
+        if (s.noticeBackground) row.style.backgroundColor = s.noticeBackground;
+        if (s.noticeColor || s.noticeBackground)
+          text.style.color = DreamsFormatting.readableColor(
+            s.noticeColor || getComputedStyle($("messages")).color,
+            s.noticeBackground ||
+              getComputedStyle($("messages")).backgroundColor,
+          );
+        row.style.fontWeight = s.noticeStyle?.includes("bold") ? "700" : "";
+        row.style.fontStyle = s.noticeStyle?.includes("italic") ? "italic" : "";
+      }
       if (m.event) {
         if (m.eventType === "nick")
           row.style.color = "var(--event-nick,#f06a78)";
@@ -453,6 +522,7 @@
   }
   function sync() {
     if (active && profile(active.id)) conversation(active.id, active.target);
+    tasks();
     const desired = new Set();
     for (const [id, n] of networks)
       for (const c of n.conversations.values()) {
@@ -471,7 +541,17 @@
           (c.modes ? " " + c.modes : "") +
           " · " +
           (profile(id)?.name || "");
+        w.usersButton.hidden = c.kind === "server";
+        const shown = conversationShowsUsers(c);
+        w.usersButton.setAttribute(
+          "aria-label",
+          (shown ? "Ocultar" : "Mostrar") +
+            " usuarios" +
+            (isActive(w) ? "" : " de " + c.name),
+        );
+        w.usersButton.setAttribute("aria-pressed", String(shown));
         if (isActive(w)) {
+          w.minimized = false;
           w.mirror.hidden = true;
           if (live.parentElement !== w.host) w.host.append(live);
           w.node.classList.add("mdi-active");
@@ -487,8 +567,10 @@
         w.node.remove();
         windows.delete(k);
       }
+    tasks();
+    for (const w of windows.values()) apply(w);
     if (!active) {
-      parking.hidden = false;
+      parking.hidden = [...windows.values()].some((w) => w.minimized);
       if (live.parentElement !== parking) parking.append(live);
     } else {
       parking.hidden = true;
@@ -538,7 +620,7 @@
       }
   };
   window.arrangeDreamsWindows = (mode) => {
-    const list = [...windows.values()],
+    const list = [...windows.values()].filter((w) => !w.minimized),
       a = area();
     if (!list.length) return;
     if (mode === "maximize") {
@@ -549,20 +631,25 @@
       }
       return;
     }
-    const cols = Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h))),
+    const tile = ["tile", "vertical", "horizontal"].includes(mode),
+      cols =
+        mode === "vertical"
+          ? list.length
+          : mode === "horizontal"
+            ? 1
+            : Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h))),
       rows = Math.ceil(list.length / cols);
     list.forEach((w, i) => {
       w.maximized = false;
-      w.tiled = mode === "tile";
-      w.bounds =
-        mode === "tile"
-          ? {
-              x: ((i % cols) * a.w) / cols,
-              y: (Math.floor(i / cols) * a.h) / rows,
-              w: a.w / cols,
-              h: a.h / rows,
-            }
-          : normal(i);
+      w.tiled = tile;
+      w.bounds = tile
+        ? {
+            x: ((i % cols) * a.w) / cols,
+            y: (Math.floor(i / cols) * a.h) / rows,
+            w: a.w / cols,
+            h: a.h / rows,
+          }
+        : normal(i);
       apply(w);
       raise(w);
     });
@@ -577,7 +664,8 @@
     menu = el("details", "mdi-layout-menu");
   menu.append(el("summary", "", "Ventanas"));
   for (const [label, mode] of [
-    ["Mosaico", "tile"],
+    ["Mosaico vertical", "vertical"],
+    ["Mosaico horizontal", "horizontal"],
     ["Cascada", "cascade"],
     ["Maximizar actual", "maximize"],
   ]) {

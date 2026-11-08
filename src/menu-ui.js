@@ -91,30 +91,6 @@
   window.addEventListener("resize", () => {
     for (const b of branches) b.open = false;
   });
-  // Common actions first, then navigation, visibility and window arrangement.
-  const view = roots.find(
-      (r) => r.querySelector("summary").textContent === "Ver",
-    ),
-    popup = view.querySelector(".menu-popup");
-  const settings = [...popup.children].find(
-      (b) => b.textContent === "Configuración",
-    ),
-    history = [...popup.children].find((b) => b.textContent === "Historial"),
-    favorites = $("favorites-menu"),
-    windows = popup.querySelector(".mdi-layout-menu"),
-    left = popup.querySelector("[data-action=toggle-privates]"),
-    users = popup.querySelector("[data-action=toggle-users]");
-  popup.replaceChildren(
-    settings,
-    el("hr"),
-    history,
-    favorites,
-    el("hr"),
-    left,
-    users,
-    el("hr"),
-    windows,
-  );
   const scripts = $("scripts-menu").querySelector(".menu-popup"),
     entries = [...scripts.querySelectorAll(":scope > button")];
   for (const prefix of ["Administrar", "Editor", "Importar", "Recargar"]) {

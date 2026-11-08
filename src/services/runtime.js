@@ -273,12 +273,11 @@ class Runtime {
       });
       if (result.halted) return;
       data = { ...data, text: result.text };
-      if (this.getConfig().settings.historyEnabled) {
-        this.history.append(id, data);
-        this.history.prune(this.getConfig().settings.historyDays);
-      }
-      this.writeTextLog(id,data);
-      if (!data.own && !data.historical) this.notify(id, data);
+      const outputs=data.notice?require('./notice-policy').destinations(data,this.getConfig().settings,this.activeConversation?.id===id?this.activeConversation:null).map(target=>({...data,target,sourceTarget:data.target})):[data];
+      for(const output of outputs){if(this.getConfig().settings.historyEnabled){this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,output);}
+      if(!data.own&&!data.historical)this.notify(id,{...data,notificationTarget:outputs[0]?.target});
+      if(data.notice){for(const output of outputs)this.emit(id,type,output);return;}
+
     }
     if (type === "server") {
       const r = await this.scripts.event("NUMERIC", {
@@ -339,15 +338,16 @@ class Runtime {
     const self=this.sessions.get(id)?.nick||'',plain=require('../formatting').plain(data.text||''),fold=require('../irc').fold;
     const mentioned=!!self&&fold(plain).split(/[^\p{L}\p{N}_{}|~\-]+/u).includes(fold(self))||(settings.highlightWords||[]).some(word=>fold(plain).includes(fold(word)));
     if((mentioned||data.notice)&&!data.own&&!data.historical){
-      const entry={key:require('node:crypto').randomUUID(),network:id,target:data.target,nick:data.nick||'Servidor',text:plain.slice(0,10000),kind:data.notice?'notice':'mention',time:data.time||new Date().toISOString(),read:false};
+      const entry={key:require('node:crypto').randomUUID(),network:id,target:data.notificationTarget||data.target,nick:data.nick||'Servidor',text:plain.slice(0,10000),kind:data.notice?'notice':'mention',time:data.time||new Date().toISOString(),read:false};
       this.notificationLog||=[];this.notificationLog.push(entry);if(this.notificationLog.length>500)this.notificationLog.shift();this.emit(id,'notification-entry',{entry});
     }
-    if(!settings.notifications||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
+    if(!(data.notice?settings.noticePopup!==false:settings.notifications)||focused&&settings.notifyWhileFocused===false||viewing&&settings.notifyInCurrentRoom===false||record?.conversations?.some(c=>require('../irc').fold(c.name)===require('../irc').fold(data.target)&&c.muted))return;
     const nick=this.sessions.get(id)?.nick||'',words=require('../irc').fold(require('../formatting').plain(data.text)).split(/[^\p{L}\p{N}_{}|~\-]+/u),privateMessage=!/^[#&+!]/.test(data.target),mention=!!nick&&words.includes(require('../irc').fold(nick))||(settings.highlightWords||[]).some(word=>data.text.toLowerCase().includes(word.toLowerCase()));
+    if(!data.notice&&(mention?settings.notifyMentions===false:privateMessage&&settings.notifyPrivates===false))return;
     const sound=mention?settings.mentionSound!==false:privateMessage?settings.privateSound!==false:settings.channelSound===true;
     if(sound)this.electron.shell.beep();
     if(mention||privateMessage)this.emit(id,'attention',{target:data.target,mention,flash:settings.flashOnMention});
-    if(!privateMessage&&!mention)return;
+    if(!privateMessage&&!mention&&!data.notice)return;
     this.badge++;
     this.electron.app.setBadgeCount(this.badge);
     if (process.platform === "win32")
@@ -357,7 +357,7 @@ class Runtime {
         ),
         this.badge + " mensajes nuevos",
       );
-    if (!focused && this.electron.Notification.isSupported()) {
+    if ((!focused||data.notice) && this.electron.Notification.isSupported()) {
       const n = new this.electron.Notification({
         title: `${data.nick} · ${data.target}`,
         body: settings.notificationPreview
@@ -368,7 +368,7 @@ class Runtime {
       n.on("click", () => {
         w?.show();
         w?.focus();
-        this.emit(id, "navigate", { target: data.target });
+        this.emit(id, "navigate", { target: data.notificationTarget||data.target });
       });
       n.show();
     }
