@@ -1,0 +1,624 @@
+; INTERACCIONES SOCIALES DREAMS v2.0 - ADAPTACION HEXDREAMS IRC WINDOWS
+; Conserva las frases, colores IRC y emojis del archivo original.
+; Compatible con HexDreams IRC 0.13.0. No modifica el programa.
+; Permisos: read, send, ui. No requiere raw, http, intercept ni persist.
+; Desactiva otras versiones del addon para evitar alias duplicados.
+; Los grupos usan WHO: el motor Windows no ofrece members/membernames/nick.
+; Una ronda grupal a la vez, limite 60 miembros, hasta 8 nicks por mensaje.
+; Maximo conservador: 320 bytes de texto, incluidos colores y emojis.
+; /cafe y /cafe hate funcionan tambien en el privado actual.
+; Revalida presencia y rangos antes de cada bloque. Pausas de 5/15 segundos.
+; /social o /ishelp muestran los comandos. /cancelarsaludos detiene la ronda.
+
+on LOAD {
+  set %sw_activo 0
+  set %sw_token 0
+  set %sw_last $json("{}")
+  set %sw_nombres $json("{}")
+  set %sw_rangos $json("{}")
+  set %hdg_activo 0
+  set %hdg_token 0
+  set %hdg_indice 0
+  set %hdg_total 0
+  set %hdg_lineas 0
+  set %hdg_canal 
+  set %hdg_red 
+  set %hdg_frase 
+  set %hdg_lista 
+  set %hdg_tono 
+  set %hdg_modo 
+  set %ds_cafe_activo 0
+  set %ds_cafe_token 0
+  set %ds_social_last_baila 0
+  set %ds_social_last_zape 0
+  set %ds_social_last_abrazo 0
+  set %ds_social_last_piropo 0
+  set %ds_social_last_bss 0
+  set %ds_social_last_muaks 0
+  set %ds_social_last_regalo 0
+  set %ds_social_last_servir 0
+  set %ds_social_last_clap 0
+  set %ds_social_last_bd 0
+  set %ds_social_last_bn 0
+  set %ds_social_last_bt 0
+  set %ds_social_last_bm 0
+  set %ds_social_last_chau 0
+}
+
+alias baila {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /baila Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 6)
+  if (%ds_n == %ds_social_last_baila) {
+    inc %ds_n
+    if (%ds_n > 6) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_baila %ds_n
+  if (%ds_n == 1) { sw_action "13se acerca a 11$113, le toma de la manito y le susurra: ¿Me concedes este baile? 💃🕺" }
+  if (%ds_n == 2) { sw_action "13agarra a 11$113 y lo arrastra a la pista. ¡ChUnTa ChUnTa! ¡Vueltita por aquí, meneíto por allá! 🎶" }
+  if (%ds_n == 3) { sw_action "13invita a 11$113 a bailar un lento, lo toma suavemente de la cintura y deja que suene la música. 💞" }
+  if (%ds_n == 4) { sw_action "13hace girar a 11$113 en plena pista, se enreda con sus propios pies y termina soltando una carcajada. 😂" }
+  if (%ds_n == 5) { sw_action "13le ofrece la mano a 11$113: ¡Vamos, que esta canción es nuestra! 💃" }
+  if (%ds_n == 6) { sw_action "13saca a 11$113 a bailar rock, gira de un lado al otro y termina haciendo una reverencia. 🎸" }
+}
+
+alias zape {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /zape Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 9)
+  if (%ds_n == %ds_social_last_zape) {
+    inc %ds_n
+    if (%ds_n > 9) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_zape %ds_n
+  if (%ds_n == 1) { sw_action "04se acerca sigilosamente a 11$104 y... ¡ZAAAAAPE! ¡Tremendo coscorrón en la nuca! 👋" }
+  if (%ds_n == 2) { sw_action "04le dice a 11$104: ¡Mirá para allá! Y cuando se da vuelta... ¡PLAAAAAS! ¡Zape de regalo! 😂" }
+  if (%ds_n == 3) { sw_action "04levanta la mano y le da a 11$104 un zape seco y preciso. ¡TOMA, POR DESPISTADO! 👋" }
+  if (%ds_n == 4) { sw_action "04espera a que 11$104 se distraiga y ¡ZAS! Le acomoda las ideas de un coscorrón. 😜" }
+  if (%ds_n == 5) { sw_action "04se pone detrás de 11$104 y ¡PLOP! Le cae un zape en la nuca sin previo aviso. 👋" }
+  if (%ds_n == 6) { sw_action "04mira fijamente a 11$104, sonríe y le suelta un zape de esos que hacen decir: ¡AY! 😂" }
+  if (%ds_n == 7) { sw_action "04amaga una caricia a 11$104... ¡pero era un zape travieso! 👋" }
+  if (%ds_n == 8) { sw_action "04le da a 11$104 un coscorrón de campeonato y después pone cara de no haber sido. 😇" }
+  if (%ds_n == 9) { sw_action "04le toca el hombro a 11$104, espera que se dé vuelta y... ¡ZAPE! 👋" }
+}
+
+alias abrazo {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /abrazo Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 6)
+  if (%ds_n == %ds_social_last_abrazo) {
+    inc %ds_n
+    if (%ds_n > 6) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_abrazo %ds_n
+  if (%ds_n == 1) { sw_action "06rodea a 11$106 con los brazos y le da un abrazo enorme, de esos que arreglan un mal día. 🤗" }
+  if (%ds_n == 2) { sw_action "06abraza a 11$106 tan fuerte que casi le saca una sonrisa a presión. 🫂" }
+  if (%ds_n == 3) { sw_action "06se acerca a 11$106 y le regala un abrazo largo, cálido y lleno de cariño. 💜" }
+  if (%ds_n == 4) { sw_action "06abre los brazos de par en par y atrapa a 11$106 en un abrazo sorpresa. 🤗" }
+  if (%ds_n == 5) { sw_action "06le da a 11$106 un abrazo apretadito y le susurra: ¡Qué bueno que estés acá! ✨" }
+  if (%ds_n == 6) { sw_action "06se queda un ratito abrazando a 11$106, porque hay afectos que no necesitan palabras. 💕" }
+}
+
+alias piropo {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /piropo Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 24)
+  if (%ds_n == %ds_social_last_piropo) {
+    inc %ds_n
+    if (%ds_n > 24) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_piropo %ds_n
+  if (%ds_n == 1) { sw_action "12le dice a 11$112: Si la dulzura pagara impuestos, vos ya deberías una fortuna. 😉" }
+  if (%ds_n == 2) { sw_action "12se acerca a 11$112 y confiesa: Sos esa sonrisa que mejora cualquier día. 💫" }
+  if (%ds_n == 3) { sw_action "12le guiña un ojo a 11$112: ¿Siempre iluminás tanto o hoy viniste con luces extra? ✨" }
+  if (%ds_n == 4) { sw_action "12le dice a 11$112: Tenés algo peligroso... ¡la capacidad de alegrarme el día! 😏" }
+  if (%ds_n == 5) { sw_action "12mira a 11$112 y suspira: Con esa sonrisa, ni el café me hace falta. ☕" }
+  if (%ds_n == 6) { sw_action "12le dice a 11$112: Si fueras canción, te pondría en repetición. 🎶" }
+  if (%ds_n == 7) { sw_action "12se inclina hacia 11$112: ¿Sos casualidad o la mejor coincidencia de este chat? 💜" }
+  if (%ds_n == 8) { sw_action "12le comenta a 11$112: A tu lado, hasta el silencio tiene buena compañía. 🌷" }
+  if (%ds_n == 9) { sw_action "12le dice a 11$112: Lo tuyo no es encanto, ¡es abuso de carisma! 😜" }
+  if (%ds_n == 10) { sw_action "12le confiesa a 11$112: Hay personas especiales... y después estás vos. 💖" }
+  if (%ds_n == 11) { sw_action "12le pregunta a 11$112: ¿Tenés un mapa? Porque me pierdo en tu sonrisa. 😉" }
+  if (%ds_n == 12) { sw_action "12mira a 11$112 y dice: Qué suerte la del espejo, que te ve todos los días. ✨" }
+  if (%ds_n == 13) { sw_action "12le dice a 11$112: No sé de magia, pero vos cambiás el ambiente cuando aparecés. 🌟" }
+  if (%ds_n == 14) { sw_action "12sonríe a 11$112: Si la simpatía fuera un deporte, ya tendrías medalla de oro. 🏅" }
+  if (%ds_n == 15) { sw_action "12le dice a 11$112: ¿Sabés qué te queda bien? Ser vos. 💜" }
+  if (%ds_n == 16) { sw_action "12le susurra a 11$112: Tenés pinta de problema... de esos que uno quiere conocer. 😏" }
+  if (%ds_n == 17) { sw_action "12le dice a 11$112: Sos una de esas buenas noticias que llegan sin avisar. 💌" }
+  if (%ds_n == 18) { sw_action "12le guiña un ojo a 11$112: ¿Venís seguido por aquí o esperabas que te invitara? 😉" }
+  if (%ds_n == 19) { sw_action "12le confiesa a 11$112: Si sonreír fuera delito, ya me habrías condenado. 😍" }
+  if (%ds_n == 20) { sw_action "12le dice a 11$112: No sé qué perfume usás, pero dejás el aire lleno de alegría. 🌸" }
+  if (%ds_n == 21) { sw_action "12mira a 11$112 y comenta: Hay estrellas en el cielo... pero vos brillás en esta sala. ✨" }
+  if (%ds_n == 22) { sw_action "12le dice a 11$112: ¿Te puedo pedir un favor? Seguí siendo así de adorable. 🥰" }
+  if (%ds_n == 23) { sw_action "12se acerca a 11$112: Ojo con esa mirada, que me distraés de la conversación. 😜" }
+  if (%ds_n == 24) { sw_action "12le dice a 11$112: No prometo la luna, pero sí una buena charla y muchas risas. 🌙" }
+}
+
+alias bss {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /bss Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 6)
+  if (%ds_n == %ds_social_last_bss) {
+    inc %ds_n
+    if (%ds_n > 6) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_bss %ds_n
+  if (%ds_n == 1) { sw_action "13le manda a 11$113 un besito enorme con muchísimo cariño. ¡Muaaaaaks! 😘" }
+  if (%ds_n == 2) { sw_action "13se acerca a 11$113 y le deja un beso dulce en la mejilla. 💋" }
+  if (%ds_n == 3) { sw_action "13le tira a 11$113 una lluvia de besitos voladores. ¡Mua, mua, mua! 😘" }
+  if (%ds_n == 4) { sw_action "13le roba a 11$113 un besito travieso y sale corriendo entre risas. 😜" }
+  if (%ds_n == 5) { sw_action "13le manda a 11$113 besos de esos que atraviesan cualquier distancia. 💞" }
+  if (%ds_n == 6) { sw_action "13le regala a 11$113 un besito con moño, dedicado especialmente. 🎀" }
+}
+
+
+; MUAKS: lluvia multicolor de besos para un nick.
+alias muaks {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) { sw_echo Uso: /muaks Nick | return }
+  if ($len($chan) == 0) { sw_echo Abre una sala antes de usar /muaks | return }
+  set -l %ds_n $rand(1,5)
+  if (%ds_n == %ds_social_last_muaks) { inc %ds_n | if (%ds_n > 5) { set %ds_n 1 } }
+  set %ds_social_last_muaks %ds_n
+  if (%ds_n == 1) { sw_action "le lanza a $1 una lluvia de 04MUAKS 07MUAKS 03MUAKS 12MUAKS 06MUAKS 13MUAKS 😘💋💕" }
+  if (%ds_n == 2) { sw_action "llena a $1 de 13MUAK 04MUAK 09MUAK 06MUAK 03MUAK 10MUAK 💋💋💋" }
+  if (%ds_n == 3) { sw_action "envía a $1 un torbellino de besitos: 04MUA 07MUA 12MUA 09MUA 13MUA 06MUA 😘🌈" }
+  if (%ds_n == 4) { sw_action "le dedica a $1 mil besos de colores: 06MUAKS 10MUAKS 04MUAKS 03MUAKS 09MUAKS 💕💋" }
+  if (%ds_n == 5) { sw_action "bombardea cariñosamente a $1 con 07MUAK 13MUAK 12MUAK 04MUAK 10MUAK 06MUAK 😘💖🌈" }
+}
+
+alias regalo {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /regalo Nick
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_n $rand(1, 8)
+  if (%ds_n == %ds_social_last_regalo) {
+    inc %ds_n
+    if (%ds_n > 8) { set -l %ds_n 1 }
+  }
+  set %ds_social_last_regalo %ds_n
+  if (%ds_n == 1) { sw_action "03le entrega a 11$103 un ramo enorme de flores recién cortadas. 💐" }
+  if (%ds_n == 2) { sw_action "03sorprende a 11$103 con una cajita de bombones y una sonrisa. 🍫" }
+  if (%ds_n == 3) { sw_action "03le regala a 11$103 un osito de peluche para los días grises. 🧸" }
+  if (%ds_n == 4) { sw_action "03le deja a 11$103 una carta preciosa y una flor entre sus páginas. 💌" }
+  if (%ds_n == 5) { sw_action "03le trae a 11$103 una torta deliciosa con una vela para pedir un deseo. 🎂" }
+  if (%ds_n == 6) { sw_action "03le obsequia a 11$103 una estrella imaginaria, para que nunca le falte luz. ⭐" }
+  if (%ds_n == 7) { sw_action "03le lleva a 11$103 una taza de café calentito y un abrazo extra. ☕" }
+  if (%ds_n == 8) { sw_action "03le entrega a 11$103 un paquetito sorpresa lleno de alegría. 🎁" }
+}
+
+
+alias servir {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado antes de usar el comando. | return }
+  if ($len($1) == 0) {
+    sw_echo Uso: /servir Nick comida o bebida
+    return
+  }
+  if ($len($2-) == 0) {
+    sw_echo Uso: /servir Nick comida o bebida
+    return
+  }
+  if ($len($chan) == 0) {
+    sw_echo Abre una sala o un privado antes de usar el comando.
+    return
+  }
+  set -l %ds_servir_n $rand(1, 4)
+  if (%ds_servir_n == %ds_social_last_servir) {
+    inc %ds_servir_n
+    if (%ds_servir_n > 4) { set -l %ds_servir_n 1 }
+  }
+  set %ds_social_last_servir %ds_servir_n
+  if (%ds_servir_n == 1) { sw_action "11le sirve a 13$111 un delicioso 03$2-11, preparado con cariño. ¡Que lo disfrutes! 🍽️" }
+  if (%ds_servir_n == 2) { sw_action "11se pone el delantal y le lleva a 13$111 un riquísimo 03$2-11. ¡Buen provecho! 😋" }
+  if (%ds_servir_n == 3) { sw_action "11llega con una bandeja y le ofrece a 13$111 03$2-11. ¡Pedido especial de la casa! 🥰" }
+  if (%ds_servir_n == 4) { sw_action "11le prepara a 13$111 03$2-11 y lo sirve con una sonrisa. ❤️" }
+}
+
+alias hdg_color {
+  set -l %azar $rand(1,9)
+  if (%azar == 1) { set %hdg_tono 03 }
+  elseif (%azar == 2) { set %hdg_tono 04 }
+  elseif (%azar == 3) { set %hdg_tono 05 }
+  elseif (%azar == 4) { set %hdg_tono 06 }
+  elseif (%azar == 5) { set %hdg_tono 07 }
+  elseif (%azar == 6) { set %hdg_tono 10 }
+  elseif (%azar == 7) { set %hdg_tono 11 }
+  elseif (%azar == 8) { set %hdg_tono 12 }
+  else { set %hdg_tono 13 }
+}
+
+alias hdg_frasecrear {
+  set -l %tipo $1
+  set -l %despedida $2
+  set -l %maximo 5
+  if (%despedida == chau) { set -l %maximo 3 }
+  set -l %variante $rand(1,%maximo)
+  set -l %clave $join($list(%tipo,%despedida),:)
+  if (%variante == $get(%sw_last,%clave)) {
+    inc %variante
+    if (%variante > %maximo) { set -l %variante 1 }
+  }
+  setat %sw_last %clave %variante
+  if (%despedida == chau) {
+    if (%tipo == dias) {
+      if (%variante == 1) { set %hdg_frase "04🌞 12¡Me despido por ahora! 03Que tengan un día precioso y que siga el buen chat. 🌷" }
+      elseif (%variante == 2) { set %hdg_frase "07☀️ 06¡Hasta luego, gente linda! 13Que disfruten el día y tengan un chat maravilloso. 💖" }
+      else { set %hdg_frase "10🌻 04¡Nos leemos pronto! 12Que tengan un hermoso día y un excelente chat. ☕" }
+    }
+    elseif (%tipo == tardes) {
+      if (%variante == 1) { set %hdg_frase "06🌺 12¡Me despido por ahora! 03Que pasen una tarde preciosa y sigan disfrutando del chat. 💕" }
+      elseif (%variante == 2) { set %hdg_frase "07🌻 13¡Hasta prontito! 10Les deseo una tarde hermosa y un chat lleno de sonrisas. ✨" }
+      else { set %hdg_frase "04🌷 06¡Me voy, gente linda! 12Que tengan una tarde genial y un muy buen chat. 🧉" }
+    }
+    elseif (%tipo == noches) {
+      if (%variante == 1) { set %hdg_frase "12🌙 13¡Me despido por esta noche! 03Que tengan una noche hermosa y sigan disfrutando de un lindo chat. ✨" }
+      elseif (%variante == 2) { set %hdg_frase "06⭐ 12¡Hasta pronto, gente bonita! 10Que la noche los trate lindo y no falte el buen chat. 💖" }
+      else { set %hdg_frase "13🌠 06¡Me voy despidiendo! 03Les deseo muy buenas noches y una charla maravillosa. 🌙" }
+    }
+    elseif (%tipo == madrugadas) {
+      if (%variante == 1) { set %hdg_frase "12🌌 06¡Me despido, noctámbulos! 03Que tengan una linda madrugada y sigan disfrutando del chat. ⭐" }
+      elseif (%variante == 2) { set %hdg_frase "13🌙 10¡Hasta prontito! 12Que la madrugada les regale buenas charlas y sonrisas. ☕" }
+      else { set %hdg_frase "06✨ 12¡Me voy por ahora! 03Que tengan una madrugada tranquila y un chat estupendo. 💜" }
+    }
+  }
+  else {
+    if (%tipo == dias) {
+      if (%variante == 1) { set %hdg_frase "🌞🌸 04B07u03e12n06o13s 10d09í05a11s 12Con aroma a café recién hecho, arranca la mañana. ☕🌼" }
+      elseif (%variante == 2) { set %hdg_frase "🌅🦋 04B07u03e12n 06d13í10a 12El sol ya salió; las ganas de levantarse van llegando de a poco. 😄🌻" }
+      elseif (%variante == 3) { set %hdg_frase "☀️🎶 04B07u03e12n06o13s 10d09í05a11s 12Pasando a saludar, a ver qué se cuenta por acá. 🌈" }
+      elseif (%variante == 4) { set %hdg_frase "🌼😎 04M07u03y 12b06u13e10n09o05s 11d02í04a07s 12Un día nuevo y alguna historia para contar. 🌷" }
+      else { set %hdg_frase "🌻🧉 04B07u03e12n 06d13í10a 12Mate en mano y música de fondo, que empiece la charla. 🎵" }
+    }
+    elseif (%tipo == tardes) {
+      if (%variante == 1) { set %hdg_frase "🌤️🌸 04B07u03e12n06a13s 10t09a05r11d02e04s 12Una pausa en el día para ver cómo anda el chat. 🦋" }
+      elseif (%variante == 2) { set %hdg_frase "🌻🍪 04B07u03e12n06a13s 10t09a05r11d02e04s 12Algo rico para merendar y seguimos conversando. 🌈" }
+      elseif (%variante == 3) { set %hdg_frase "🌅🎶 04M07u03y 12b06u13e10n09a05s 11t02a04r07d03e12s 12Entre música y charla se nos va pasando la tarde. 🎤" }
+      elseif (%variante == 4) { set %hdg_frase "🍃😎 04B07u03e12n06a13s 10t09a05r11d02e04s 12¿Cómo viene esa tarde? Por acá, dando una vuelta. 🌺" }
+      else { set %hdg_frase "🌷🧉 04B07u03e12n06a 13t10a09r05d11e 12Un mate, un rato libre y a ponerse al día. 🎶" }
+    }
+    elseif (%tipo == noches) {
+      if (%variante == 1) { set %hdg_frase "🌙✨ 04B07u03e12n06a13s 10n09o05c11h02e04s 12Se hizo de noche y el chat sigue despierto. 🌟" }
+      elseif (%variante == 2) { set %hdg_frase "🌃🎧 04M07u03y 12b06u13e10n09a05s 11n02o04c07h03e12s 12Hora de música, charla y ver quién anda por acá. 🎶" }
+      elseif (%variante == 3) { set %hdg_frase "⭐🌸 04B07u03e12n06a13s 10n09o05c11h02e04s 12El día terminó, pero todavía queda conversación. 🌙" }
+      elseif (%variante == 4) { set %hdg_frase "🌜😄 04B07u03e12n06a13s 10n09o05c11h02e04s 12¿Ya cenaron o todavía están pensando qué comer? 🍽️" }
+      else { set %hdg_frase "🌌🎤 04B07u03e12n06a 13n10o09c05h11e 12Algunos descansan y otros seguimos por acá. 🎵" }
+    }
+    elseif (%tipo == madrugadas) {
+      if (%variante == 1) { set %hdg_frase "🌌🦉 04B07u03e12n06a13s 10m09a05d11r02u04g07a03d12a06s 12¿Insomnio, desvelo o simplemente ganas de charlar? 🌙" }
+      elseif (%variante == 2) { set %hdg_frase "🌠😴 04B07u03e12n06a13s 10m09a05d11r02u04g07a03d12a06s 12A estas horas no sabemos si dormir o desayunar. 😄" }
+      elseif (%variante == 3) { set %hdg_frase "🌙🎧 04M07u03y 12b06u13e10n09a05s 11m02a04d07r03u12g06a13d10a09s 12La música sigue y el reloj ya perdió importancia. 🎶" }
+      elseif (%variante == 4) { set %hdg_frase "⭐🌃 04B07u03e12n06a13s 10m09a05d11r02u04g07a03d12a06s 12Turno de noctámbulos, ¿quién sigue por acá? 🦉" }
+      else { set %hdg_frase "🌌✨ 04B07u03e12n06a 13m10a09d05r11u02g04a07d03a 12Cuando todo está tranquilo, siempre queda alguna charla pendiente. 🌙" }
+    }
+  }
+}
+
+alias sw_clap_frase {
+  if ($len($chan) == 0) { sw_echo Abre una sala antes de usar /clap | return }
+  set -l %ds_dest $1-
+  if ($len(%ds_dest) == 0) { sw_echo No hay usuarios con voice (+v) en esta sala. | return }
+  set -l %ds_n $rand(1,8)
+  if (%ds_n == %ds_social_last_clap) { inc %ds_n | if (%ds_n > 8) { set %ds_n 1 } }
+  set %ds_social_last_clap %ds_n
+  if (%ds_n == 1) { sw_action "¡BRAVOOOO, %ds_dest! ¡Qué voz, qué talento! ¡Otra, otra! 👏🎤" }
+  if (%ds_n == 2) { sw_action "¡OVACIÓN DE PIE para %ds_dest! ¡Se viene abajo la sala! 👏👏👏" }
+  if (%ds_n == 3) { sw_action "aplaude con todas sus fuerzas a %ds_dest. ¡ESPECTACULAR! 🎶👏" }
+  if (%ds_n == 4) { sw_action "grita: ¡BRAVÍSIMO, %ds_dest! ¡Tenemos estrellas en este karaoke! ⭐🎤" }
+  if (%ds_n == 5) { sw_action "lanza una lluvia de aplausos para %ds_dest. ¡OLÉ, OLÉ Y OLÉ! 👏🌹" }
+  if (%ds_n == 6) { sw_action "se pone de pie y aplaude a %ds_dest. ¡Qué temazo, qué interpretación! 🎵👏" }
+  if (%ds_n == 7) { sw_action "pide un bis para %ds_dest. ¡NO NOS DEJES CON GANAS DE MÁS! 🎤👏" }
+  if (%ds_n == 8) { sw_action "hace sonar los aplausos para %ds_dest. ¡El karaoke está que arde! 🔥👏" }
+}
+
+alias sw_chau_frase {
+  if ($len($chan) == 0) { sw_echo Abre una sala antes de despedirte. | return }
+  set -l %ds_dest $1-
+  if ($len(%ds_dest) == 0) { sw_echo No hay usuarios con voice (+v) en esta sala. | return }
+  set -l %ds_n $rand(1,6)
+  if (%ds_n == %ds_social_last_chau) { inc %ds_n | if (%ds_n > 6) { set %ds_n 1 } }
+  set %ds_social_last_chau %ds_n
+  if (%ds_n == 1) { sw_action "se despide de %ds_dest. ¡CHAU, cuídense mucho y buen chat! 👋💜" }
+  if (%ds_n == 2) { sw_action "reparte abrazos de despedida a %ds_dest. ¡Hasta la próxima y buen chat! 🤗" }
+  if (%ds_n == 3) { sw_action "saluda con la manito a %ds_dest. ¡Me voy, que sigan disfrutando del chat! 👋✨" }
+  if (%ds_n == 4) { sw_action "les manda un beso a %ds_dest. ¡Que la pasen precioso, buen chat! 😘" }
+  if (%ds_n == 5) { sw_action "se despide de %ds_dest. ¡Fue lindo compartir este ratito! ¡Buen chat! 🌷" }
+  if (%ds_n == 6) { sw_action "se retira saludando a %ds_dest. ¡Nos leemos pronto, buen chat! 🌙👋" }
+}
+
+alias cafe {
+  set -l %sala $buffer
+  if ($sw_contexto() != 1) {
+    sw_echo CAFE: abre una sala o un privado.
+    return
+  }
+  set -l %modo $lower($1)
+  if (%modo == hate) {
+    set -l %n $rand(1,5)
+    if (%n == 1) { sw_msg %sala "04☕ ¡SIN CAFÉ NO HAY VIDA! Porque sin café mato a todos... -_- ¡GRRRR! 😤" }
+    if (%n == 2) { sw_msg %sala "07☕ No me hablen, no me miren, no respiren cerca... ¡PRIMERO MI CAFÉ! GRRRR." }
+    if (%n == 3) { sw_msg %sala "04☕🔥 Mi paciencia está en cero y mi taza también. ¡MALA COMBINACIÓN! -_-" }
+    if (%n == 4) { sw_msg %sala "06☕💀 Sin café soy un peligro para la convivencia. Quedan todos advertidos. ¡GRRR!" }
+    if (%n == 5) { sw_msg %sala "04☕😈 ¿Buenos días? ¡Buenos serán cuando aparezca mi café! Hasta entonces... distancia de seguridad." }
+    return
+  }
+  if ($len($1) == 0) {
+    set -l %n $rand(1,3)
+    if (%n == 1) { sw_msg %sala "07☕✨ ¡Cafecito recién hecho! El que quiera, que acerque su taza. 🫖" }
+    if (%n == 2) { sw_msg %sala "13🌸☕ El aroma a café invade la sala... ¡que nadie se quede sin su dosis! 😎" }
+    if (%n == 3) { sw_msg %sala "10☕🌈 ¡Café calentito para arrancar motores! Después vemos qué hacemos con la vida." }
+    return
+  }
+  if (%modo != all && %modo != voice) {
+    set -l %n $rand(1,3)
+    if (%n == 1) { sw_msg %sala "13☕🌹 Le sirve a 11$113 un café recién hecho, con cariño y sin demasiadas preguntas. 😏" }
+    if (%n == 2) { sw_msg %sala "07🍪☕ ¡Para 11$107! Un cafecito bien cargado, acompañado de algo rico. 🌸" }
+    if (%n == 3) { sw_msg %sala "10☕✨ Le alcanza una taza humeante a 11$110. ¡Cuidado que quema! 🔥" }
+    return
+  }
+  sw_comenzar cafe %modo
+}
+
+alias social {
+  sw_echo "DREAMS - Interacciones: /baila Nick, /zape Nick, /abrazo Nick, /piropo Nick, /bss Nick, /muaks Nick, /regalo Nick, /servir Nick comida"
+  sw_echo "Karaoke: /clap [Nick|all|plus]"
+  sw_echo "Cafe: /cafe | /cafe Nick | /cafe all | /cafe voice | /cafe hate"
+  sw_echo "Llegadas: /bd, /bt, /bn, /bm [Nick|all|plus|+]"
+  sw_echo "Despedidas: /chau [Nick|all|plus], /chaubd, /chaubt, /chaubn, /chaubm [Nick|all|plus|+]"
+  sw_echo "/cancelarsaludos detiene saludos grupales. ALL=todos; PLUS o +=usuarios con voice y rangos superiores."
+  sw_echo "/bd, /bt, /bn, /bm solos: solo saludo decorado, sin nicks."
+}
+
+alias ishelp {
+  if ($len($me) == 0) {
+    sw_echo ISHELP: conectate a IRC para consultar la ayuda privada.
+    return
+  }
+  echo $me "🌈 DREAMS - AYUDA DE INTERACCIONES SOCIALES 🌈"
+  echo $me "Interacciones: /baila Nick | /zape Nick | /abrazo Nick | /piropo Nick"
+  echo $me "Besitos y regalos: /bss Nick | /muaks Nick | /regalo Nick | /servir Nick comida"
+  echo $me "Karaoke: /clap | /clap Nick | /clap all | /clap plus"
+  echo $me "Cafe (sala o PV; all/voice solo sala): /cafe | /cafe Nick | /cafe all | /cafe voice | /cafe hate"
+  echo $me "Saludos: /bd (dias) | /bt (tardes) | /bn (noches) | /bm (madrugadas)"
+  echo $me "Opciones de saludos: /bd all | /bd plus | /bd Nick (igual para bt, bn y bm)"
+  echo $me "Sin destinatario, /bd /bt /bn /bm muestran solo el saludo decorado."
+  echo $me "Despedida: /chau | /chau all | /chau plus | /chau Nick"
+  echo $me "Despedidas por horario: /chaubd | /chaubt | /chaubn | /chaubm (admiten Nick, all o plus)"
+  echo $me "Control: /cancelarsaludos (detiene los saludos grupales pendientes)"
+  echo $me "Ayuda: /social (resumen local) | /ishelp (esta ayuda privada)"
+  echo $me "ALL = todos los usuarios de la sala. PLUS o + = usuarios con voice y rangos superiores."
+}
+; CONTEXTO Y ENVIO: nunca enviar ayuda como mensaje de sala.
+alias sw_contexto {
+  if ($len($buffer) == 0 || $buffer == * || $buffer == *consultas*) { return 0 }
+  return 1
+}
+alias sw_sala {
+  if ($re_match($buffer,"^[#&+!][^\s,:]+$") == true) { return 1 }
+  return 0
+}
+alias sw_echo {
+  if ($len($buffer) > 0) { echo $buffer $1- }
+  else { echo -s $1- }
+}
+alias sw_bytes {
+  set -l %t $re_replace($1,"[\u{10000}-\u{10ffff}]",xxxx)
+  set -l %t $re_replace(%t,"[\u0800-\uffff]",xxx)
+  set -l %t $re_replace(%t,"[\u0080-\u07ff]",xx)
+  return $len(%t)
+}
+alias sw_action {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado. | return }
+  set -l %wire $join($list("PRIVMSG ",$buffer," :CTCP ACTION ",$1-),"")
+  if ($sw_bytes(%wire) > 430 || $sw_bytes($1-) > 320) { sw_echo Texto demasiado largo para IRC. Acorta el nick o la comida. | return }
+  me $1-
+}
+alias sw_msg {
+  if ($sw_contexto() != 1 || $lower($1) != $lower($buffer)) { sw_echo Abre la sala o el privado de destino antes de enviar. | return }
+  set -l %wire $join($list("PRIVMSG ",$1," :",$2-),"")
+  if ($sw_bytes(%wire) > 430 || $sw_bytes($2-) > 320) { sw_echo Texto demasiado largo para IRC. No se envio una linea cortada. | return }
+  msg $1 $2-
+}
+
+; Las llegadas y despedidas por horario preservan sus frases originales.
+alias hdg_iniciar {
+  if ($sw_sala() != 1) { sw_echo SALUDOS: ejecuta el comando dentro de una sala. | return }
+  hdg_frasecrear $1 $3
+  if ($len($2) == 0 || $2 == __hdg_general__) { sw_msg $buffer %hdg_frase | return }
+  if ($lower($2) == all) { sw_comenzar saludo all %hdg_frase | return }
+  if ($lower($2) == plus || $2 == +) { sw_comenzar saludo voice %hdg_frase | return }
+  hdg_color
+  sw_msg $buffer %hdg_frase 11👋 %hdg_tono $2 
+}
+alias bd { hdg_iniciar dias $1 llegada }
+alias bt { hdg_iniciar tardes $1 llegada }
+alias bn { hdg_iniciar noches $1 llegada }
+alias bm { hdg_iniciar madrugadas $1 llegada }
+alias chaubd { hdg_iniciar dias $1 chau }
+alias chaubt { hdg_iniciar tardes $1 chau }
+alias chaubn { hdg_iniciar noches $1 chau }
+alias chaubm { hdg_iniciar madrugadas $1 chau }
+alias clap {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado. | return }
+  if ($lower($1) == plus || $1 == + || $lower($1) == voice) { sw_comenzar clap voice | return }
+  if ($len($1) == 0 || $lower($1) == all) { sw_clap_frase a todos los presentes | return }
+  sw_clap_frase $1
+}
+alias chau {
+  if ($sw_contexto() != 1) { sw_echo Abri una sala o un privado. | return }
+  if ($lower($1) == plus || $1 == + || $lower($1) == voice) { sw_comenzar chau voice | return }
+  if ($len($1) == 0 || $lower($1) == all) { sw_chau_frase a todos los presentes | return }
+  sw_chau_frase $1
+}
+
+; Un solo trabajo conserva la red y sala originales en todos sus timers.
+alias sw_comenzar {
+  if ($sw_sala() != 1) { sw_echo Los destinatarios grupales necesitan una sala. | return }
+  if (%sw_activo == 1) { sw_echo Ya hay una ronda grupal. Usa /cancelarsaludos para detenerla. | return }
+  set %sw_tipo $1
+  set %sw_filtro $2
+  set %sw_frase $3-
+  set %sw_red $network
+  set %sw_canal $buffer
+  set %sw_activo 1
+  inc %sw_token
+  set %sw_inicial 1
+  set %sw_lista $slice($list(""),0,0)
+  set %sw_indice 0
+  set %sw_lineas 0
+  sw_consultar
+  timer 200 sw_pulso %sw_token
+}
+alias sw_consultar {
+  set %sw_fase who
+  set %sw_esperas 0
+  set %sw_nombres $json("{}")
+  set %sw_rangos $json("{}")
+  who %sw_canal
+}
+on NUMERIC {
+  if (%sw_activo != 1 || %sw_fase != who || $network != %sw_red) { return }
+  set -l %partes $split($text," ")
+  set -l %sala $get(%partes,0)
+  if ($code == 354 && $get(%partes,0) == 152) { set -l %sala $get(%partes,1) }
+  if ($lower(%sala) != $lower(%sw_canal)) { return }
+  if ($code == 352 || ($code == 354 && $get(%partes,0) == 152)) {
+    set -l %nick $get(%partes,4)
+    set -l %flags $get(%partes,5)
+    if ($len(%nick) == 0) { return }
+    setat %sw_nombres $lower(%nick) %nick
+    set -l %rango 0
+    if ($contains(%flags,+) == true || $contains(%flags,@) == true || $contains(%flags,%) == true || $contains(%flags,&) == true || $contains(%flags,~) == true) { set -l %rango 1 }
+    setat %sw_rangos $lower(%nick) %rango
+    if ($len(%sw_nombres) > 60) { set %sw_fase exceso }
+  }
+  elseif ($code == 315) { set %sw_fase lista }
+  elseif ($code == 403 || $code == 442) { set %sw_fase error }
+}
+
+on SIGNAL:sw_pulso {
+  if (%sw_activo != 1 || $1 != %sw_token || $network != %sw_red) { return }
+  if ($lower($buffer) != $lower(%sw_canal)) { set %sw_activo 0 | return }
+  if (%sw_fase == espera) { sw_consultar }
+  if (%sw_fase == who) {
+    inc %sw_esperas
+    if (%sw_esperas > 50) { sw_echo Ronda cancelada: WHO no completo la lista. No se enviaron destinatarios sin verificar. | set %sw_activo 0 | return }
+    timer 200 sw_pulso %sw_token
+    return
+  }
+  if (%sw_fase == exceso || $len(%sw_nombres) > 60) { sw_echo Ronda cancelada: mas de 60 miembros en la sala. | set %sw_activo 0 | return }
+  if (%sw_fase == error) { sw_echo Ronda cancelada: la sala no esta disponible. | set %sw_activo 0 | return }
+  if ($get(%sw_nombres,$lower($me)) == "") { sw_echo Ronda cancelada: ya no figuras en la sala. | set %sw_activo 0 | return }
+  if (%sw_inicial == 1) {
+    foreach %nick $keys(%sw_nombres) {
+      if (%nick != $lower($me) && (%sw_filtro == all || $get(%sw_rangos,%nick) == 1)) { push %sw_lista %nick }
+    }
+    set %sw_inicial 0
+    if ($len(%sw_lista) == 0) { sw_echo No hay otros miembros con los rangos solicitados. | set %sw_activo 0 | return }
+  }
+  ; CLAP/CHAU PLUS conservan un solo mensaje colectivo (hasta 140 bytes).
+  if (%sw_tipo == clap || %sw_tipo == chau) {
+    set -l %destinos ""
+    set -l %incluidos 0
+    foreach %clave %sw_lista {
+      if ($get(%sw_nombres,%clave) != "" && $get(%sw_rangos,%clave) == 1) {
+        set -l %proxima $get(%sw_nombres,%clave)
+        if ($len(%destinos) > 0) { set -l %proxima $join($list(%destinos,", ",%proxima),"") }
+        if ($sw_bytes(%proxima) <= 140) { set -l %destinos %proxima | inc %incluidos }
+      }
+    }
+    if (%sw_tipo == clap) { sw_clap_frase %destinos }
+    else { sw_chau_frase %destinos }
+    if (%incluidos < $len(%sw_lista)) { sw_echo Algunos nicks no entraron en el limite del mensaje colectivo. }
+    set %sw_activo 0
+    return
+  }
+
+  set -l %prefijo ""
+  if (%sw_tipo == saludo) {
+    if (%sw_lineas == 0) { set -l %prefijo %sw_frase }
+    set -l %prefijo $join($list(%prefijo," 👋"),"")
+  }
+  elseif (%sw_lineas == 0) {
+    if (%sw_filtro == voice) { set -l %prefijo "13☕🌟 ¡Cafecito especial para los VIP de la sala! 😎✨" }
+    else { set -l %prefijo "07☕🌈 ¡Ronda de café para toda la sala! 🥐" }
+  }
+  else { set -l %prefijo "10☕ Más tacitas para:" }
+  set -l %linea %prefijo
+  set -l %tomados 0
+  while (%sw_indice < $len(%sw_lista) && %tomados < 8) {
+    set -l %clave $get(%sw_lista,%sw_indice)
+    set -l %usuario $get(%sw_nombres,%clave)
+    if ($len(%usuario) == 0 || (%sw_filtro == voice && $get(%sw_rangos,%clave) != 1) || %clave == $lower($me)) {
+      inc %sw_indice
+      continue
+    }
+    if (%sw_tipo == cafe) { set %hdg_tono "11" }
+    else { hdg_color }
+    set -l %candidata $join($list(%linea," ",%hdg_tono,%usuario,""),"")
+    set -l %wire $join($list("PRIVMSG ",%sw_canal," :",%candidata),"")
+    if ($sw_bytes(%wire) > 430 || $sw_bytes(%candidata) > 320) {
+      if (%tomados == 0) { sw_echo Un nick o la frase exceden el limite IRC. Ronda cancelada sin cortar texto. | set %sw_activo 0 | return }
+      break
+    }
+    set -l %linea %candidata
+    inc %sw_indice
+    inc %tomados
+  }
+  if (%tomados > 0) { sw_msg %sw_canal %linea | inc %sw_lineas }
+  if (%sw_indice >= $len(%sw_lista)) { set %sw_activo 0 | sw_echo Ronda terminada: %sw_lineas mensajes. | return }
+  set %sw_fase espera
+  if ($mod(%sw_lineas,3) == 0) { timer 15000 sw_pulso %sw_token }
+  else { timer 5000 sw_pulso %sw_token }
+}
+alias cancelarsaludos {
+  if (%sw_activo != 1) { sw_echo No hay una ronda grupal en curso. | return }
+  if ($network != %sw_red) { sw_echo La ronda pertenece a otra red. | return }
+  set %sw_activo 0
+  inc %sw_token
+  sw_echo Ronda grupal detenida.
+}
+alias cancelarcafe { cancelarsaludos }
+on DISCONNECT {
+  if ($network == %sw_red) { set %sw_activo 0 | inc %sw_token }
+}
