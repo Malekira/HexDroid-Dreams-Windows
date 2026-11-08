@@ -40,7 +40,7 @@
   };
   const resize = () => {
     input.style.height = "auto";
-    input.style.height = Math.min(150, Math.max(32, input.scrollHeight)) + "px";
+    input.style.height = Math.min(150, Math.max(24, input.scrollHeight)) + "px";
   };
   input.addEventListener("input", resize);
   const baseChoose = choose;

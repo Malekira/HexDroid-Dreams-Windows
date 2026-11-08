@@ -226,6 +226,9 @@
       n = network(w.id),
       signature = JSON.stringify([
         c.revision,
+        c.showUsers,
+        profile(w.id)?.ownNickColor,
+        profile(w.id)?.mentionHighlightColor,
         c.messages.length,
         c.messages.at(-1)?.id,
         c.users,
@@ -257,6 +260,12 @@
     messages.setAttribute("aria-label", "Mensajes de " + c.name);
     const a = s.roomAppearance || {};
     messages.style.cssText = $("messages").style.cssText;
+    messages.style.setProperty(
+      "--mention-border",
+      profile(w.id)?.mentionHighlightColor ||
+        s.mentionHighlightColor ||
+        "#7650aa",
+    );
     messages.style.background = a.background || "var(--bg)";
     messages.style.color = $("messages").style.color || a.text || "var(--text)";
     messages.style.fontFamily =
@@ -309,7 +318,8 @@
           "aria-label",
           "Perfil de " + m.nick + " en " + c.name,
         );
-        if (m.own) nick.style.color = s.ownNickColor;
+        if (m.own)
+          nick.style.color = profile(w.id)?.ownNickColor || s.ownNickColor;
         else if (s.coloredNicks !== false) {
           let hash = 0;
           for (const ch of fold(m.nick))
@@ -395,7 +405,7 @@
     if (split) timeline.append(events);
     timeline.append(form);
     body.append(timeline);
-    if (s.showUsers !== false) {
+    if (conversationShowsUsers(c)) {
       const users = el("aside", "mdi-users");
       users.setAttribute("aria-label", "Usuarios de " + c.name);
       users.append(

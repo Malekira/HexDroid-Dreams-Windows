@@ -23,8 +23,8 @@
   nav.setAttribute("aria-label", "Árbol de configuración");
   for (const [key, label] of Object.entries({
     net: "Redes e identidad",
-    look: "Apariencia y conversación",
-    tools: "Datos y herramientas",
+    look: "Apariencia",
+    tools: "Herramientas",
   })) {
     const group = el("details", "settings-group"),
       summary = el("summary", "", label),
@@ -61,7 +61,7 @@
   const names = {
     networks: "Autenticación y proxy",
     history: "Historial",
-    notifications: "Notificaciones y tema",
+    notifications: "Notificaciones",
     palette:"Colores del entorno",
     dcc: "Transferencias DCC",
     crypto: "Cifrado",
@@ -78,7 +78,7 @@
     groups[
       key === "networks" || key === "crypto"
         ? "net"
-        : ["notifications","palette"].includes(key)
+        : ["notifications","palette","media"].includes(key)
           ? "look"
           : "tools"
     ].append(b);
@@ -383,21 +383,7 @@
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
       button('Guardar colores del entorno',()=>settings({customColors:Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]))}));button('Restaurar colores del tema',()=>settings({customColors:{}}));
     } else if (section === "notifications") {
-      const theme = select(
-          "Tema",
-          [
-            ["dark", "Oscuro"],
-            ["light", "Claro"],
-            ["system", "Sistema"],
-            ["matrix", "Matrix"],
-            ["violet", "Morado y azul marino"],
-            ["purple-light","PurpleDreamsLight"],
-            ...(config.settings.savedThemes||[]).map(t=>[t.id,t.name]),
-            ["new-theme","Agregar nuevo tema…"],
-          ],
-          config.settings.theme || "dark",
-        ),
-        enabled = input(
+      const enabled = input(
           "Notificar privados y menciones",
           config.settings.notifications,
           "checkbox",
@@ -412,7 +398,7 @@
           config.settings.flashOnMention,
           "checkbox",
         );
-      theme.onchange=()=>{if(theme.value==="new-theme"){theme.value=config.settings.theme;window.openDreamsThemeEditor();}};
+
       const minimize = input(
           "Minimizar a la bandeja",
           config.settings.minimizeToTray,
@@ -432,14 +418,14 @@
       const sendTyping=input('Enviar aviso «Estoy escribiendo»',config.settings.sendTyping!==false,'checkbox');
       const activeWindow=input('Avisar con la ventana activa',config.settings.notifyWhileFocused!==false,'checkbox'),activeRoom=input('Avisar también en la sala que estoy viendo',config.settings.notifyInCurrentRoom!==false,'checkbox'),mentionSound=input('Sonido al mencionar mi nick',config.settings.mentionSound!==false,'checkbox'),privateSound=input('Sonido de mensajes privados',config.settings.privateSound!==false,'checkbox'),channelSound=input('Sonido de todos los mensajes de sala',config.settings.channelSound===true,'checkbox'),activity=input('Resaltar conversaciones con mensajes nuevos',config.settings.highlightActivity!==false,'checkbox'),events=input('Resaltar conversaciones por entradas y salidas',config.settings.highlightEvents!==false,'checkbox');
       button("Guardar", () =>
-        settings({autoAwayEnabled:autoAway.checked,autoAwayMinutes:Number(awayMinutes.value),autoAwayMessage:awayMessage.value,autoAwayReturn:awayReturn.checked,highlightMentions:highlightMentions.checked,mentionHighlightColor:mentionHighlightColor.value,sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
+        settings({autoAwayEnabled:autoAway.checked,autoAwayMinutes:Number(awayMinutes.value),autoAwayMessage:awayMessage.value,autoAwayReturn:awayReturn.checked,highlightMentions:highlightMentions.checked,mentionHighlightColor:mentionHighlightColor.dataset.network?config.settings.mentionHighlightColor:mentionHighlightColor.value,sendTyping:sendTyping.checked,notifyWhileFocused:activeWindow.checked,notifyInCurrentRoom:activeRoom.checked,mentionSound:mentionSound.checked,privateSound:privateSound.checked,channelSound:channelSound.checked,highlightActivity:activity.checked,highlightEvents:events.checked,
           minimizeToTray: minimize.checked,
           closeToTray: closeTray.checked,
           highlightWords: highlights.value
             .split(",")
             .map((x) => x.trim())
             .filter(Boolean),
-          ...(theme.value===config.settings.theme?{}:theme.value==="purple-light"?DreamsThemes.purpleLight:theme.value==="violet"?DreamsThemes.violet:(config.settings.savedThemes||[]).find(t=>t.id===theme.value)?.settings||{theme:theme.value,customColors:{},roomAppearance:{}}),
+
           notifications: enabled.checked,
           notificationPreview: preview.checked,
           flashOnMention: flash.checked,
@@ -657,12 +643,13 @@
   }
   window.openDreamsAdvanced=key=>open(key);
   function open(key) {
+    if(key==="palette"){openSettings("appearance");return;}
     section = key || section;
     baseOpenSettings("__advanced__");
     body.hidden = false;
     for (const b of nav.querySelectorAll("button"))
       b.classList.toggle("selected", b.dataset.advancedSection === section);
-    run(show);
+    run(async()=>{await show();window.dispatchEvent(new CustomEvent("dreams-settings-rendered",{detail:section}));});
   }
   $("settings-search").addEventListener("input", () => {
     const q = $("settings-search").value.toLowerCase();

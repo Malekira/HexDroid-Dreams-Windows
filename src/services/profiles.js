@@ -65,7 +65,11 @@ function validateProfile(p) {
     throw new Error(
       "Guarda comandos con credenciales en el almacén seguro, no en el perfil.",
     );
+  for(const key of ['ownNickColor','textColor','mentionHighlightColor'])if(p[key]!==undefined&&!/^#[a-f0-9]{6}$/i.test(p[key]))throw Error('Color de identidad no válido.');
+  if(p.textStyle!==undefined&&!['normal','bold','italic','bold-italic','underline','bold-underline','italic-underline','bold-italic-underline'].includes(p.textStyle))throw Error('Estilo de identidad no válido.');
   const result = {
+    ...(p.ownNickColor?{ownNickColor:p.ownNickColor}:{}),...(p.textColor?{textColor:p.textColor}:{}),...(p.textStyle?{textStyle:p.textStyle}:{}),
+    ...(p.mentionHighlightColor?{mentionHighlightColor:p.mentionHighlightColor}:{}),
     host: p.host,
     port: p.port,
     nick: p.nick,

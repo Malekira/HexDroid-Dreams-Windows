@@ -363,7 +363,7 @@
   const commandButtons = [];
   for (const group of DreamsCommands.groups) {
     const category = el("details", "command-category");
-    category.open = group.id === "user";
+    category.open = false;
     category.append(el("summary", "", group.label));
     const items = el("div", "command-items");
     for (const item of group.items) {

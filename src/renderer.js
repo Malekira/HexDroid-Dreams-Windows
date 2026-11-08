@@ -31,7 +31,7 @@ function persist() {
 }
 function applySettings() {
   lastMessageView='';
-  const s = config.settings, sizes = DreamsWorkspace.panelSizes(innerWidth,s);
+  const s = config.settings, sizes = DreamsWorkspace.panelSizes(innerWidth,{...s,showUsers:conversationShowsUsers()});
   const root = document.documentElement.style;
   root.setProperty('--sidebar-width', sizes.left + 'px'); root.setProperty('--users-width', sizes.right + 'px');
   root.setProperty('--font-size', s.fontSize + 'px'); root.setProperty('--chat-font', s.fontFamily);
@@ -46,6 +46,7 @@ function applySettings() {
   $('private-sort').value = s.privateSort;
   for (const [id,key] of [['font','fontSize'],['sidebar','sidebarWidth'],['usersWidth','usersWidth'],['fontFamily','fontFamily'],['lineHeight','lineHeight'],['messageSpacing','messageSpacing'],['ownNickColor','ownNickColor']]) $('setting-' + id).value = String(s[key]);
   for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).checked = s[key];
+  applyConversationUsers();
 }
 function captureConversation() {
   const c = selected(); if (!c) return;
@@ -89,12 +90,13 @@ function renderSidebar() {
 function renderTabs() { $('room-tabs').hidden = true; }
 async function closeConversation(id, target) {
   const c = conversation(id, target);
+  if(c.kind==='server'&&network(id).state!=='disconnected'){notify('Desconecta la red antes de cerrar Status.',true);return;}
   if (c.joined && network(id).state === 'connected') {
     const result = await api.send({ id, target, text: '/part' }); if (result?.error) { notify(result.error, true); return; }
   }
   const cWasActive = active?.id === id && fold(active.target) === fold(target);
   network(id).conversations.delete(fold(target));
-  if (cWasActive) { active = null; choose(id,'*'); } else render();
+  if(cWasActive){active=null;workspace.active=null;if(c.kind!=='server')choose(id,'*');else{$('message-input').value='';render();}}else render();
   persist().catch(() => {});
 }
 function avatarFor(id,nick,scope="users"){
@@ -168,6 +170,11 @@ function renderUsers() {
 function statusPrefix(user,n){let i=0;while(i<user.length&&n.prefixes.includes(user[i]))i++;return user.slice(0,i);}
 function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.includes(user[i])) i++; return user.slice(i).split("!")[0]; }
 function renderHeader() {
+  applyConversationUsers();
+  const own=profile(active?.id)?.ownNickColor||config.settings.ownNickColor||'#c0adf1',mention=profile(active?.id)?.mentionHighlightColor||config.settings.mentionHighlightColor||'#7650aa',bg=getComputedStyle($('messages')).backgroundColor;
+  $('messages').style.setProperty('--room-own',DreamsFormatting.readableColor(own,bg));$('messages').style.setProperty('--mention-border',mention);$('messages').style.setProperty('--mention-background','color-mix(in srgb, '+mention+' 26%, '+bg+')');
+  document.documentElement.style.setProperty('--own-nick-color',profile(active?.id)?.ownNickColor||config.settings.ownNickColor||'#c0adf1');
+  applyComposerStyle();
   const p = profile(active?.id||selectedNetworkId||config.profiles[0]?.id), n = p && network(p.id), c = selected();
   const connection = n?.state !== 'disconnected' && n?.connection || p;
   $('conversation-title').textContent = c ? c.name === '*' ? p.name : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a HexDreams IRC';
@@ -197,7 +204,9 @@ function renderHeader() {
 }
 function render(preserveScroll = false) { renderSidebar(); renderTabs(); renderHeader(); renderMessages(preserveScroll); renderUsers();window.loadDreamsAvatars?.();window.refreshDreamsUserPhoto?.(); }
 function scheduleRender() { if (!framePending) { framePending = true; requestAnimationFrame(() => { framePending = false; render(true); }); } }
-function togglePanel(key) { config.settings[key] = !config.settings[key]; applySettings(); persist().catch(() => {}); }
+function conversationShowsUsers(c=selected()){return !!c&&c.kind!=='server'&&(c.showUsers??config.settings.showUsers)!==false;}
+function applyConversationUsers(){const visible=conversationShowsUsers(),sizes=DreamsWorkspace.panelSizes(innerWidth,{...config.settings,showUsers:visible});document.documentElement.style.setProperty('--sidebar-width',sizes.left+'px');document.documentElement.style.setProperty('--users-width',sizes.right+'px');$('users-panel').hidden=$('users-resizer').hidden=!visible;$('users-toggle').disabled=selected()?.kind==='server'||!selected();$('users-toggle').setAttribute('aria-pressed',String(visible));$('users-toggle').setAttribute('aria-label',(visible?'Ocultar':'Mostrar')+' usuarios');}
+function togglePanel(key) { if(key==='showUsers'&&selected()){if(selected().kind==='server')return;selected().showUsers=!conversationShowsUsers();applyConversationUsers();render();return;}config.settings[key] = !config.settings[key]; applySettings(); persist().catch(() => {}); }
 function goLatest() {
   const c = selected(); if (!c) return;
   c.follow = true; c.unread = 0; c.mentions = 0; c.firstUnreadId = null; $('message-search').value = '';
@@ -298,10 +307,11 @@ function userMenu(event,id,c,nick) {
     ] : [])
   ]);
 }
-function composeText(text){const s=config.settings,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(Number.isInteger(s.composerColor)?'\x03'+String(s.composerColor).padStart(2,'0'):'');if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
-function applyComposerStyle(){const s=config.settings,i=$('message-input');i.style.color=Number.isInteger(s.composerColor)?DreamsFormatting.readableColor(DreamsFormatting.colors[s.composerColor],getComputedStyle(document.querySelector('.composer-input')).backgroundColor):'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
+function effectiveComposerSettings(){const p=profile(active?.id),s={...config.settings};if(p?.textColor)s.textColor=p.textColor;if(p?.textStyle){s.composerBold=p.textStyle.includes('bold');s.composerItalic=p.textStyle.includes('italic');s.composerUnderline=p.textStyle.includes('underline');}return s;}
+function composeText(text){const s=effectiveComposerSettings(),colorIndex=s.textColor?DreamsFormatting.colors.findIndex(c=>c.toLowerCase()===s.textColor.toLowerCase()):s.composerColor,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(Number.isInteger(colorIndex)&&colorIndex>=0?'\x03'+String(colorIndex).padStart(2,'0'):s.textColor?'\x04'+s.textColor.slice(1):'');if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
+function applyComposerStyle(){const s=effectiveComposerSettings(),i=$('message-input');i.style.color=s.textColor?DreamsFormatting.readableColor(s.textColor,getComputedStyle(document.querySelector('.composer-input')).backgroundColor):Number.isInteger(s.composerColor)?DreamsFormatting.readableColor(DreamsFormatting.colors[s.composerColor],getComputedStyle(document.querySelector('.composer-input')).backgroundColor):'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?!!s.textColor||Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
 function previewFormat(){applyComposerStyle();$('format-preview').hidden=true;}
-document.querySelectorAll('[data-format]').forEach(button=>button.onclick=event=>{const type=button.dataset.format;if(type==='color'){contextMenu.show(event,'Color permanente para escribir',[{label:'Sin color',action:()=>{config.settings.composerColor=null;previewFormat();persist().catch(()=>{});}},...DreamsFormatting.colors.map((color,i)=>({label:'Color '+String(i).padStart(2,'0'),color,action:()=>{config.settings.composerColor=i;config.settings.ownNickColor=color;applySettings();previewFormat();persist().catch(()=>{});$('message-input').focus();}}))]);}else{const key={bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[type];config.settings[key]=!config.settings[key];previewFormat();persist().catch(()=>{});$('message-input').focus();}});
+document.querySelectorAll('[data-format]').forEach(button=>button.onclick=event=>{const type=button.dataset.format;if(type==='color'){contextMenu.show(event,'Color permanente para escribir',[{label:'Sin color',action:()=>{config.settings.composerColor=null;const p=profile(active?.id);if(p)delete p.textColor;previewFormat();persist().catch(()=>{});}},...DreamsFormatting.colors.map((color,i)=>({label:'Color '+String(i).padStart(2,'0'),color,action:()=>{config.settings.composerColor=i;const p=profile(active?.id);if(p)p.textColor=color;applySettings();previewFormat();persist().catch(()=>{});$('message-input').focus();}}))]);}else{const key={bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[type];const current=effectiveComposerSettings();config.settings[key]=!current[key];const p=profile(active?.id);if(p?.textStyle){current[key]=config.settings[key];p.textStyle=[current.composerBold?'bold':'',current.composerItalic?'italic':'',current.composerUnderline?'underline':''].filter(Boolean).join('-')||'normal';}previewFormat();persist().catch(()=>{});$('message-input').focus();}});
 function filterSettings() {
   const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const query = normalize($('settings-search').value.trim());
@@ -346,6 +356,7 @@ function openNetwork(id) {
   for (const key of ['name','host','nick','port','alternateNick']) $('profile-' + key).value = p?.[key] ?? (key === 'port' ? 6697 : '');
   $('profile-publishPhoto').checked=p?.publishPhoto!==false;$('profile-photoUrl').value=p?.photoUrl||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';$('profile-username').value=p?.username||p?.nick||'';$('profile-realName').value=p?.realName||'HexDreams IRC';$('profile-commandDelay').value=p?.commandDelay||1000;editingPhoto=p?.photo||'';updatePhotoPreview();$('profile-commands').value=(p?.commands||[]).join('\n');
   if(p&&api.advanced){const currentId=p.id,initialCommands=$('profile-commands').value;api.advanced('network.commands.get',{network:p.id}).then(r=>{if($('profile-id').value===currentId&&$('profile-commands').value===initialCommands&&r.commands)$('profile-commands').value=r.commands.join('\n');}).catch(e=>notify(e.message,true));}
+  for(const key of ['ownNickColor','textColor'])$('profile-'+key).value=p?.[key]||config.settings.ownNickColor||'#c0adf1';$('profile-textStyle').value=p?.textStyle||'normal';$('profile-customText').checked=!!(p?.textColor||p?.textStyle);
   $('profile-channels').value = p?.channels.join(', ') || ''; $('profile-tls').checked = p?.tls ?? true; $('profile-password').value = ''; $('network-error').textContent = '';
   if (!$('network-dialog').open) $('network-dialog').showModal(); $('profile-name').focus();
 }
@@ -395,7 +406,7 @@ $('network-form').addEventListener('submit', async event => {
   if (channels.some(c => !/^[#&+!][^\s:,]+$/.test(c)) || channels.length > 30) { $('network-error').textContent = 'Introduce hasta 30 salas, empezando por #, &, + o !.'; return; }
   if (!$('profile-id').value && config.profiles.length >= 30) { $('network-error').textContent = 'Esta versión admite hasta 30 redes.'; return; }
   const id = $('profile-id').value || crypto.randomUUID();
-  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels,username:$("profile-username").value.trim()||nick,realName:$("profile-realName").value.replace(/\r?\n/g,' '),alternateNick:$('profile-alternateNick').value.trim()||nick+'_',photoUrl:$('profile-photoUrl').value.trim(),photo:editingPhoto,publishPhoto:$('profile-publishPhoto').checked,commandDelay:Number($("profile-commandDelay").value),commands:[] };
+  const p = { ...profile(id), id, name: $('profile-name').value.trim() || host, host, port: Number($('profile-port').value), nick, tls: $('profile-tls').checked, channels,username:$("profile-username").value.trim()||nick,realName:$("profile-realName").value.replace(/\r?\n/g,' '),alternateNick:$('profile-alternateNick').value.trim()||nick+'_',photoUrl:$('profile-photoUrl').value.trim(),photo:editingPhoto,publishPhoto:$('profile-publishPhoto').checked,commandDelay:Number($("profile-commandDelay").value),commands:[],ownNickColor:$('profile-ownNickColor').value,textColor:$('profile-customText').checked?$('profile-textColor').value:undefined,textStyle:$('profile-customText').checked?$('profile-textStyle').value:undefined };
   const previousProfiles=[...config.profiles];
   const previous = config.profiles.findIndex(p => p.id === id); if (previous < 0) config.profiles.push(p); else config.profiles[previous] = p;
   const password = $('profile-password').value;
@@ -448,7 +459,7 @@ $('messages').addEventListener('scroll',() => {
   c.scrollTop = list.scrollTop; c.follow = list.scrollHeight - list.scrollTop - list.clientHeight < 70;
   if (c.follow) { c.unread = 0; c.mentions = 0; $('new-messages').hidden = true; }
 });
-for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).onchange = () => { config.settings[key] = $('setting-' + key).checked; applySettings(); render(); persist().catch(() => {}); };
+for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).onchange = () => { config.settings[key] = $('setting-' + key).checked;if(key==='showUsers'&&selected())delete selected().showUsers;applySettings(); render(); persist().catch(() => {}); };
 for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFamily',false],['ownNickColor','ownNickColor',false],['lineHeight','lineHeight',true],['messageSpacing','messageSpacing',true],['sidebar','sidebarWidth',true],['usersWidth','usersWidth',true]]) {
   const node = $('setting-' + id); node.oninput = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); };
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };

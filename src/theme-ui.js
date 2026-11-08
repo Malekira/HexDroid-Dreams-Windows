@@ -26,10 +26,10 @@
   };
   window.renderDreamsThemeManager = (parent) => {
     const group = el("section", "theme-manager"),
-      heading = el("h3", "", "Temas guardados"),
+      heading = el("h3", "", "Tema"),
       select = el("select"),
       name = el("input");
-    select.setAttribute("aria-label", "Tema guardado");
+    select.setAttribute("aria-label", "Tema");
     name.setAttribute("aria-label", "Nombre del tema");
     name.maxLength = 80;
     name.placeholder = "Nombre para guardar este estilo";
@@ -42,6 +42,8 @@
         ["purple-light", "PurpleDreamsLight"],
         ["dark", "Oscuro"],
         ["light", "Claro"],
+        ["system", "Sistema"],
+        ["matrix", "Matrix"],
         ...(config.settings.savedThemes || []).map((t) => [t.id, t.name]),
       ]) {
         const o = el("option", "", label);
@@ -57,13 +59,14 @@
           .then(fn)
           .catch((e) => notify(e.message, true));
       actions.append(b);
+      return b;
     };
     async function save() {
       await persist();
       applySettings();
       render();
     }
-    add("Aplicar tema", async () => {
+    add("Aplicar", async () => {
       const id = select.value,
         t = (config.settings.savedThemes || []).find((t) => t.id === id);
       const style =
@@ -76,8 +79,8 @@
       Object.assign(config.settings, structuredClone(style));
       await save();
     });
-    add("Agregar nuevo tema…", () => window.openDreamsThemeEditor());
-    add("Guardar como tema", async () => {
+    add("Agregar…", () => window.openDreamsThemeEditor());
+    add("Guardar", async () => {
       const label = name.value.trim();
       if (!label) throw new Error("Escribe un nombre para tu tema.");
       const themes = [...(config.settings.savedThemes || [])],
@@ -100,9 +103,10 @@
       await save();
       fill();
       select.value = id;
+      selection();
       notify("Tema guardado: " + label);
     });
-    add("Eliminar tema", async () => {
+    const remove = add("Eliminar", async () => {
       const id = select.value;
       if (!(config.settings.savedThemes || []).some((t) => t.id === id))
         throw new Error("Solo se eliminan temas personalizados.");
@@ -111,22 +115,29 @@
       );
       await save();
       fill();
+      selection();
     });
+    function selection() {
+      const saved = (config.settings.savedThemes || []).find(
+        (t) => t.id === select.value,
+      );
+      name.value = saved?.name || "";
+      remove.disabled = !saved;
+      remove.title = saved
+        ? "Eliminar este tema"
+        : "Los temas incluidos no se eliminan.";
+    }
+    select.onchange = selection;
     window.addEventListener("dreams-themes-changed", (event) => {
       if (group.isConnected) {
         fill();
         if (event.detail) select.value = event.detail;
+        selection();
       }
     });
     fill();
-    select.value =
-      config.settings.theme === "purple-light"
-        ? "purple-light"
-        : config.settings.theme === "violet"
-          ? "violet"
-          : config.settings.theme === "light"
-            ? "light"
-            : "dark";
+    select.value = config.settings.theme || "dark";
+    selection();
     row.append(select, name);
     group.append(heading, row, actions);
     parent.append(group);

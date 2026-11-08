@@ -267,11 +267,7 @@
     if (!options.floating && whoisWindow.dialog.open)
       whoisWindow.dialog.close();
     (options.floating ? whoisWindow.body : $("users-panel")).append(userPanel);
-    if (!options.floating && !config.settings.showUsers) {
-      config.settings.showUsers = true;
-      applySettings();
-      persist().catch(() => {});
-    }
+    if(!options.floating&&selected()?.kind!=='server'){selected().showUsers=true;applyConversationUsers();}
     viewing = { id, nick, details: {}, floating: !!options.floating };
     userPanel.hidden = false;
     $("user-list").hidden = true;

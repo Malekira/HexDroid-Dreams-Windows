@@ -76,3 +76,6 @@ test("Script help catalogs alias descriptions, usages and internal helpers witho
   assert.equal(rows[0].description, "Envía un saludo amable");
   assert.equal(rows[1].internal, true);
 });
+test('Network identity styles are validated and stay separated by profile',()=>{
+ const {validateProfile}=require('../src/services/profiles'),base={host:'irc.example.org',port:6697,nick:'Test',channels:[]};const styled=validateProfile({...base,ownNickColor:'#123abc',textColor:'#abcdef',textStyle:'bold-italic',mentionHighlightColor:'#ff0011'}),normal=validateProfile(base);assert.equal(styled.textColor,'#abcdef');assert.equal(styled.textStyle,'bold-italic');assert.equal(normal.textColor,undefined);assert.throws(()=>validateProfile({...base,textColor:'red;bad'}));assert.throws(()=>validateProfile({...base,textStyle:'untrusted'}));
+});

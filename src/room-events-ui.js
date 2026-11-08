@@ -79,7 +79,7 @@
     mode.value = setting.value = s.roomView || "unified";
     clones.checked = s.showClones !== false;
     panes.style.setProperty("--events-percent", s.eventsPanePercent || 25);
-    const color = s.mentionHighlightColor || "#7650aa";
+    const color = profile(active?.id)?.mentionHighlightColor||s.mentionHighlightColor||"#7650aa";
     messages.style.setProperty("--mention-border", color);
     messages.style.setProperty(
       "--mention-background",

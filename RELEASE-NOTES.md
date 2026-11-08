@@ -1,19 +1,18 @@
-# HexDreams IRC 0.14.0 para Windows
+# HexDreams IRC 0.15.0 para Windows
 
-- Salas y privados en ventanas internas independientes, con su lista de usuarios, borrador y posición de lectura. Se pueden mover, redimensionar, maximizar y organizar desde Ver → Ventanas → Mosaico o Cascada.
-- Un clic en sala o conversación enfoca la escritura. Un clic en Notify abre las acciones del usuario, sin abrir un privado.
-- WHO y WHOIS no cambian automáticamente de conversación. WHOIS conserva su ficha y los resultados también quedan en WHOIS / WHO.
-- Autoaway en Configuración → Notificaciones y tema: tiempo de inactividad del equipo, mensaje y retorno automático opcional. Las ausencias manuales se respetan.
-- Ctrl+Shift+Z oculta el programa en la bandeja de notificaciones y mantiene las conexiones.
-- Sugerencias de nicks al escribir y de comandos al comenzar con `/`, incluidos los scripts activos. Tab y Shift+Tab recorren las coincidencias usando las letras originales.
-- Scripts con permisos automáticos y un único control de activación. Cada script tiene un botón Ayuda con comandos y descripciones; se retira la lista de comandos del menú Scripts. Importar o editar deja el script desactivado hasta activarlo.
-- Desconectar cierra las conversaciones de esa red. Al salir no se restauran salas ni privados abiertos; las redes, preferencias y archivos de historial se conservan.
-- Se corrige el reenvío de eventos de sanciones de sala al escritorio.
+- Configuración reorganizada según las correcciones de la versión 15: Redes e identidad, Apariencia y Herramientas. Se conservan las funciones de conexión y autenticación existentes.
+- En Editar red: color del nick propio y color/estilo de escritura por red. El formato personalizado es opcional; las redes anteriores conservan su comportamiento.
+- Colores del entorno reúne temas, fuente, tamaño, mensajes compactos, hora y paleta de nicks fuertes/pastel. Los temas tienen Aplicar, Agregar, Guardar y Eliminar; el editor incluye vista previa y controles compactos. Los temas incluidos no se eliminan.
+- Chat reúne altura de línea y separación. Paneles reúne anchos, visibilidad, entradas/salidas, ident/host, seguimiento y vista de eventos. Notificaciones y Multimedia tienen sus propias secciones, con controles de estilo uniforme. Se puede elegir un color de menciones por red.
+- Menús y submenús con tipografía, tamaño, espaciado y resaltado comunes. Orden por jerarquía y función; los submenús se abren hacia la derecha, por encima de las ventanas, y los listados largos tienen desplazamiento.
+- Ver/ocultar usuarios es independiente por conversación durante la sesión. Status no tiene usuarios y puede cerrarse si está desconectado. Los privados muestran el perfil del interlocutor.
+- Zona de escritura más compacta, conservando la fuente y el tamaño del texto.
+- Historial con nombres de red legibles en el árbol, los títulos y los resultados de búsqueda. Si una red ya no está configurada se recupera su nombre desde el encabezado del TXT.
 
 ## Uso
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Conserva tu configuración y tu certificado de firma existente. Autoaway se activa por separado. La descarga es una versión de prueba sin firma distribuida; la firma personal se realiza con Sign/Verify en tu Windows.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Se conservan redes, preferencias y archivos de historial. Conserva tu certificado existente para la firma personal con Sign/Verify; el ZIP distribuido no está firmado.
 
 ## Validación
 
-Pruebas de lógica, Chromium y Electron real con un servidor IRC local; la publicación de Windows ejecuta estas comprobaciones y prueba también el ejecutable empaquetado. Las conversaciones de prueba son simuladas; el comportamiento de comandos depende del servidor IRC.
+126 pruebas de lógica e integración y 42 flujos en Chromium, además de Electron real con IRC local TCP/TLS, scripts, formato, historial, reinicio y geometría. La publicación Windows vuelve a ejecutar las pruebas y verifica también el ejecutable empaquetado antes de crear la descarga.

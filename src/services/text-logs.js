@@ -100,6 +100,10 @@ class TextLogs {
     if (!item) throw new Error("Archivo de historial no disponible.");
     return path.join(this.directory, ...item.id.split("/"));
   }
+  describe(profiles=[]){
+    const names=new Map(profiles.map(p=>['red-'+filename(p.id,false),p.name||p.host]));
+    return this.files().map(item=>{const folder=item.id.split('/')[0];if(!names.has(folder)){let name='Red anterior';try{name=/^Red: ([^\r\n]+)/m.exec(this.read(item.id).text)?.[1]||name;}catch{}names.set(folder,name);}return{...item,networkLabel:names.get(folder)};});
+  }
   read(id, offset = 0) {
     const file = this.resolve(id),
       size = fs.statSync(file).size;

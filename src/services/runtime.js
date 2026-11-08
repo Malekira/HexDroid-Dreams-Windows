@@ -585,7 +585,7 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
-      case 'logs.text.list':this.textLogs.configure(this.getConfig().settings);this.textLogs.prune();return this.textLogs.files().map(item=>({...item,networkLabel:this.getConfig().profiles.find(p=>item.id.startsWith('red-'+require('./text-logs').filename(p.id,false)+'/'))?.name}));
+      case 'logs.text.list':this.textLogs.configure(this.getConfig().settings);this.textLogs.prune();return this.textLogs.describe(this.getConfig().profiles);
       case 'logs.text.read':return this.textLogs.read(data.id,data.offset);
       case 'logs.text.search':return this.textLogs.search(data.text,data.id);
       case 'logs.text.folder':{const directory=await this.pick({properties:['openDirectory','createDirectory']});if(!directory)return{cancelled:true};this.textLogs.directory=directory;fs.writeFileSync(path.join(this.directory,'text-log-folder.json'),JSON.stringify({directory}));return{directory};}

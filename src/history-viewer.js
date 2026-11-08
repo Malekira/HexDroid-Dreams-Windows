@@ -1,5 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
+const descriptions=new Map();
 let selected = null,
   next = 0,
   request = 0;
@@ -12,6 +13,8 @@ function fail(e) {
   $("feedback").textContent = e.message;
 }
 function label(id) {
+  if(descriptions.has(id))return descriptions.get(id);
+  const categories={salas:'Salas',privados:'Privados',status:'Status de red','whois-who':'WHOIS / WHO'};if(categories[id])return categories[id];
   return id.replace(/--[a-f0-9]{16}(?=\.txt|\/|$)/g, "").replace(/\.txt$/, "");
 }
 async function open(id, append = false, offset = 0) {
@@ -38,6 +41,7 @@ async function open(id, append = false, offset = 0) {
 async function refresh() {
   try {
     const rows = await call("logs.text.list");
+    descriptions.clear();for(const item of rows){const parts=item.id.split('/');descriptions.set(item.id,(item.networkLabel||'Red anterior')+' / '+label(parts[1])+' / '+label(parts.at(-1)));}
     $("tree").replaceChildren();
     const groups = new Map();
     for (const item of rows) {
@@ -52,7 +56,7 @@ async function refresh() {
           details.open = true;
           summary.textContent =
             parent === $("tree")
-              ? item.networkLabel || label(part)
+              ? item.networkLabel || "Red anterior"
               : label(part);
           details.append(summary);
           parent.append(details);

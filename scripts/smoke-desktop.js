@@ -233,7 +233,7 @@ async function run() {
     await page.getByRole('button',{name:'Guardar configuración multimedia',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('#settings-dialog .dialog-header button').click();
-    await page.getByRole('button',{name:'Mostrar usuarios',exact:true}).click();
+    await expect(page.locator('#users-panel')).toBeVisible();
     await expect(page.getByRole('button',{name:'@Alice',exact:true}).locator('img')).toBeVisible();
     expect(await page.getByRole('button',{name:'@Alice',exact:true}).locator('img').evaluate(img=>img.naturalWidth/img.naturalHeight)).toBe(2);
     console.log('Prueba Electron: fotos del chat mediante GECOS y METADATA');
@@ -345,9 +345,10 @@ async function run() {
     const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activado',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
 
-    await page.getByRole('button',{name:'Notificaciones y tema',exact:true}).click();
+    await page.locator('.settings-nav').getByRole('button',{name:'Notificaciones',exact:true}).click();
+    await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();
     await page.getByLabel('Tema',{exact:true}).selectOption('light');
-    await page.getByRole('button',{name:'Guardar',exact:true}).click();
+    await page.getByRole('button',{name:'Aplicar',exact:true}).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme','light');
     await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();
     await page.getByLabel('Fondo de conversación',{exact:true}).fill('#123456');
@@ -377,7 +378,7 @@ async function run() {
     const viewerPromise=app.waitForEvent('window');
     await page.evaluate(()=>window.dreams.advanced('history.window'));
     const viewer=await viewerPromise;await viewer.waitForLoadState();
-    await expect(viewer.locator('#tree button').first()).toBeVisible();
+    await expect(viewer.locator('#tree button').first()).toBeVisible();await expect(viewer.locator('#tree>details>summary').first()).toHaveText('Servidor de prueba');
     await viewer.getByRole('textbox',{name:'Buscar palabra',exact:true}).fill('Historial TXT privado');
     await viewer.getByRole('button',{name:'Buscar',exact:true}).click();
     await expect(viewer.locator('#results')).toContainText('Historial TXT privado 🦆');
