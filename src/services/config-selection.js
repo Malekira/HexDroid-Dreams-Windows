@@ -11,7 +11,7 @@ const groups = {
           "mentionHighlightColor",
         ].includes(k),
     ),
-    "savedThemes",
+    "savedThemes","currentThemeId",
     "nickPalette",
   ],
   notifications: [

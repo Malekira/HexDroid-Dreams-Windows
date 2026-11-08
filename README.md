@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.16.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.17.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.16.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.17.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.16.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.17.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -24,6 +24,8 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 - Barra superior compacta: Red, conexión, consola, Salas, Topic, Notify, Tema, configuración y campana. El selector Tema reúne temas incluidos y personalizados. El botón de usuarios pertenece a cada ventana de conversación. Canales, privados, borradores y posición de lectura permanecen separados por red, incluso con apodos o salas iguales.
 - Configuración organizada en Redes e identidad, Apariencia, Chat y notificaciones y Herramientas. Chat y notificaciones separa General, Away, NOTICE, notificaciones, resaltado y sonido. Los temas se gestionan en Colores del entorno, con edición compacta y vista previa. Color del nick y color/estilo de escritura independientes por red en Editar red.
 - Diccionario configurable en **Configuración → Chat y notificaciones → Diccionario y nick completion**. Reemplaza palabras completas al pulsar espacio o enviar (por ejemplo, `XDD` → `😂`). Admite edición, eliminación, activación y distinción de mayúsculas.
+- Nick completion multicolor por letras, degradado o arcoíris, con vista previa. Usa la paleta IRC clásica de 16 colores para compatibilidad; los colores elegidos se aproximan a esa paleta. La activación se guarda al marcarla.
+- Editar red reúne conexión, identidad, avatar y comandos en cuatro secciones adaptables. Salas muestra primero las favoritas de la red activa.
 - Nick completion con plantilla `{nick}`, `{red}`, `{sala}`, texto, emojis, color, fondo y estilos, ayudas y vista previa. Tab sigue recorriendo los nicks originales y los destinatarios de comandos se conservan.
 - Menús uniformes, organizados por función e importancia, con submenús a la derecha que se mantienen encima de las ventanas de conversación.
 - La visibilidad de usuarios es independiente en cada conversación durante la sesión. Status de red no muestra usuarios y puede cerrarse al estar desconectado. Los privados muestran las acciones de su interlocutor.

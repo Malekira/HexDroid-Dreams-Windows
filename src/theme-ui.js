@@ -77,6 +77,7 @@
             ? DreamsThemes.violet
             : { theme: id, customColors: {}, roomAppearance: {} });
       Object.assign(config.settings, structuredClone(style));
+      config.settings.currentThemeId = id;
       await save();
     });
     add("Agregar…", () => window.openDreamsThemeEditor());
@@ -100,6 +101,7 @@
         themes.push(t);
       }
       config.settings.savedThemes = themes;
+      config.settings.currentThemeId = id;
       await save();
       fill();
       select.value = id;
@@ -110,6 +112,8 @@
       const id = select.value;
       if (!(config.settings.savedThemes || []).some((t) => t.id === id))
         throw new Error("Solo se eliminan temas personalizados.");
+      if (config.settings.currentThemeId === id)
+        config.settings.currentThemeId = config.settings.theme;
       config.settings.savedThemes = config.settings.savedThemes.filter(
         (t) => t.id !== id,
       );
@@ -136,7 +140,8 @@
       }
     });
     fill();
-    select.value = config.settings.theme || "dark";
+    select.value =
+      config.settings.currentThemeId || config.settings.theme || "dark";
     selection();
     row.append(select, name);
     group.append(heading, row, actions);

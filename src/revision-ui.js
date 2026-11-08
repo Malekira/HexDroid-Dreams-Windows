@@ -376,7 +376,7 @@
             throw Error("Puedes guardar hasta 40 temas.");
           themes.push(item);
         }
-        Object.assign(config.settings, draft, { savedThemes: themes });
+        Object.assign(config.settings, draft, { savedThemes: themes,currentThemeId:item.id });
         await persist();
         applySettings();
         lastMessageView = "";

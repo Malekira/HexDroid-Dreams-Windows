@@ -155,7 +155,7 @@ async function run() {
     await page.getByRole('button', { name: 'Cerrar nodo #dreams', exact: true }).click();
     await expect(page.getByRole('button',{name:'Sala #dreams',exact:true})).toHaveCount(0);
     await expect.poll(() => received.some(line => line.startsWith('PART #dreams'))).toBe(true);
-    await page.getByRole('button', { name: 'Entrar en una sala', exact: true }).click();
+    await page.getByRole('button',{name:'Salas',exact:true}).click();await page.getByRole('menuitem',{name:'Entrar a otra sala…',exact:true}).click();
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
     console.log('Prueba Electron: formato permanente sin códigos en el editor');
@@ -176,9 +176,12 @@ async function run() {
     await page.getByRole('button',{name:'Color IRC',exact:true}).click();
     await page.getByRole('menuitem',{name:'Sin color',exact:true}).click();
     console.log('Prueba Electron: diccionario, nick completion y minimización');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Diccionario y nick completion',exact:true}).click();await page.getByRole('checkbox',{name:'Personalizar nick completion',exact:true}).check();await expect.poll(()=>page.evaluate(async()=>(await window.dreams.load()).settings.nickCompletion.enabled)).toBe(true);await page.getByRole('button',{name:'Listo',exact:true}).click();
     await page.evaluate(async()=>{config.settings.dictionaryEnabled=true;config.settings.dictionary=[{from:'XDD',to:'😂',enabled:true,matchCase:false}];config.settings.nickCompletion={enabled:true,template:'👋 {nick} 💜',color:'#123abc',bold:true};await persist();});
     await page.locator('#message-input').fill('XDD ');await expect(page.locator('#message-input')).toHaveValue('😂 ');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG #dreams :😂 ')).toBe(true);
-    await page.locator('#message-input').fill('Al');await page.locator('#message-input').press('Tab');await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.getByRole('button',{name:'Minimizar ventana #dreams',exact:true}).click();await page.getByRole('button',{name:'Restaurar conversación #dreams',exact:true}).click();await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG #dreams :\x0f\x02\x04123abc👋 Alice 💜\x0f ')).toBe(true);
+    await page.locator('#message-input').fill('Al');await page.locator('#message-input').press('Tab');await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.getByRole('button',{name:'Minimizar ventana #dreams',exact:true}).click();await page.getByRole('button',{name:'Restaurar conversación #dreams',exact:true}).click();await expect(page.locator('#message-input')).toHaveValue('👋 Alice 💜 ');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG #dreams :\x0f\x02\x0302👋 Alice 💜\x0f ')).toBe(true);
+    await page.evaluate(async()=>{config.settings.nickCompletion={enabled:true,template:'✨ {nick} 💜',colorMode:'rainbow',color:'#db0abf'};await persist();});await page.locator('#message-input').fill('Al');await page.locator('#message-input').press('Tab');await page.locator('#message-input').press('Enter');
+    const legacyPlain=text=>text.replace(/\x03\d{1,2}(?:,\d{1,2})?/g,'').replace(/[\x02\x0f\x1d\x1f]/g,'');await expect.poll(()=>received.some(line=>legacyPlain(line)==='PRIVMSG #dreams :✨ Alice 💜 ')).toBe(true);const rainbowWire=received.find(line=>legacyPlain(line)==='PRIVMSG #dreams :✨ Alice 💜 ');expect(rainbowWire).not.toContain('\x04');expect(rainbowWire).not.toContain('db0abf');expect(new Set([...rainbowWire.matchAll(/\x03(\d{2})/g)].map(m=>m[1])).size).toBeGreaterThan(3);
     await page.evaluate(async()=>{config.settings.dictionary=[];config.settings.nickCompletion={enabled:false,template:'{nick}'};await persist();});
     console.log('Prueba Electron: Autoaway y retorno automático');
     await app.evaluate(({powerMonitor})=>{global.__testIdleSeconds=120;powerMonitor.getSystemIdleTime=()=>global.__testIdleSeconds;});
@@ -294,7 +297,7 @@ async function run() {
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
     await page.locator('#settings-dialog .dialog-header button').click();
     console.log('Prueba Electron: listado y apariencia de salas');
-    await page.getByRole('button',{name:'Entrar en una sala',exact:true}).click();
+    await page.getByRole('button',{name:'Salas',exact:true}).click();await page.getByRole('menuitem',{name:'Entrar a otra sala…',exact:true}).click();
     await expect(page.locator('.room-result>button').first()).toHaveText('#zeta · 100');
     await page.getByLabel('Orden de salas',{exact:true}).selectOption('name');
     await expect(page.locator('.room-result>button').first()).toHaveText('#alpha · 3');
@@ -317,13 +320,12 @@ async function run() {
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},photoFile);
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.settings-group')).toHaveCount(4);
-    const settingsSize=await page.locator('#settings-dialog').boundingBox();
     await page.locator('#profile-list').getByRole('button',{name:'Editar',exact:true}).click();
     await page.locator('#profile-username').fill('desktop_ident');await page.locator('#profile-realName').fill('Desktop Real Name');
     await page.locator('#profile-commands').fill('/nick Dreamer');
     await page.getByRole('button',{name:'Elegir foto',exact:true}).click();
     await expect(page.locator('#profile-photo-preview')).toBeVisible();
-    const editSize=await page.locator('#network-dialog').boundingBox();expect(editSize.width).toBe(settingsSize.width);expect(editSize.height).toBe(settingsSize.height);
+    const editSize=await page.locator('#network-dialog').boundingBox(),viewport=await page.evaluate(()=>({width:innerWidth,height:innerHeight}));expect(editSize.x).toBeGreaterThanOrEqual(0);expect(editSize.y).toBeGreaterThanOrEqual(0);expect(editSize.x+editSize.width).toBeLessThanOrEqual(viewport.width);expect(editSize.y+editSize.height).toBeLessThanOrEqual(viewport.height);await expect(page.locator('#network-dialog .network-card')).toHaveCount(4);
     await page.locator('#network-form').getByRole('button',{name:'Guardar',exact:true}).click();
     const identity=await page.evaluate(async()=>{const c=await window.dreams.load();return c.profiles[0];});expect(identity.username).toBe('desktop_ident');expect(identity.realName).toBe('Desktop Real Name');expect(identity.photo).toMatch(/^data:image\/png;base64,/);const storedCommands=await page.evaluate(async id=>(await window.dreams.advanced('network.commands.get',{network:id})).commands,identity.id);expect(storedCommands).toEqual(['/nick Dreamer']);
     await page.locator('#settings-dialog .dialog-header button').click();
@@ -361,9 +363,9 @@ async function run() {
     await expect(page.locator('html')).toHaveCSS('--bg','#123456');
     await page.locator('.advanced-dialog .dialog-header button').click();
     await expect(page.getByRole('button',{name:'Herramientas',exact:true})).toHaveCount(0);
-    await page.locator('#theme-quick-menu>summary').click();await page.locator('#theme-quick-menu').getByRole('button',{name:'Oscuro',exact:true}).click();
+    await page.getByRole('combobox',{name:'Tema rápido',exact:true}).selectOption('dark');
     await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-    await page.locator('#theme-quick-menu>summary').click();await page.locator('#theme-quick-menu').getByRole('button',{name:'Claro',exact:true}).click();
+    await page.getByRole('combobox',{name:'Tema rápido',exact:true}).selectOption('light');
     await expect(page.locator('html')).toHaveAttribute('data-theme','light');
     await expect(page.locator('html')).toHaveCSS('--bg','#f5f6fa');
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();await page.getByLabel('Fondo de conversación',{exact:true}).fill('#123456');await page.getByRole('button',{name:'Guardar colores del entorno',exact:true}).click();await page.locator('#settings-dialog .dialog-header button').click();

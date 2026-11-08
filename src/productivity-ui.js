@@ -194,7 +194,7 @@
       caret = value.length - input.value.slice(input.selectionEnd).length;
     cycle.reset();
     replace(value, caret);
-    if (!t.command) window.markDreamsNick?.(t.start, caret - 1);
+    if (!t.command) window.markDreamsNick?.(t.start, caret - 1,c.name);
     hide();
     input.focus();
   }
@@ -241,7 +241,7 @@
           e.preventDefault();
           e.stopImmediatePropagation();
           replace(r.value, r.caret);
-          if (!r.name.startsWith("/")) window.markDreamsNick?.(r.start, r.end);
+          if (!r.name.startsWith("/")) window.markDreamsNick?.(r.start, r.end,r.name);
           hide();
         }
         return;

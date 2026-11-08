@@ -44,7 +44,7 @@ test("Dictionary cannot turn literal text into a command, recurses nowhere and s
   );
 });
 test("Formatted nick completion cycles the original names and keeps emojis out of raw editor codes", () => {
-  assert.equal(W.prefix({ background: "#ffffff" }), "\x04111111,ffffff");
+  assert.equal(W.prefix({ background: "#ffffff" }), "\x0301,00");
   const settings = W.validate({
       nickCompletion: {
         enabled: true,
@@ -65,7 +65,7 @@ test("Formatted nick completion cycles the original names and keeps emojis out o
   assert.equal(r.value, "👋 Alice 💜 ");
   const ranges = new W.Ranges(r.value);
   ranges.mark(r.start, r.end, settings.nickCompletion);
-  assert.ok(ranges.format().includes("\x04aabbcc👋 Alice 💜"));
+  assert.ok(ranges.format().includes("\x0315👋 Alice 💜"));
   assert.ok(!/[\x00-\x1f]/.test(r.value));
 });
 test("Nick formatting follows non-overlapping edits, is dropped if edited, and survives restoring a draft", () => {
@@ -119,4 +119,67 @@ test("NOTICE destinations are explicit, deduplicate copies and use only this net
     ["*"],
   );
   assert.deepEqual(destinations(d, { noticeDestinations: [] }, {}), []);
+});
+test("Nick colors are compatible with clients that understand only classic IRC color codes", () => {
+  const text = W.formatCompletion(
+    "✨ SoyUnAlien 💜",
+    { color: "#db0abf", bold: true },
+    "SoyUnAlien",
+  );
+  assert.ok(text.includes("\x0306"));
+  assert.ok(!text.includes("\x04"));
+  assert.ok(!text.includes("db0abf"));
+  assert.equal(
+    text
+      .replace(/\x03\d{2}(?:,\d{2})?/g, "")
+      .replace(/[\x02\x0f\x1d\x1f]/g, ""),
+    "✨ SoyUnAlien 💜",
+  );
+  assert.equal(W.colorCode("#ff0000", "#ffffff"), "\x0304,00");
+});
+test("Letter, gradient and rainbow modes color the nickname and reset before suffix decorations", () => {
+  const F = require("../src/formatting");
+  for (const colorMode of ["letters", "gradient", "rainbow"]) {
+    const style = {
+        colorMode,
+        color: "#ff0000",
+        endColor: "#0000fc",
+        letterColors: ["#ff0000", "#0000fc"],
+      },
+      text = W.formatCompletion("✨ Alice 💜", style, "Alice");
+    assert.equal(F.plain(text), "✨ Alice 💜");
+    assert.ok(!text.includes("\x04"));
+    const codes = [...text.matchAll(/\x03(\d{2})/g)].map((m) => Number(m[1]));
+    assert.ok(codes.every((n) => n <= 15));
+    assert.ok(new Set(codes).size >= 2);
+    assert.ok(text.includes("\x0f\x0304 💜"));
+  }
+  const text = W.formatCompletion(
+    "Bob",
+    { colorMode: "letters", letterColors: ["#ff0000", "#0000fc"] },
+    "Bob",
+  );
+  assert.match(text, /\x0304B\x0312o\x0304b/);
+});
+test("Multicolor settings validate and formatted nickname metadata survives draft restoration", () => {
+  const s = W.validate({
+    nickCompletion: {
+      enabled: true,
+      colorMode: "gradient",
+      color: "#ff0000",
+      endColor: "#0000fc",
+      letterColors: ["bad", "#00ffff"],
+    },
+  }).nickCompletion;
+  assert.deepEqual(s.letterColors, ["#00ffff"]);
+  assert.equal(s.colorMode, "gradient");
+  const model = new W.Ranges("✨ Alice 💜 ");
+  model.mark(0, 10, s, "Alice");
+  const copy = new W.Ranges(model.value, structuredClone(model.ranges));
+  assert.equal(copy.format(), model.format());
+  assert.equal(
+    W.validate({ nickCompletion: { colorMode: "unsupported" } }).nickCompletion
+      .colorMode,
+    "single",
+  );
 });

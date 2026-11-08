@@ -4,6 +4,51 @@
   else root.DreamsWriting = api;
 })(globalThis, () => {
   "use strict";
+  const classic = [
+    "#ffffff",
+    "#111111",
+    "#00007f",
+    "#009300",
+    "#ff0000",
+    "#7f0000",
+    "#9c009c",
+    "#fc7f00",
+    "#ffff00",
+    "#00fc00",
+    "#009393",
+    "#00ffff",
+    "#0000fc",
+    "#ff00ff",
+    "#7f7f7f",
+    "#d2d2d2",
+  ];
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  function nearest(color) {
+    const c = rgb(color);
+    let best = 0,
+      distance = Infinity;
+    classic.forEach((hex, i) => {
+      const p = rgb(hex),
+        d = c.reduce((n, v, k) => n + (v - p[k]) ** 2, 0);
+      if (d < distance) {
+        distance = d;
+        best = i;
+      }
+    });
+    return String(best).padStart(2, "0");
+  }
+  function colorCode(color, background) {
+    if (!color && !background) return "";
+    const bg = background ? rgb(background) : null,
+      fore =
+        color ||
+        (bg[0] * 0.299 + bg[1] * 0.587 + bg[2] * 0.114 > 150
+          ? "#111111"
+          : "#ffffff");
+    return (
+      "\x03" + nearest(fore) + (background ? "," + nearest(background) : "")
+    );
+  }
   const clean = (s, max) =>
     typeof s === "string"
       ? s.replace(/[\x00-\x1f\x7f]/g, "").slice(0, max)
@@ -34,6 +79,20 @@
       dictionary,
       nickCompletion: {
         enabled: n.enabled === true,
+        colorMode: ["single", "letters", "gradient", "rainbow"].includes(
+          n.colorMode,
+        )
+          ? n.colorMode
+          : "single",
+        endColor: /^#[a-f\d]{6}$/i.test(n.endColor || "")
+          ? n.endColor
+          : "#00ffff",
+        letterColors: (Array.isArray(n.letterColors)
+          ? n.letterColors
+          : ["#9c009c", "#009393", "#ff00ff"]
+        )
+          .filter((c) => typeof c === "string" && /^#[a-f\d]{6}$/i.test(c))
+          .slice(0, 12),
         template: template.includes("{nick}") ? template : "{nick}",
         color: /^#[a-f\d]{6}$/i.test(n.color || "") ? n.color : null,
         background: /^#[a-f\d]{6}$/i.test(n.background || "")
@@ -93,27 +152,78 @@
     );
   }
   function prefix(style) {
-    const rgb = style.background
-        ?.slice(1)
-        .match(/../g)
-        ?.map((v) => parseInt(v, 16)),
-      foreground =
-        rgb && rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 150
-          ? "111111"
-          : "ffffff";
     return (
       (style.bold ? "\x02" : "") +
       (style.italic ? "\x1d" : "") +
       (style.underline ? "\x1f" : "") +
-      (style.color
-        ? "\x04" +
-          style.color.slice(1) +
-          (style.background ? "," + style.background.slice(1) : "")
-        : style.background
-          ? "\x04" + foreground + "," + style.background.slice(1)
-          : "")
+      colorCode(style.color, style.background)
     );
   }
+  function multicolor(text, style) {
+    const chars =
+        typeof Intl.Segmenter === "function"
+          ? [
+              ...new Intl.Segmenter(undefined, {
+                granularity: "grapheme",
+              }).segment(text),
+            ].map((x) => x.segment)
+          : [...text],
+      list = style.letterColors?.length
+        ? style.letterColors
+        : ["#9c009c", "#009393", "#ff00ff"],
+      rainbow = [
+        "#ff0000",
+        "#fc7f00",
+        "#ffff00",
+        "#009300",
+        "#009393",
+        "#0000fc",
+        "#9c009c",
+      ];
+    const from = rgb(style.color || "#9c009c"),
+      to = rgb(style.endColor || "#00ffff");
+    let last = "",
+      out = "";
+    chars.forEach((ch, i) => {
+      let color =
+        style.colorMode === "rainbow"
+          ? rainbow[i % rainbow.length]
+          : style.colorMode === "letters"
+            ? list[i % list.length]
+            : "#" +
+              from
+                .map((v, k) =>
+                  Math.round(
+                    v + ((to[k] - v) * i) / Math.max(1, chars.length - 1),
+                  )
+                    .toString(16)
+                    .padStart(2, "0"),
+                )
+                .join("");
+      const code = colorCode(color, style.background);
+      if (code !== last) {
+        out += code;
+        last = code;
+      }
+      out += ch;
+    });
+    return out;
+  }
+  function formatCompletion(text, style, nick) {
+    const base = prefix(style);
+    if (!style.colorMode || style.colorMode === "single") return base + text;
+    const index = nick ? text.indexOf(nick) : -1;
+    if (index < 0) return base + multicolor(text, style);
+    return (
+      base +
+      text.slice(0, index) +
+      multicolor(nick, style) +
+      "\x0f" +
+      base +
+      text.slice(index + nick.length)
+    );
+  }
+
   class Ranges {
     constructor(value = "", ranges = []) {
       this.value = value;
@@ -156,22 +266,21 @@
       );
       this.value = value;
     }
-    mark(start, end, style) {
+    mark(start, end, style, nick) {
       this.ranges = this.ranges.filter((r) => r.end <= start || r.start >= end);
       if (end > start && end <= this.value.length)
-        this.ranges.push({ start, end, style: { ...style } });
+        this.ranges.push({ start, end, style: { ...style }, nick });
       this.ranges = this.ranges.slice(-100);
     }
     format(restore = "") {
       let text = this.value;
       for (const r of [...this.ranges].sort((a, b) => b.start - a.start)) {
         const p = prefix(r.style);
-        if (p)
+        if (p || (r.style.colorMode && r.style.colorMode !== "single"))
           text =
             text.slice(0, r.start) +
             "\x0f" +
-            p +
-            text.slice(r.start, r.end) +
+            formatCompletion(text.slice(r.start, r.end), r.style, r.nick) +
             "\x0f" +
             restore +
             text.slice(r.end);
@@ -179,5 +288,15 @@
       return text;
     }
   }
-  return { validate, replaceWords, nickText, prefix, Ranges };
+  return {
+    validate,
+    replaceWords,
+    nickText,
+    prefix,
+    colorCode,
+    nearest,
+    formatCompletion,
+    classic,
+    Ranges,
+  };
 });

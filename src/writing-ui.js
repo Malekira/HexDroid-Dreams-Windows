@@ -29,11 +29,11 @@
     );
     return start === 0 && text.startsWith("/") ? "/" + text : text;
   };
-  window.markDreamsNick = (start, end) => {
+  window.markDreamsNick = (start, end, nick) => {
     reconcile();
     const s = config.settings.nickCompletion || {};
     if (s.enabled && canFormat(start) && (!s.onlyStart || start === 0))
-      model.mark(start, end, s);
+      model.mark(start, end, s, nick);
     store();
   };
   input.addEventListener(
@@ -260,6 +260,61 @@
         draft.background || "#141932",
         grid,
       );
+    const mode = field("Modo de color del nick", "select", "", section);
+    for (const [v, t] of [
+      ["single", "Un color"],
+      ["letters", "Por letra"],
+      ["gradient", "Degradado"],
+      ["rainbow", "Arcoíris"],
+    ]) {
+      const o = el("option", "", t);
+      o.value = v;
+      mode.append(o);
+    }
+    mode.value = draft.colorMode || "single";
+    const endColor = field(
+        "Color final del degradado",
+        "color",
+        draft.endColor || "#00ffff",
+        section,
+      ),
+      letterGroup = el("div", "nick-letter-palette");
+    section.append(letterGroup);
+    const swatches = [];
+    function swatch(value) {
+      const l = el("label", "compact-swatch"),
+        i = el("input");
+      i.type = "color";
+      i.value = value;
+      i.setAttribute("aria-label", "Color de letra " + (swatches.length + 1));
+      l.append(el("span", "", String(swatches.length + 1)), i);
+      swatches.push(i);
+      letterGroup.insertBefore(
+        l,
+        more.parentElement === letterGroup ? more : null,
+      );
+      i.oninput = () => preview();
+    }
+    const more = el("button", "secondary", "Añadir color"),
+      less = el("button", "secondary", "Quitar último");
+    more.type = less.type = "button";
+    more.onclick = () => {
+      if (swatches.length < 12) {
+        swatch("#ff00ff");
+        preview();
+      }
+    };
+    less.onclick = () => {
+      if (swatches.length > 1) {
+        swatches.pop().parentElement.remove();
+        preview();
+      }
+    };
+    for (const color of draft.letterColors?.length
+      ? draft.letterColors
+      : ["#9c009c", "#009393", "#ff00ff"])
+      swatch(color);
+    letterGroup.append(more, less);
     const styles = el("div", "writing-styles");
     section.append(styles);
     const bold = field("Negrita", "checkbox", draft.bold, styles),
@@ -277,6 +332,9 @@
     function preview() {
       draft = {
         enabled: on.checked,
+        colorMode: mode.value,
+        endColor: endColor.value,
+        letterColors: swatches.map((i) => i.value),
         template: template.value,
         color: useColor.checked ? color.value : null,
         background: useBg.checked ? bg.value : null,
@@ -285,17 +343,23 @@
         underline: underline.checked,
         onlyStart: onlyStart.checked,
       };
+      endColor.parentElement.hidden = mode.value !== "gradient";
+      letterGroup.hidden = mode.value !== "letters";
+      more.disabled = swatches.length >= 12;
+      less.disabled = swatches.length <= 1;
       color.disabled = !useColor.checked;
       bg.disabled = !useBg.checked;
       DreamsFormatting.render(
         sample,
-        DreamsWriting.prefix(draft) +
+        DreamsWriting.formatCompletion(
           DreamsWriting.nickText(
             "Luna",
             { nickCompletion: { ...draft, enabled: true } },
             context(),
-          ) +
-          "\x0f",
+          ),
+          draft,
+          "Luna",
+        ) + "\x0f",
       );
     }
     for (const i of [
@@ -309,15 +373,20 @@
       italic,
       underline,
       onlyStart,
+      endColor,
     ])
       i.oninput = preview;
+    mode.onchange = () => {
+      if (mode.value !== "single") useColor.checked = true;
+      preview();
+    };
     const help = el("details", "writing-help");
     help.append(el("summary", "", "Ayuda y ejemplos"));
     help.append(
       el(
         "p",
         "note",
-        "{nick} se sustituye por el apodo, {red} por la red y {sala} por la conversación. Puedes poner emojis y texto antes o después. Tab sigue recorriendo los nicks originales; Shift+Tab retrocede.",
+        "{nick} se sustituye por el apodo, {red} por la red y {sala} por la conversación. Puedes poner emojis y texto antes o después. Tab sigue recorriendo los nicks originales; Shift+Tab retrocede. El multicolor se aplica al nick; texto y emojis conservan el color base. Se usa la paleta IRC clásica: los tonos elegidos se aproximan para que otros clientes puedan leerlos.",
       ),
     );
     for (const example of ["{nick}:", "👋 {nick} 💜", "✨ {nick} →"]) {
@@ -332,18 +401,47 @@
     section.append(help);
     const save = el("button", "primary", "Guardar nick completion");
     save.type = "button";
-    save.onclick = () =>
+    const savedStatus = el("span", "note nick-save-status");
+    savedStatus.setAttribute("role", "status");
+    let revision = 0;
+    on.onchange = () => {
+      const enabled = on.checked,
+        request = ++revision;
+      savedStatus.textContent = "Guardando…";
       run(async () => {
-        preview();
-        if (!draft.template.includes("{nick}"))
-          throw Error("Incluye {nick} en la plantilla.");
         await commit({
-          nickCompletion: DreamsWriting.validate({ nickCompletion: draft })
-            .nickCompletion,
+          nickCompletion: {
+            ...DreamsWriting.validate(config.settings).nickCompletion,
+            enabled,
+          },
         });
-        notify("Nick completion guardado.");
+        if (request === revision)
+          savedStatus.textContent = enabled ? "Activado" : "Desactivado";
       });
-    section.append(save);
+    };
+    save.onclick = () => {
+      preview();
+      const snapshot = DreamsWriting.validate({
+        nickCompletion: draft,
+      }).nickCompletion;
+      if (!draft.template.includes("{nick}")) {
+        notify("Incluye {nick} en la plantilla.", true);
+        return;
+      }
+      save.disabled = true;
+      savedStatus.textContent = "Guardando…";
+      const request = ++revision;
+      run(async () => {
+        try {
+          await commit({ nickCompletion: snapshot });
+          if (request === revision) savedStatus.textContent = "Guardado";
+          notify("Nick completion guardado.");
+        } finally {
+          save.disabled = false;
+        }
+      });
+    };
+    section.append(save, savedStatus);
     preview();
   };
 })();

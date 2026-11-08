@@ -370,43 +370,70 @@
     $("join-dialog").querySelector("h2").textContent = "Entrar en una sala";
     return baseJoin(...args);
   };
-  const quick = el("details", "menu theme-quick"),
-    popup = el("div", "menu-popup");
-  quick.id = "theme-quick-menu";
-  quick.append(el("summary", "", "Tema"), popup);
-  popup.append(
-    action("Ir a temas…", null, () => openSettings("appearance")),
-    el("hr"),
-  );
+  const quick = el("label", "network-picker theme-picker", "Tema"),
+    themeSelect = el("select");
+  themeSelect.id = "theme-quick-select";
+  themeSelect.setAttribute("aria-label", "Tema rápido");
+  quick.append(themeSelect);
+  let themeSignature = "";
   function themes() {
-    while (popup.children.length > 2) popup.lastElementChild.remove();
-    for (const [id, label] of [
-      ["dark", "Oscuro"],
-      ["light", "Claro"],
-      ["system", "Sistema"],
-      ["matrix", "Matrix"],
-      ["violet", "Morado y azul marino"],
-      ["purple-light", "PurpleDreamsLight"],
-      ...(config.settings.savedThemes || []).map((t) => [t.id, t.name]),
-    ])
-      popup.append(
-        action(label, null, async () => {
-          const style =
-            (config.settings.savedThemes || []).find((t) => t.id === id)
-              ?.settings ||
-            (id === "violet"
-              ? DreamsThemes.violet
-              : id === "purple-light"
-                ? DreamsThemes.purpleLight
-                : { theme: id, customColors: {}, roomAppearance: {} });
-          await save(structuredClone(style));
-          quick.open = false;
-        }),
-      );
+    const choices = [
+        ["__settings__", "Ir a temas…"],
+        ["dark", "Oscuro"],
+        ["light", "Claro"],
+        ["system", "Sistema"],
+        ["matrix", "Matrix"],
+        ["violet", "Morado y azul marino"],
+        ["purple-light", "PurpleDreamsLight"],
+        ...(config.settings.savedThemes || []).map((t) => [t.id, t.name]),
+      ],
+      signature = JSON.stringify(choices);
+    if (signature !== themeSignature) {
+      themeSignature = signature;
+      themeSelect.replaceChildren();
+      for (const [v, t] of choices) {
+        const o = el("option", "", t);
+        o.value = v;
+        themeSelect.append(o);
+      }
+    }
+    themeSelect.value =
+      config.settings.currentThemeId || config.settings.theme || "dark";
+    if (!themeSelect.value) themeSelect.value = config.settings.theme || "dark";
   }
-  quick.addEventListener("toggle", () => {
-    if (quick.open) themes();
-  });
+  themeSelect.onchange = () => {
+    const id = themeSelect.value;
+    if (id === "__settings__") {
+      themes();
+      openSettings("appearance");
+      return;
+    }
+    themeSelect.disabled = true;
+    run(async () => {
+      try {
+        const style =
+          (config.settings.savedThemes || []).find((t) => t.id === id)
+            ?.settings ||
+          (id === "violet"
+            ? DreamsThemes.violet
+            : id === "purple-light"
+              ? DreamsThemes.purpleLight
+              : { theme: id, customColors: {}, roomAppearance: {} });
+        await save({ ...structuredClone(style), currentThemeId: id });
+      } finally {
+        themeSelect.disabled = false;
+        themes();
+      }
+    });
+  };
+  const applyBeforeThemePicker = applySettings;
+  applySettings = function (...args) {
+    const r = applyBeforeThemePicker(...args);
+    themes();
+    return r;
+  };
+  window.addEventListener("dreams-themes-changed", themes);
+  themes();
   $("theme-toggle")?.remove();
   const strip = el("div", "network-strip");
   bar.append(strip);

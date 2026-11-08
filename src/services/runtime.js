@@ -386,7 +386,7 @@ class Runtime {
       else list.delete(ignore[2].toLowerCase());
       cfg.settings.ignoredUsers[id] = [...list];
       this.saveConfig(cfg);
-      this.emit(id, "preferences", { settings: cfg.settings });
+      this.emit(id, "preferences", { settings: cfg.settings,patch:{ignoredUsers:cfg.settings.ignoredUsers} });
       this.emit(id, "server", { text: "Lista de ignorados actualizada." });
       return { ok: true };
     }

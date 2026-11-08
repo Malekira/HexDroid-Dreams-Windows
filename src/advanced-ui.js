@@ -628,7 +628,7 @@
   });
   api.onEvent((event) => {
     if (event.type === "preferences") {
-      config.settings = event.settings;
+      Object.assign(config.settings,event.patch||{ignoredUsers:event.settings.ignoredUsers});
       applySettings();
     }
     if (event.type === "features")
