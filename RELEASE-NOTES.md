@@ -1,16 +1,14 @@
-# HexDreams IRC 0.18.0 para Windows
+# HexDreams IRC 0.19.0 para Windows
 
-- El administrador de scripts incorpora Eliminar junto a Activado y Ayuda. El script se retira de la aplicación, deja de ofrecer comandos y se detienen sus temporizadores.
-- El historial de cada sala conserva mensajes y eventos recibidos: entradas, salidas, cambios de nick, expulsiones con autor y motivo, clones, sanciones, tema y modos. Se guarda con fecha y hora en TXT y en el historial de búsqueda cuando está activado. Funciona con eventos unidos o en panel dividido.
-- El historial existente se actualiza conservando sus mensajes. Los respaldos mantienen la distinción entre mensajes y eventos.
-- Editar red muestra los selectores de color inmediatamente junto a sus etiquetas, también en ventanas estrechas.
-- Hacer clic en el fondo o título de una sala, PV o Status activa su cuadro de escritura, incluso si esa ventana ya estaba activa. Conserva el borrador y permite seguir usando los controles y seleccionar texto.
-- Se conservan las rutas de configuración, historial y firma.
+- Corrige el rechazo de comandos largos como `/raw VALIDATE token` desde Status. `/raw` y `/quote` en Status envían el comando completo como una sola línea, sin el límite de 510 bytes de mensajes de chat, sin cortarlo ni dividirlo. El servidor decide si lo admite.
+- Status permite introducir comandos de hasta 64 KiB, con un límite técnico de 65.534 bytes antes de CRLF. Sala, PV, PRIVMSG, NOTICE y TAGMSG conservan sus controles habituales.
+- Se siguen rechazando saltos de línea e inyección de órdenes. Los tokens VALIDATE se omiten del diagnóstico de protocolo.
+- Se conservan configuración, historial, scripts y rutas de firma.
 
 ## Uso
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Elimina scripts desde Scripts → Administrar scripts .hex. El guardado TXT de mensajes y eventos se controla en Configuración → Historial → Guardar historial en TXT por sala. El ZIP distribuido no está firmado.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Selecciona el Status de la red y ejecuta el comando completo, por ejemplo `/raw VALIDATE token`. El ZIP distribuido no está firmado.
 
 ## Validación
 
-141 pruebas de lógica e integración y 57 flujos de interfaz. Electron con IRC TCP/TLS verifica foco de escritura, eliminación de scripts y registro de expulsiones en TXT y búsqueda. Windows comprueba también el arranque normal y el ejecutable empaquetado antes de publicar el ZIP.
+143 pruebas de lógica e integración, 58 flujos de interfaz y Electron real con IRC TCP/TLS. La prueba incluye un token de prueba de más de 12.000 caracteres, enviado completo desde el editor de Status y recibido como una sola orden por el servidor local. Windows comprueba el arranque normal y el ejecutable empaquetado antes de publicar.

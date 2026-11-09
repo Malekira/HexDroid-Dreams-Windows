@@ -190,6 +190,7 @@ function renderHeader() {
   $('join-button').disabled = n?.state !== 'connected';
   const canSend = n?.state === 'connected' && c && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
   $('message-input').disabled = !canSend; $('send-button').disabled = !canSend;
+  $('message-input').maxLength = active?.target === '*' ? 65534 : 10000;
   for (const button of document.querySelectorAll('#composer .format-bar button')) button.disabled = !canSend;
   $('message-input').placeholder = !c ? 'Selecciona una conversación…' : !canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';

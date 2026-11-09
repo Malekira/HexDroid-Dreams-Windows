@@ -5,7 +5,7 @@ function redactProtocol(line) {
   const command = String(line)
     .replace(/^@[^ ]+ /, "")
     .replace(/^:[^ ]+ /, "");
-  if (/^(?:PASS|AUTHENTICATE|OPER|LOGIN|IDENTIFY|WEBPUSH|BOUNCER)\b/i.test(command))
+  if (/^(?:PASS|AUTHENTICATE|OPER|LOGIN|VALIDATE|IDENTIFY|WEBPUSH|BOUNCER)\b/i.test(command))
     return command.split(" ")[0] + " [omitido]";
   if (/^(?:FAIL|WARN|NOTE) WEBPUSH\b/i.test(command))
     return command.split(" ").slice(0, 2).join(" ") + " [omitido]";

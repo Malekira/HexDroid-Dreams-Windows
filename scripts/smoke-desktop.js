@@ -70,6 +70,8 @@ async function run() {
     await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
+    console.log('Prueba Electron: VALIDATE largo desde Status, sin cortar ni dividir');
+    const longStatusToken='eyJ'+('Test_9-'.repeat(1800));await page.evaluate(()=>choose(config.profiles[0].id,'*'));await page.locator('#message-input').fill('/raw VALIDATE '+longStatusToken);await page.locator('#message-input').press('Enter');await expect.poll(()=>received.filter(line=>line.startsWith('VALIDATE '))).toEqual(['VALIDATE '+longStatusToken]);await expect(page.locator('#message-input')).toHaveValue('');await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await expect.poll(()=>received.some(line=>line.startsWith('METADATA * SET avatar :https://chat-avatars.chateagratis.net/avatar/Chat/Dreamer.png?v='))).toBe(true);
     const beforeHidden=await page.locator('#messages').evaluate(n=>n.clientHeight);
     await page.getByRole('button',{name:'Ocultar topic',exact:true}).click();

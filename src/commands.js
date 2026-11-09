@@ -2,7 +2,8 @@
 const { token, cleanText } = require("./irc");
 function executeInput(client, target, text, emit = () => {}) {
   if (!client?.ready) throw new Error("Conecta primero esta red.");
-  if (typeof text !== "string" || text.length > 10000)
+  const statusRaw = target === "*" && typeof text === "string" && /^\/(?:raw|quote)\s/i.test(text);
+  if (typeof text !== "string" || text.length > (statusRaw ? 65534 : 10000))
     throw new Error("Mensaje no válido o demasiado largo.");
   if (!text.startsWith("/") || text.startsWith("//")) {
     token(target, "Destino");
@@ -166,7 +167,7 @@ function executeInput(client, target, text, emit = () => {}) {
   else if (command === "quit") client.disconnect();
   else if (command === "raw" || command === "quote") {
     if (!args) throw new Error("Introduce un comando IRC.");
-    client.sendRaw(args);
+    client.sendRaw(args, { statusCommand: statusRaw });
   } else if (
     [
       "list",

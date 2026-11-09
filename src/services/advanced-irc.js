@@ -298,7 +298,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           }
       }
     }
-    sendRaw(line) {
+    sendRaw(line, { statusCommand = false } = {}) {
       cleanText(line);
       const command = line.replace(/^@[^ ]+ /, "");
       const outgoing = /^(?:PRIVMSG|NOTICE) ([^ ]+) :/i.exec(command);
@@ -312,10 +312,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         );
       const b = iconv.encode(line, this.profile.encoding);
       const tagEnd = line.startsWith("@") ? line.indexOf(" ") : -1;
+      const longStatusCommand = statusCommand && /^[A-Za-z][A-Za-z0-9]* /i.test(command) && !/^(?:PRIVMSG|NOTICE|TAGMSG)\b/i.test(command);
+      const commandLimit = longStatusCommand ? 65534 : 510;
       if (
-        b.length > (tagEnd > 0 ? 8190 : 510) ||
+        b.length > (longStatusCommand ? 65534 : tagEnd > 0 ? 8190 : 510) ||
         tagEnd > 4096 ||
-        iconv.encode(command, this.profile.encoding).length > 510
+        iconv.encode(command, this.profile.encoding).length > commandLimit
       )
         throw new Error("Mensaje demasiado largo para IRC.");
       if (!this.socket || this.socket.destroyed || !this.socket.writable)
