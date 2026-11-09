@@ -14,7 +14,13 @@ if(process.platform!=='win32')process.exit(normal.status||1);
   const zip=await downloadArtifact({version,artifactName:'electron',platform:'win32',arch:process.arch,checksums:require('electron/checksums.json'),downloader:{
     async download(url,destination){
       const result=spawnSync('curl.exe',['--fail','--location','--retry','3','--retry-delay','2','--connect-timeout','30','--max-time','180','--output',destination,url],{stdio:'inherit'});
-      if(result.error||result.status!==0)throw result.error||new Error('No se pudo descargar Electron desde su origen oficial.');
+      if(!result.error&&result.status===0)return;
+      const response=await fetch('https://api.github.com/repos/electron/electron/releases/tags/v'+version,{headers:{Accept:'application/vnd.github+json','User-Agent':'HexDreams-IRC-build'}});
+      if(!response.ok)throw new Error('No se pudo consultar la descarga oficial de Electron: '+response.status);
+      const release=await response.json(),asset=release.assets.find(a=>a.name===path.basename(new URL(url).pathname));
+      if(!asset||!/^https:\/\/api\.github\.com\/repos\/electron\/electron\/releases\/assets\/\d+$/.test(asset.url))throw new Error('Archivo oficial de Electron no encontrado.');
+      const alternative=spawnSync('curl.exe',['--fail','--location','--retry','3','--retry-delay','2','--connect-timeout','30','--max-time','180','--header','Accept: application/octet-stream','--output',destination,asset.url],{stdio:'inherit'});
+      if(alternative.error||alternative.status!==0)throw alternative.error||new Error('No se pudo descargar Electron desde su API oficial.');
     }
   }});
   const {extract}=require('@electron-internal/extract-zip');
