@@ -264,7 +264,15 @@
     w.node.addEventListener(
       "click",
       (e) => {
-        if (isActive(w) || e.target.closest(".mdi-window-control")) return;
+        if (e.target.closest(".mdi-window-control")) return;
+        if (
+          isActive(w) &&
+          (e.target.closest(
+            "button,a,input,textarea,select,[contenteditable],[role=separator]",
+          ) ||
+            window.getSelection()?.toString())
+        )
+          return;
         const user = e.target.closest("[data-mdi-user]")?.dataset.mdiUser;
         activate(w);
         if (user) window.openDreamsUser?.(w.id, user);

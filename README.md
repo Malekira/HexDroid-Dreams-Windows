@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.17.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.18.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.17.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.18.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.17.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.18.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -31,6 +31,8 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 - La visibilidad de usuarios es independiente en cada conversación durante la sesión. Status de red no muestra usuarios y puede cerrarse al estar desconectado. Los privados muestran las acciones de su interlocutor.
 - Ambos paneles laterales tienen divisores arrastrables, controles por teclado y botones para ocultarlos/restaurarlos. Se conservan los anchos preferidos y se adaptan temporalmente a ventanas pequeñas.
 - Usuarios ordenados por los rangos anunciados, búsqueda, doble clic para privado y menú WHOIS/WHO/invitación/moderación. Las acciones privilegiadas se deshabilitan si el rango local no las autoriza; el servidor siempre decide si acepta una petición.
+- El historial de sala conserva mensajes y eventos (entradas, salidas, cambios de nick, expulsiones, sanciones, tema y modos recibidos), con fecha y hora en TXT y búsqueda local si está activada.
+- Al activar una sala, privado o Status, o hacer clic en su fondo o título, el cuadro de escritura recibe el foco y conserva el borrador.
 - Chat con formato IRC/mIRC y ANSI básico seguro, selección y copia de mensajes, búsqueda en los mensajes cargados, primer mensaje sin leer y salto al final. Fuente, tamaño, color del apodo propio, interlineado y separación configurables.
 - Borradores y posiciones de lectura individuales durante la sesión, historial de lo escrito en memoria, sugerencias de apodos y comandos (incluidos scripts activos), Tab/Shift+Tab para recorrer coincidencias del prefijo original, Enter para enviar y Shift+Enter para varias líneas.
 - Ventana con tamaño/posición/maximización persistentes y recuperación si se desconecta un monitor. Configuración arriba a la derecha con búsqueda de opciones.
@@ -52,7 +54,7 @@ El engranaje superior derecho abre redes/autenticación, historial, notificacion
 - DCC SEND/CHAT/SSEND/SCHAT, aceptación explícita, transferencia TLS verificada, envío pasivo, progreso, cancelación, puertos y reanudación.
 - AGM, FiSH y AGE; claves e identidades en el almacén seguro, control de huellas y bloqueo de texto claro en destinos protegidos.
 - Intérprete `.hex` aislado con alias, eventos, variables y colecciones, bucles, HTTP/JSON, vistas/botones y archivos seleccionados por el usuario. Sin `eval` ni acceso arbitrario al sistema de archivos.
-- Scripts con activación/desactivación y permisos automáticos. Cada script tiene **Ayuda** en su configuración con comandos, usos y descripciones. Los comandos no ocupan el menú Scripts.
+- Scripts con activación/desactivación, eliminación desde el administrador y permisos automáticos. Cada script tiene **Ayuda** en su configuración con comandos, usos y descripciones. Los comandos no ocupan el menú Scripts.
 - Autoaway configurable por inactividad del equipo, con mensaje y retorno automático opcional. Respeta las ausencias manuales.
 - NOTICE con destino original o copias en PV, sala y Status, estilo local y aviso de Windows independiente. Las notificaciones de privados y menciones se activan por separado.
 - WHO/WHOIS conservan la conversación activa; WHOIS abre su ficha y guarda resultados en WHOIS / WHO.

@@ -67,6 +67,7 @@ async function run() {
     await page.locator('#profile-nick').fill('Dreamer'); await page.locator('#profile-channels').fill('#dreams');
     await page.getByRole('button', { name: 'Guardar y conectar', exact: true }).click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
+    await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
     await expect.poll(()=>received.some(line=>line.startsWith('METADATA * SET avatar :https://chat-avatars.chateagratis.net/avatar/Chat/Dreamer.png?v='))).toBe(true);
@@ -158,6 +159,7 @@ async function run() {
     await page.getByRole('button',{name:'Salas',exact:true}).click();await page.getByRole('menuitem',{name:'Entrar a otra sala…',exact:true}).click();
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
     await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
+    await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     console.log('Prueba Electron: formato permanente sin códigos en el editor');
     await page.getByLabel('Estilos de escritura',{exact:true}).click();
     if(!await page.locator('.composer-styles').getAttribute('open').then(v=>v!==null))await page.getByLabel('Estilos de escritura',{exact:true}).click();
@@ -337,7 +339,7 @@ async function run() {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.advanced-dialog')).toBeVisible();
     await page.getByRole('button',{name:'Historial',exact:true}).click();
-    await page.getByLabel('Guardar historial en TXT por sala',{exact:true}).check();
+    await page.getByLabel('Guardar historial en TXT por sala (mensajes y eventos)',{exact:true}).check();
     await page.evaluate(async()=>{const c=await window.dreams.load();c.settings.historyEnabled=true;await window.dreams.save(c);});
     await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
@@ -352,6 +354,7 @@ async function run() {
     const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activado',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
 
+    await scriptCard.getByRole('button',{name:'Eliminar',exact:true}).click();await expect(scriptCard).toHaveCount(0);expect((await page.evaluate(()=>window.dreams.advanced('script.commands'))).some(c=>c.name==='desktophello')).toBe(false);
     await page.locator('.settings-nav').getByRole('button',{name:'Configuración de notificaciones',exact:true}).click();
     await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();
     await page.getByLabel('Tema',{exact:true}).selectOption('light');
@@ -376,10 +379,13 @@ async function run() {
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dataPath, 'settings.json'))).settings.usersWidth).toBe(360);
     console.log('Prueba Electron: historial TXT separado por sala y privado');
     for(const socket of sockets)socket.write(':Alice!u@host PRIVMSG Dreamer :Historial TXT privado 🦆\r\n:Alice!u@host PRIVMSG #dreams :\x0313Historial TXT de sala\x0f\r\n');
+    for(const socket of sockets)socket.write(':EventUser!u@host JOIN :#dreams\r\n:Oper!o@host MODE #dreams +b *!*@event-host\r\n:Oper!o@host KICK #dreams EventUser :Motivo historial evento\r\n');
     const textLogInfo=await page.evaluate(()=>window.dreams.advanced('logs.text.status'));
     await expect.poll(()=>{if(!fs.existsSync(textLogInfo.directory))return false;const files=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));return files.some(f=>String(f).includes(path.sep+'privados'+path.sep))&&files.some(f=>String(f).includes(path.sep+'salas'+path.sep));}).toBe(true);
     await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('Historial TXT privado 🦆');
     await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).includes(path.sep+'salas'+path.sep)&&String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('Historial TXT de sala');
+    await expect.poll(()=>fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).includes(path.sep+'salas'+path.sep)&&String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).toContain('EventUser fue expulsado por Oper · Motivo historial evento');
+    await expect.poll(async()=>await page.evaluate(async()=>{const rows=await window.dreams.advanced('history.search',{text:'Motivo historial evento'});return rows.some(m=>m.event===1&&m.target==='#dreams');})).toBe(true);
     const textFiles=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));
     const roomLog=textFiles.filter(f=>String(f).includes(path.sep+'salas'+path.sep)).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n');
     expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);

@@ -370,7 +370,7 @@
         call("secrets.forget", { network: p.id }),
       );
     } else if (section === "history") {
-      const fields={};for(const[key,label]of Object.entries({textLogRooms:'Guardar historial en TXT por sala',textLogPrivates:'Guardar historial en TXT por PV',textLogStatus:'Guardar historial de status de red',textLogQueries:'Guardar historial de WHOIS/WHO'}))fields[key]=input(label,config.settings.textLogsEnabled!==false&&config.settings[key]!==false,'checkbox');
+      const fields={};for(const[key,label]of Object.entries({textLogRooms:'Guardar historial en TXT por sala (mensajes y eventos)',textLogPrivates:'Guardar historial en TXT por PV',textLogStatus:'Guardar historial de status de red',textLogQueries:'Guardar historial de WHOIS/WHO'}))fields[key]=input(label,config.settings.textLogsEnabled!==false&&config.settings[key]!==false,'checkbox');
       const days=input('Tiempo de conservación (días)',config.settings.textLogDays||0,'number'),max=input('Límite por archivo (MB)',config.settings.textLogMaxMB||0,'number');days.min=max.min='0';
       note('0 conserva indefinidamente y no limita el tamaño. Con límite de tamaño se conservan las líneas más recientes; la retención elimina los archivos sin actividad durante ese tiempo.');
       const folder=el('p','note','Carpeta de historial TXT: …');body.append(folder);call('logs.text.status').then(r=>folder.textContent='Carpeta de historial TXT: '+r.directory);
@@ -556,7 +556,7 @@
         await call("script.import");
         await show();
       });
-      for(const script of state.scripts){const card=el('section','advanced-card script-card');body.append(card);note(script.name,card);const enabled=input('Activado',script.enabled,'checkbox',card);enabled.onchange=()=>run(()=>call('script.configure',{id:script.id,enabled:enabled.checked}));button('Ayuda',()=>window.openDreamsScriptHelp(script.id),card);}
+      for(const script of state.scripts){const card=el('section','advanced-card script-card');body.append(card);note(script.name,card);const enabled=input('Activado',script.enabled,'checkbox',card);enabled.onchange=()=>run(()=>call('script.configure',{id:script.id,enabled:enabled.checked}));button('Ayuda',()=>window.openDreamsScriptHelp(script.id),card);button('Eliminar',async()=>{await call('script.remove',{id:script.id});await show();},card);}
       note("Motor: " + (state.scriptRunning ? "en ejecución" : "detenido"));
       for (const item of state.debug) note(`${item.time} · ${item.text}`);
     } else if (section === "backup") {

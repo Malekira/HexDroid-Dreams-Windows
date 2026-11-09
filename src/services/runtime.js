@@ -322,10 +322,18 @@ class Runtime {
     if(type==='away-state')this.autoAway?.observe(id,data.away);
     if(type==='status'&&data.state==='disconnected')this.autoAway?.forget(id);
     if(type==='status')this.writeTextLog(id,{target:'*',event:true,text:data.text||data.state});
-    if(type==='room-event')this.writeTextLog(id,{...data,event:true});
-    if(type==='channel')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.reason?' · '+data.reason:'')});
-    if(type==='nick')for(const target of data.targets||[])this.writeTextLog(id,{target,event:true,time:data.time,text:data.old+' → '+data.nick+' cambió de nick'});
-    if(type==='clones')this.writeTextLog(id,{target:data.target,event:true,time:data.time,text:'Posibles clones (mismo host): '+data.nicks.join(', ')});
+    const roomEvents=[];
+    const event=(target,text)=>{if(/^[#&+!]/.test(target||''))roomEvents.push({target,event:true,time:data.time,text});};
+    if(type==='room-event')event(data.target,data.text);
+    if(type==='channel')event(data.target,(data.nick||'')+' '+({join:'entró en la sala',part:'salió de la sala',quit:'se desconectó',kick:'fue expulsado'}[data.action]||data.action)+(data.by?' por '+data.by:'')+(data.reason?' · '+data.reason:''));
+    if(type==='nick')for(const target of data.targets||[])event(target,data.old+' → '+data.nick+' cambió de nick');
+    if(type==='clones')event(data.target,'Posibles clones (mismo host): '+data.nicks.join(', '));
+    if(type==='topic')event(data.target,'Tema de la sala: '+data.text);
+    if(type==='modes')event(data.target,'Modos de la sala: '+data.text);
+    for(const message of roomEvents){
+      this.writeTextLog(id,message);
+      if(this.getConfig().settings.historyEnabled){this.history.append(id,message);this.history.prune(this.getConfig().settings.historyDays);}
+    }
     this.emit(id, type, data);
   }
   notify(id, data) {
@@ -886,6 +894,7 @@ class Runtime {
         await this.scripts.configure(data.id, data);
         return { ok: true };
       case "script.remove":
+        this.scriptMedia.clear();
         await this.scripts.remove(data.id);
         return { ok: true };
       case "script.launcher": {
