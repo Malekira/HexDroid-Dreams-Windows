@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="advanced.css">
   <link rel="stylesheet" href="compact.css">
   <link rel="stylesheet" href="mdi.css">
-<link rel="stylesheet" href="version15.css"><link rel="stylesheet" href="version16.css"><link rel="stylesheet" href="version17.css"></head>
+<link rel="stylesheet" href="version15.css"><link rel="stylesheet" href="version16.css"><link rel="stylesheet" href="version17.css"><link rel="stylesheet" href="version21.css"></head>
 <body>
   <header class="menubar">
     <span class="mini-brand"><span class="brand-mark"><img class="brand-logo" src="assets/logo.png" alt=""></span> HexDreams <span>IRC</span></span>
@@ -40,7 +40,7 @@
           <div id="welcome" class="welcome"><img class="welcome-logo" src="assets/logo.png" alt="Logo de HexDreams IRC"><div class="eyebrow">HEXDREAMS IRC · WINDOWS</div><h2>La conversación empieza aquí.</h2><p>Tus redes, tus salas, tu gente.<br>Un espacio tranquilo para conectar.</p><button class="primary" data-action="add-network">＋ Configurar mi primera red</button><div class="welcome-features"><span>◈ Conexiones TLS</span><span>▤ Varias redes</span><span>◌ Mensajes privados</span></div></div>
           <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" hidden></div>
           <button id="new-messages" class="new-messages" hidden>↓ Hay mensajes nuevos</button>
-          <form id="composer" class="composer"><div id="composer-context">Conecta una red para empezar a conversar</div><div class="format-bar"><button type="button" data-format="bold" aria-label="Negrita"><b>B</b></button><button type="button" data-format="italic" aria-label="Cursiva"><i>I</i></button><button type="button" data-format="underline" aria-label="Subrayado"><u>U</u></button><button type="button" data-format="color" aria-label="Color IRC">A</button><span>Shift+Enter: nueva línea</span></div><div id="format-preview" class="format-preview" hidden></div><div class="composer-input"><textarea id="message-input" autocomplete="off" maxlength="10000" aria-label="Escribir mensaje" placeholder="Selecciona una conversación…" rows="1" disabled></textarea><button id="send-button" type="submit" aria-label="Enviar mensaje" disabled>↑</button></div><div class="composer-hint"><span><kbd>Enter</kbd> para enviar · <kbd>/</kbd> para comandos</span><span id="transport-label">IRC · Tu próximo espacio</span></div></form>
+          <form id="composer" class="composer"><div id="composer-context">Conecta una red para empezar a conversar</div><div class="format-bar"><button type="button" data-format="bold" aria-label="Negrita"><b>B</b></button><button type="button" data-format="italic" aria-label="Cursiva"><i>I</i></button><button type="button" data-format="underline" aria-label="Subrayado"><u>U</u></button><button type="button" data-format="color" aria-label="Color IRC">A</button><span>Shift+Enter: nueva línea</span></div><div id="format-preview" class="format-preview" hidden></div><div class="composer-input"><textarea id="message-input" spellcheck="true" lang="es" autocomplete="off" maxlength="10000" aria-label="Escribir mensaje" placeholder="Selecciona una conversación…" rows="1" disabled></textarea><button id="send-button" type="submit" aria-label="Enviar mensaje" disabled>↑</button></div><div class="composer-hint"><span><kbd>Enter</kbd> para enviar · <kbd>/</kbd> para comandos</span><span id="transport-label">IRC · Tu próximo espacio</span></div></form>
         </section>
         <div id="users-resizer" class="resizer" role="separator" aria-label="Ancho de usuarios" aria-orientation="vertical" tabindex="0" aria-valuemin="140" aria-valuemax="360" aria-valuenow="192"></div><aside id="users-panel" class="users-panel" aria-label="Usuarios de la sala"><div class="users-heading"><span>USUARIOS</span><span id="user-count">0</span></div><label class="search user-search"><input id="user-search" aria-label="Buscar usuarios" placeholder="Buscar usuario…"></label><div id="user-list" class="user-list"></div><p class="users-hint">Doble clic para abrir un privado. Clic derecho para más acciones.</p></aside>
       </div>
@@ -64,7 +64,7 @@
   <dialog id="action-dialog"><form id="action-form"><header class="dialog-header"><h2 id="action-title"></h2><button type="button" class="icon-button" data-close="action-dialog" aria-label="Cerrar">×</button></header><div class="form-content"><label id="action-label"><span id="action-prompt"></span><input id="action-input" required autocomplete="off"></label><p id="action-error" class="form-error" role="alert"></p></div><footer class="dialog-footer"><button type="button" class="secondary" data-close="action-dialog">Cancelar</button><button class="primary" type="submit">Aceptar</button></footer></form></dialog>
   <script src="themes.js"></script>
   <script src="workspace.js"></script>
-  <script src="formatting.js"></script><script src="service-targets.js"></script>
+  <script src="formatting.js"></script><script src="service-targets.js"></script><script src="whois-time.js"></script>
   <script src="desktop.js"></script>
   <script src="writing.js"></script><script src="renderer.js"></script>
   <script src="advanced-ui.js"></script>

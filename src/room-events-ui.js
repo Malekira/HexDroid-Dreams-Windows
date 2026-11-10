@@ -188,7 +188,7 @@
     );
     persist().catch(() => {});
   };
-  window.renderDreamsSpecialEvent = (row, m, time) => {
+  window.renderDreamsSpecialEvent = (row, m, time, id=active?.id) => {
     if (!["nick", "clones", "sanction"].includes(m.eventType)) return false;
     row.replaceChildren();
     row.classList.add(
@@ -199,7 +199,7 @@
       const b = el("button", "event-nick", name);
       b.type = "button";
       b.setAttribute("aria-label", "Perfil de " + name);
-      b.onclick = () => window.openDreamsUser?.(active.id, name);
+      b.onclick = () => window.openDreamsUser?.(id, name);
       row.append(b);
     }
     if(m.eventType==="sanction"){row.append(el("span","event-text",m.text));return true;}

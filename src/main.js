@@ -101,6 +101,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      spellcheck: true,
     },
   });
   window.setIcon(
@@ -117,6 +118,7 @@ function createWindow() {
       relaunchCommand: '"' + process.execPath + '"',
     });
   window.removeMenu();
+  require("./services/editor-menu").attachEditorMenu(window,electron.Menu);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("render-process-gone", (_, details) => {
@@ -232,6 +234,7 @@ else {
               contextIsolation: true,
               nodeIntegration: false,
               sandbox: true,
+      spellcheck: true,
             },
           });
           historyWindow.removeMenu();

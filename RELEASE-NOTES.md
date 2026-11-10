@@ -1,14 +1,20 @@
-# HexDreams IRC 0.20.0 para Windows
+# HexDreams IRC 0.21.0 para Windows
 
-- Corrige los comandos a MeMo que recibían códigos de color y negrita de la escritura. `/msg memo read 7`, `/msg memo read last` y lo escrito directamente en el privado de MeMo se envían en texto plano, conservando las palabras y argumentos.
-- Los servicios reconocidos, incluidos MemoServ, NickServ y ChanServ, no reciben formato de escritura, reemplazos del diccionario ni nick completion decorado. El envío interno también elimina formato IRC/ANSI al dirigir mensajes a estos servicios. Los mensajes normales conservan su formato.
-- Los nicks de la lista de Notify son botones que abren el perfil lateral. El árbol mantiene el mismo comportamiento. Funciona incluso desde Status, sin cambiar de conversación, abrir un PV ni pedir WHOIS automáticamente; esas acciones siguen teniendo sus botones propios.
-- Se conservan configuración, historial, scripts y rutas de firma.
-
-## Uso
-
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Puedes ejecutar `/msg memo read 7` desde la conversación activa o escribir `read last` dentro del privado de MeMo. Haz clic en un nick de Notify para ver su perfil. El ZIP distribuido no está firmado.
+- Reduce reconstrucciones de mensajes y usuarios: reutiliza filas, actualiza solo las afectadas por una foto y mantiene una caché acotada a ocho conversaciones. Las ventanas cubiertas o minimizadas posponen su renderizado, sin perder mensajes ni borradores. Agrupa movimientos y redimensionados por frame.
+- Las ventanas activas, en mosaico y restauradas comparten el renderizador y los estilos de mensajes, avatares, eventos y avisos. La disposición compacta se adapta a ventanas estrechas sin mostrar las palabras letra por letra. Conserva las opciones de presentación existentes.
+- WHOIS interpreta 317 separando idle y sign-on. Muestra fecha/hora de conexión y tiempo conectado al consultar solo si recibe un instante válido; no inventa fechas cuando falta el dato.
+- Incorpora `/dice`: lanza un dado de seis lados en sala o PV.
+- Clic derecho en el editor muestra las sugerencias ortográficas que ofrece Electron, permite reemplazar una palabra o añadirla al diccionario y conserva cortar/copiar/pegar/deshacer.
+- Conserva datos, historial, scripts y rutas de firma.
 
 ## Validación
 
-146 pruebas de lógica e integración, 60 flujos de interfaz y Electron real con IRC TCP/TLS. Las pruebas comprueban el envío exacto de MeMo sin formato, la conservación de estilos en chats normales y perfiles de Notify sin WHOIS/PV. Windows verifica el arranque normal y el ejecutable empaquetado antes de publicar el ZIP.
+153 pruebas de lógica, 66 flujos de interfaz y Electron real con IRC TCP/TLS. Windows comprueba el arranque normal y el ejecutable empaquetado antes de publicar.
+
+Medición reproducible local: seis salas, 600 mensajes y 150 usuarios por sala; doce cambios de chat. La mediana pasó de 494,7 a 197,3 ms y agregar un mensaje de 338,5 a 7,3 ms. No es una garantía para otro hardware ni prueba que la memoria al 82 % sea la causa. Datos y metodología en docs/CORRECCIONES-0.21.0.md.
+
+## Evidencia pendiente
+
+Los archivos 20261110-2221-36.9362703.mp4 y 20261110-2225-47.6740769.mp4 y la captura nueva no estaban disponibles en el entorno. No se atribuyen a esos videos conclusiones sin revisarlos.
+
+Extrae todo el ZIP y abre HexDreamsIRC.exe. El ZIP distribuido no está firmado.

@@ -44,6 +44,10 @@ function executeInput(client, target, text, emit = () => {}) {
   } else if (command === "login") {
     if (!args) throw new Error("Uso: /login cuenta contraseña");
     client.sendRaw("LOGIN " + args);
+  } else if (command === "dice") {
+    if(args)throw new Error("Uso: /dice (un dado de seis lados).");
+    token(target,"Destino");if(target==='*'||target==='*consultas*')throw new Error("Selecciona una sala o un privado para lanzar el dado.");
+    client.sendMessage(target,"lanza un dado de 6 lados y obtiene "+require('node:crypto').randomInt(1,7)+" 🎲",true);
   } else if (command === "me") client.sendMessage(target, args, true);
   else if (command === "query") {
     token(args, "Apodo");

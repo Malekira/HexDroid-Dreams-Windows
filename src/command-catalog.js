@@ -14,6 +14,7 @@
     ["msg", "apodo mensaje", "Mensaje privado"],
     ["notice", "apodo mensaje", "Enviar aviso"],
     ["me", "acción", "Acción"],
+    ["dice", "", "Lanzar un dado de seis lados"],
     ["amsg", "mensaje", "Mensaje a todas las salas"],
     ["ame", "acción", "Acción en todas las salas"],
     ["whois", "apodo", "Consultar perfil"],

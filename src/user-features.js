@@ -129,6 +129,7 @@
     for (const [key, label] of Object.entries({
       realName: "Nombre real",
       idle: "Inactividad (idle)",
+      ...(details.connectedAt?{connectedAt:"Conectado desde",connectedFor:"Tiempo conectado (al consultar)"}:{}),
       ident: "Ident",
       host: "Host",
       server: "Servidor",
@@ -926,15 +927,8 @@
             d.server = p[0];
             break;
           case "317": {
-            const seconds = Number(p[0]);
-            d.idle = Number.isFinite(seconds)
-              ? Math.floor(seconds / 3600) +
-                " h " +
-                Math.floor((seconds % 3600) / 60) +
-                " min " +
-                (seconds % 60) +
-                " s"
-              : "—";
+            delete d.idle;delete d.connectedAt;delete d.connectedFor;
+            Object.assign(d,DreamsWhoisTime.parse317(p));
             break;
           }
           case "319":

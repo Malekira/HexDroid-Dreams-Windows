@@ -223,14 +223,13 @@
           a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
         );
     const desired = new Set();
+    const existingRows=new Map([...list.querySelectorAll(".tree-row")].map(row=>[row.dataset.target,row]));
     function reconcile(parent, entries) {
       let previous = null;
       for (const c of entries) {
         const key = fold(c.name);
         desired.add(key);
-        let row = [...list.querySelectorAll(".tree-row")].find(
-          (r) => r.dataset.target === key,
-        );
+        let row = existingRows.get(key);
         if (!row) row = node(c, c.kind);
         const expected = previous
           ? previous.nextElementSibling
@@ -296,7 +295,7 @@
       if (!desired.has(row.dataset.target)) row.remove();
     window.updateDreamsCommandMenu?.();
   };
-  window.renderDreamsChannelEvent = (row, m, time) => {
+  window.renderDreamsChannelEvent = (row, m, time, id=active?.id, c=selected()) => {
     row.replaceChildren();
     row.classList.add("channel-event", "event-" + m.eventType);
     if (config.settings.timestamps) row.append(time);
@@ -319,9 +318,9 @@
         applySettings();
         persist().catch(() => {});
       }
-      window.openDreamsUser?.(active.id, m.nick);
+      window.openDreamsUser?.(id, m.nick);
     };
-    nick.oncontextmenu = (e) => userMenu(e, active.id, selected(), m.nick);
+    nick.oncontextmenu = (e) => userMenu(e, id, c, m.nick);
     row.append(arrow, nick);
     if (config.settings.eventShowHost && (m.ident || m.host))
       row.append(

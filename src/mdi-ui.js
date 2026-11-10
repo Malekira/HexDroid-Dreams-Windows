@@ -63,8 +63,7 @@
       h: Math.min(580, a.h - offset),
     };
   }
-  function bounds(w) {
-    const a = area();
+  function bounds(w, a = area()) {
     if (w.maximized) return { x: 0, y: 0, w: a.w, h: a.h };
     const b = w.bounds;
     b.w = Math.max(w.tiled ? 0 : Math.min(420, a.w), Math.min(a.w, b.w));
@@ -73,12 +72,13 @@
     b.y = Math.max(0, Math.min(a.h - b.h, b.y));
     return b;
   }
-  function apply(w) {
-    w.node.hidden = !!w.minimized;
-    const b = bounds(w);
+  function apply(w, dimensions) {
+    w.node.hidden = !!(w.minimized || w.covered);
+    const b = bounds(w, dimensions);
     Object.assign(w.node.style, {
-      left: b.x + "px",
-      top: b.y + "px",
+      left: "0px",
+      top: "0px",
+      transform: `translate(${b.x}px,${b.y}px)`,
       width: b.w + "px",
       height: b.h + "px",
     });
@@ -109,9 +109,11 @@
     w.maximized = !w.maximized;
     apply(w);
     activate(w);
+    render(true);
   }
   function drag(w, node, direction) {
-    let start = null;
+    let start = null,
+      geometryFrame = null;
     node.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || e.target.closest("button")) return;
       e.preventDefault();
@@ -124,8 +126,9 @@
         w.bounds.x = e.clientX - a.left - w.bounds.w * 0.4;
         w.bounds.y = e.clientY - a.top - 12;
         apply(w);
+        render(true);
       }
-      start = { x: e.clientX, y: e.clientY, b: { ...bounds(w) } };
+      start = { x: e.clientX, y: e.clientY, b: { ...bounds(w) }, area: area() };
       node.setPointerCapture(e.pointerId);
     });
     node.addEventListener("pointermove", (e) => {
@@ -133,7 +136,7 @@
       const dx = e.clientX - start.x,
         dy = e.clientY - start.y,
         b = { ...start.b },
-        a = area();
+        a = start.area;
       if (!direction) {
         b.x += dx;
         b.y += dy;
@@ -160,11 +163,20 @@
         }
       }
       w.bounds = b;
-      apply(w);
+      if (geometryFrame === null)
+        geometryFrame = requestAnimationFrame(() => {
+          geometryFrame = null;
+          apply(w, start?.area);
+        });
     });
     for (const event of ["pointerup", "pointercancel", "lostpointercapture"])
       node.addEventListener(event, () => {
         if (!start) return;
+        if (geometryFrame !== null) {
+          cancelAnimationFrame(geometryFrame);
+          geometryFrame = null;
+          apply(w, start.area);
+        }
         start = null;
         activate(w);
       });
@@ -285,33 +297,110 @@
     apply(w);
     return w;
   }
+  function fillMirror(w, c) {
+    const s = config.settings,
+      contentKey = JSON.stringify([
+        c.revision,
+        c.messages.length,
+        c.messages.at(-1),
+        c.muted,
+        network(w.id).avatarRevision,
+      ]);
+    if (w.contentKey === contentKey) return;
+    w.contentKey = contentKey;
+    const messages = w.messageSurface,
+      events = w.eventSurface,
+      split = c.kind === "channel" && s.roomView === "split";
+    const context = window.getDreamsMessageContext(w.id, c);
+
+    messages.style.setProperty(
+      "--room-own",
+      DreamsFormatting.readableColor(
+        profile(w.id)?.ownNickColor || s.ownNickColor || "#c0adf1",
+        context.background,
+      ),
+    );
+    messages.style.setProperty(
+      "--own-nick-color",
+      profile(w.id)?.ownNickColor || s.ownNickColor || "#c0adf1",
+    );
+    messages.style.setProperty(
+      "--mention-background",
+      "color-mix(in srgb, var(--mention-border) 26%, " +
+        context.background +
+        ")",
+    );
+    const messageNodes = [],
+      eventNodes = [];
+    let day = "";
+    for (const m of c.messages) {
+      if (
+        (m.event && !s.showEvents && c.kind !== "queries" && !m.error) ||
+        (m.eventType === "clones" && s.showClones === false)
+      )
+        continue;
+      const destination = split && m.event ? eventNodes : messageNodes,
+        date = new Date(m.time),
+        label = window.dreamsMessageDay(date);
+      if (destination === messageNodes && label && label !== day) {
+        day = label;
+        messageNodes.push(el("div", "message-day", label));
+      }
+      const row = window.getDreamsMessageRow(w.id, c, m, context);
+      row.querySelector(".message-text")?.classList.add("mdi-text");
+      destination.push(row);
+    }
+    window.syncDreamsMessageChildren(messages, messageNodes);
+    window.syncDreamsMessageChildren(events, eventNodes);
+    if (c.follow && s.autoScroll !== false)
+      messages.scrollTop = messages.scrollHeight;
+    else messages.scrollTop = c.scrollTop || 0;
+  }
   function mirror(w, c) {
-    if (isActive(w)) return;
+    if (isActive(w) || w.minimized || w.covered) return;
     w.mirror.hidden = false;
     const s = config.settings,
       n = network(w.id),
       signature = JSON.stringify([
-        c.revision,
         c.showUsers,
+        c.profileVisible,
         profile(w.id)?.ownNickColor,
         profile(w.id)?.mentionHighlightColor,
-        c.messages.length,
-        c.messages.at(-1)?.id,
         c.users,
         c.topic,
         c.modes,
-        n.avatarRevision,
         n.state,
         c.joined,
         c.muted,
         { ...s, dictionary: undefined, nickCompletion: undefined },
       ]);
     if (signature === w.signature) {
+      if (w.avatarRevision !== n.avatarRevision) {
+        for (const button of w.mirror.querySelectorAll(
+          ".mdi-user[data-nick]",
+        )) {
+          const nick = button.dataset.nick,
+            photo = avatarFor(w.id, nick);
+          if (button._photo === photo) continue;
+          button._photo = photo;
+          const picture = button.querySelector(".user-avatar");
+          picture.replaceChildren();
+          if (photo) {
+            const img = el("img");
+            img.src = photo;
+            img.alt = nick;
+            picture.append(img);
+          } else picture.textContent = nick.slice(0, 2).toUpperCase();
+        }
+        w.avatarRevision = n.avatarRevision;
+      }
+      fillMirror(w, c);
       const field = w.mirror.querySelector("textarea");
       if (field && document.activeElement !== field) field.value = c.draft;
       return;
     }
     w.signature = signature;
+    w.avatarRevision = n.avatarRevision;
     w.mirror.replaceChildren();
     w.mirror.hidden = false;
     if (c.topic && s.showTopic !== false) {
@@ -334,8 +423,7 @@
     );
     messages.style.background = a.background || "var(--bg)";
     messages.style.color = $("messages").style.color || a.text || "var(--text)";
-    messages.style.fontFamily =
-      (s.fontFamily || "Segoe UI") + ', "Segoe UI Emoji", sans-serif';
+    messages.style.fontFamily = getComputedStyle($("messages")).fontFamily;
     messages.style.fontSize = (s.fontSize || 14) + "px";
     const events = el("div", "mdi-events"),
       split = c.kind === "channel" && s.roomView === "split";
@@ -345,124 +433,37 @@
       events.style.flex = "0 0 " + (s.eventsPanePercent || 25) + "%";
       events.append(el("header", "", "Eventos de sala"));
     }
-    for (const m of c.messages) {
-      if (m.event && !s.showEvents && c.kind !== "queries" && !m.error)
-        continue;
-      if (m.eventType === "clones" && s.showClones === false) continue;
-      const row = el(
-        "div",
-        "mdi-message" +
-          (m.own ? " own" : "") +
-          (m.mention && !c.muted && s.highlightMentions !== false
-            ? " mention"
-            : "") +
-          (m.event ? " event" : ""),
-      );
-      if (s.timestamps)
-        row.append(
-          el(
-            "time",
-            "",
-            new Date(m.time).toLocaleTimeString([], { hour12: false }),
-          ),
-          document.createTextNode(" "),
-        );
-      if (!m.event) {
-        if (s.showMessageAvatars !== false && s.mediaEnabled !== false) {
-          const src = avatarFor(w.id, m.nick, "messages");
-          if (src) {
-            const img = el("img", "mdi-avatar");
-            img.src = src;
-            img.alt = m.nick;
-            row.append(img);
-          }
-        }
-        const nick = el("button", "mdi-nick", "{" + m.nick + "} ");
-        nick.type = "button";
-        nick.dataset.mdiUser = m.nick;
-        nick.setAttribute(
-          "aria-label",
-          "Perfil de " + m.nick + " en " + c.name,
-        );
-        if (m.own)
-          nick.style.color = profile(w.id)?.ownNickColor || s.ownNickColor;
-        else if (s.coloredNicks !== false) {
-          let hash = 0;
-          for (const ch of fold(m.nick))
-            hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-          nick.style.color = `hsl(${Math.abs(hash) % 360} ${s.nickPalette === "pastel" ? 48 : 78}% ${DreamsFormatting.luminance(a.background || getComputedStyle($("messages")).backgroundColor) > 0.4 ? (s.nickPalette === "pastel" ? 36 : 28) : s.nickPalette === "pastel" ? 78 : 68}%)`;
-        }
-        row.append(nick);
-      }
-      const text = el("span", "mdi-text");
-      DreamsFormatting.render(
-        text,
-        (m.action ? "* " + m.nick + " " : "") +
-          m.text +
-          (m.reason ? " · " + m.reason : ""),
-      );
-      row.append(text);
-      if (m.notice) {
-        if (s.noticeBackground) row.style.backgroundColor = s.noticeBackground;
-        if (s.noticeColor || s.noticeBackground)
-          text.style.color = DreamsFormatting.readableColor(
-            s.noticeColor || getComputedStyle($("messages")).color,
-            s.noticeBackground ||
-              getComputedStyle($("messages")).backgroundColor,
-          );
-        row.style.fontWeight = s.noticeStyle?.includes("bold") ? "700" : "";
-        row.style.fontStyle = s.noticeStyle?.includes("italic") ? "italic" : "";
-      }
-      if (m.event) {
-        if (m.eventType === "nick")
-          row.style.color = "var(--event-nick,#f06a78)";
-        const arrows = {
-          join: ["→", "#45bd85"],
-          quit: ["←", "#ed6678"],
-          part: ["←", "#e4bc46"],
-          kick: ["←", "#ed6678"],
-        };
-        if (arrows[m.eventType]) {
-          const arrow = el("span", "", arrows[m.eventType][0] + " ");
-          arrow.style.color = arrows[m.eventType][1];
-          row.prepend(arrow);
-        }
-        if (m.nick) {
-          const nick = el("button", "mdi-nick", m.nick);
-          nick.type = "button";
-          nick.dataset.mdiUser = m.nick;
-          nick.setAttribute(
-            "aria-label",
-            "Perfil de " + m.nick + " en " + c.name,
-          );
-          text.replaceChildren(
-            nick,
-            document.createTextNode(
-              " " +
-                m.text.replace(m.nick, "").trim() +
-                (m.reason ? " · " + m.reason : ""),
-            ),
-          );
-        }
-        if ((s.eventShowIdent && m.ident) || (s.eventShowHost && m.host))
-          row.append(
-            document.createTextNode(
-              " (" +
-                (s.eventShowIdent ? m.ident || "" : "") +
-                (s.eventShowHost ? "@" + (m.host || "") : "") +
-                ")",
-            ),
-          );
-      }
-      (split && m.event ? events : messages).append(row);
-    }
+    messages.classList.add("messages");
+    events.classList.add("event-message-list");
+    w.messageSurface = messages;
+    w.eventSurface = events;
+    w.contentKey = null;
+    fillMirror(w, c);
     const form = el("form", "mdi-composer"),
       input = el("textarea"),
       send = el("button", "", "↑");
-    input.style.background = a.inputBackground || "var(--bg)";
+    const writing = effectiveComposerSettings(w.id),
+      inputBackground =
+        a.inputBackground ||
+        getComputedStyle(document.querySelector(".composer-input"))
+          .backgroundColor;
+    input.style.background = inputBackground;
+    input.style.color = DreamsFormatting.readableColor(
+      writing.textColor ||
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--text")
+          .trim(),
+      inputBackground,
+    );
+    input.style.fontWeight = writing.composerBold ? "700" : "";
+    input.style.fontStyle = writing.composerItalic ? "italic" : "";
+    input.style.textDecoration = writing.composerUnderline ? "underline" : "";
+    input.style.fontFamily = getComputedStyle($("message-input")).fontFamily;
     input.style.fontSize = (s.fontSize || 14) + "px";
     input.value = c.draft;
     input.rows = 1;
+    input.spellcheck = true;
+    input.lang = "es";
     input.setAttribute("aria-label", "Escribir en " + c.name);
     input.placeholder = "Mensaje a " + c.name + "…";
     input.disabled =
@@ -499,14 +500,21 @@
         b.type = "button";
         b.dataset.mdiUser = name;
         b.setAttribute("aria-label", "Perfil de " + name + " en " + c.name);
-        const src = avatarFor(w.id, name);
-        if (src) {
-          const img = el("img", "mdi-avatar");
-          img.src = src;
+        const picture = el(
+            "span",
+            "user-avatar",
+            name.slice(0, 2).toUpperCase(),
+          ),
+          source = avatarFor(w.id, name);
+        b.dataset.nick = name;
+        b._photo = source;
+        if (source) {
+          const img = el("img");
+          img.src = source;
           img.alt = name;
-          b.append(img);
+          picture.replaceChildren(img);
         }
-        b.append(el("span", "", raw));
+        b.append(picture, el("span", "user-name", raw));
         users.append(b);
       }
       body.append(users);
@@ -531,7 +539,11 @@
   function sync() {
     if (active && profile(active.id)) conversation(active.id, active.target);
     tasks();
-    const desired = new Set();
+    const dimensions = area();
+    const desired = new Set(),
+      activeMaximized = active
+        ? (windows.get(key(active.id, active.target))?.maximized ?? true)
+        : false;
     for (const [id, n] of networks)
       for (const c of n.conversations.values()) {
         const k = key(id, c.name);
@@ -544,6 +556,9 @@
         desired.add(k);
         let w = windows.get(k);
         if (!w) w = create(id, c);
+        w.covered = activeMaximized && !isActive(w);
+        w.host.style.background =
+          config.settings.roomAppearance?.background || "var(--bg)";
         w.title.textContent =
           c.name +
           (c.modes ? " " + c.modes : "") +
@@ -561,13 +576,14 @@
         if (isActive(w)) {
           w.minimized = false;
           w.mirror.hidden = true;
+          w.contentKey = null;
           if (live.parentElement !== w.host) w.host.append(live);
           w.node.classList.add("mdi-active");
         } else {
           w.node.classList.remove("mdi-active");
           if (live.parentElement === w.host) parking.append(live);
         }
-        apply(w);
+        apply(w, dimensions);
       }
     for (const [k, w] of windows)
       if (!desired.has(k)) {
@@ -576,7 +592,7 @@
         windows.delete(k);
       }
     tasks();
-    for (const w of windows.values()) apply(w);
+
     if (!active) {
       parking.hidden = [...windows.values()].some((w) => w.minimized);
       if (live.parentElement !== parking) parking.append(live);
@@ -665,6 +681,7 @@
       const w = windows.get(key(active.id, active.target));
       if (w) raise(w);
     }
+    render(true);
   };
   const view = [...document.querySelectorAll(".menubar .menu")].find(
       (m) => m.querySelector("summary")?.textContent === "Ver",

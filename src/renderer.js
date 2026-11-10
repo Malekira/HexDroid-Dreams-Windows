@@ -105,68 +105,435 @@ function avatarFor(id,nick,scope="users"){
   if(Object.hasOwn(state.metadata||{},'avatar')||Object.hasOwn(state.metadata||{},'avatar-url'))return photo||null;
   return photo||(fold(n.nick)===fold(nick)?profile(id)?.photo:null);
 }
-function renderMessages(preserveScroll = false) {
-  const list = $('messages'), c = selected(), query = fold($('message-search').value);
-  const eventList=window.prepareDreamsEventPane?.(c);
-  list.hidden = !c; $('welcome').hidden = !!c;
-  if (!c) { list.replaceChildren(); lastMessageView = ''; return; }
-  const signature = JSON.stringify([profile(active.id)?.photo,network(active.id).avatarRevision,c.revision,c.messages.at(-1)?.pending,c.messages.at(-1)?.failed,c.messages.at(-1)?.messageId,active.id,fold(c.name),c.messages.length,c.messages.at(-1)?.id,query,config.settings.noticeColor,config.settings.noticeBackground,config.settings.noticeStyle,config.settings.showMessageAvatars,config.settings.mediaEnabled,config.settings.showClones,config.settings.roomView,config.settings.highlightMentions,config.settings.timestamps,config.settings.showEvents,c.muted]);
-  if (preserveScroll && signature === lastMessageView) return;
-  const anchor = [...list.querySelectorAll('[data-message-id]')].find(row => row.offsetTop + row.offsetHeight > list.scrollTop);
-  const anchorId = anchor?.dataset.messageId, anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
-  lastMessageView = signature; list.replaceChildren();if(eventList)eventList.replaceChildren();
-  const visible = c.messages.filter(m => (m.eventType!=='clones'||config.settings.showClones!==false) && (!m.event || c.kind==='queries' || config.settings.showEvents || m.error) && (!query || fold(DreamsFormatting.plain(m.text) + ' ' + (m.nick || '')).includes(query)));
-  $('search-count').textContent = query ? `${visible.length} resultados` : '';
-  if (!visible.some(m=>!eventList||!m.event)) list.append(el('div','event-message',query ? 'No hay mensajes que coincidan.' : c.kind === 'server' ? 'Conecta esta red para ver su actividad.' : 'Este es el comienzo de la conversación.'));
-  let day = '';
-  for (const m of visible) {
-    const date = new Date(m.time), valid = !Number.isNaN(date.valueOf());
-    const label = valid ? date.toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '';
-    const destination=m.event&&eventList?eventList:list;
-    if (destination===list && label && label !== day) { day = label; list.append(el('div','message-day',label)); }
-    const time = el('time','',valid ? '['+date.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+']' : ''); if (valid) time.dateTime = date.toISOString();
-    const row = el(m.event ? 'div' : 'article',m.event ? 'event-message' + (m.error ? ' error' : '') : 'message' + (m.own ? ' own' : '') + (m.action ? ' action' : '') + (m.notice ? ' notice' : '') + (m.mention && !c.muted && config.settings.highlightMentions!==false ? ' mention' : '') + (selectedMessages.has(m.id) ? ' selected' : ''));
-    row.dataset.messageId = m.id;
-    if (m.event) { if (config.settings.timestamps) row.append(time); const formatted=el('span','event-text');DreamsFormatting.render(formatted,m.text);row.append(formatted);if(m.eventType&&!window.renderDreamsSpecialEvent?.(row,m,time))window.renderDreamsChannelEvent?.(row,m,time); }
-    else {
-      if(m.notice){if(config.settings.noticeBackground)row.style.backgroundColor=config.settings.noticeBackground;row.style.fontWeight=config.settings.noticeStyle?.includes('bold')?'700':'';row.style.fontStyle=config.settings.noticeStyle?.includes('italic')?'italic':'';}
-      const avatar=el('span','avatar',(m.nick||'?').slice(0,2).toUpperCase()),src=avatarFor(active.id,m.nick,"messages");if(src){const img=el('img');img.src=src;img.alt=m.nick;avatar.replaceChildren(img);}if(config.settings.showMessageAvatars!==false&&config.settings.mediaEnabled!==false)row.append(avatar);
-      const content = el('div','message-content'), header = el('div','message-header');
-      const nick = el('button','message-nick','{'+m.nick+'}');nick.setAttribute('aria-label',m.nick);if(!m.own&&config.settings.coloredNicks!==false){let hash=0;for(const ch of fold(m.nick))hash=(hash*31+ch.charCodeAt(0))|0;nick.style.color=`hsl(${Math.abs(hash)%360} ${config.settings.nickPalette==='pastel'?48:78}% ${DreamsFormatting.luminance(getComputedStyle($('messages')).backgroundColor)>.4?(config.settings.nickPalette==='pastel'?36:28):(config.settings.nickPalette==='pastel'?78:68)}%)`;} nick.onclick = () => window.openDreamsUser?.(active.id,m.nick); if (config.settings.timestamps)header.append(time,document.createTextNode(' '));header.append(nick,document.createTextNode(' '));
-      const body = el('div','message-text'); DreamsFormatting.render(body,m.action ? '* ' + m.nick + ' ' + m.text : m.text);if(m.notice&&(config.settings.noticeColor||config.settings.noticeBackground)){const bg=config.settings.noticeBackground||getComputedStyle($('messages')).backgroundColor;body.style.color=DreamsFormatting.readableColor(config.settings.noticeColor||getComputedStyle($('messages')).color,bg);for(const span of body.querySelectorAll('span'))span.style.color=config.settings.noticeColor?'inherit':DreamsFormatting.readableColor(span.style.color||body.style.color,bg);} content.append(header,body);if(api.advanced&&config.settings.mediaEnabled!==false){for(const url of m.text.match(/https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi)||[]){const preview=el('button','message-media','Cargar imagen');preview.onclick=()=>window.previewDreamsMedia?.(url);content.append(preview);}}if(m.pending)content.append(el('small','delivery-state','Pendiente de confirmación'));if(m.failed)content.append(el('small','delivery-state','No se confirmó la entrega'));if(m.replyTo)content.prepend(el('small','reply-reference','↳ Respuesta a '+m.replyTo));if(m.reactions)content.append(el('small','reactions',Object.entries(m.reactions).map(([emoji,nicks])=>emoji+' '+nicks.join(', ')).join(' · '))); row.append(content);
+const messageRows = new Map();
+const messageDates = new Intl.DateTimeFormat("es", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }),
+  messageTimes = new Intl.DateTimeFormat("es", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+window.dreamsMessageDay = (date) =>
+  Number.isNaN(date.valueOf()) ? "" : messageDates.format(date);
+function pruneMessageRows() {
+  const live = new Set(
+    [...networks.values()].flatMap((n) => [...n.conversations.values()]),
+  );
+  for (const c of messageRows.keys()) if (!live.has(c)) messageRows.delete(c);
+}
+window.getDreamsRenderStats = () => ({
+  cachedConversations: messageRows.size,
+  cachedRows: [...messageRows.values()].reduce((n, rows) => n + rows.size, 0),
+});
+function messageRenderContext(id, c) {
+  const surface = getComputedStyle($("messages")),
+    p = profile(id),
+    n = network(id),
+    s = config.settings;
+  const background = s.roomAppearance?.background || surface.backgroundColor,
+    foreground = s.roomAppearance?.text || surface.color;
+  const key = JSON.stringify([
+    background,
+    foreground,
+    p?.ownNickColor,
+    c.muted,
+    s.coloredNicks,
+    s.nickPalette,
+    s.timestamps,
+    s.showMessageAvatars,
+    s.mediaEnabled,
+    s.noticeColor,
+    s.noticeBackground,
+    s.noticeStyle,
+    s.eventShowHost,
+    s.eventShowIdent,
+    s.highlightMentions,
+  ]);
+  let cache = messageRows.get(c);
+  if (!cache) cache = new Map();
+  messageRows.delete(c);
+  messageRows.set(c, cache);
+  while (messageRows.size > 8)
+    messageRows.delete(messageRows.keys().next().value);
+  const ids = new Set(c.messages.map((m) => m.id));
+  for (const id of cache.keys()) if (!ids.has(id)) cache.delete(id);
+  return { background, foreground, key, cache };
+}
+function syncMessageChildren(parent, children) {
+  const keep = new Set(children);
+  for (const child of [...parent.childNodes])
+    if (!keep.has(child)) child.remove();
+  children.forEach((child, index) => {
+    if (parent.childNodes[index] !== child)
+      parent.insertBefore(child, parent.childNodes[index] || null);
+  });
+}
+function messageRow(id, c, m, context) {
+  const signature = context.key + "|" + JSON.stringify(m),
+    cached = context.cache.get(m.id),
+    photo = m.event ? null : avatarFor(id, m.nick, "messages");
+  if (cached?.signature === signature && cached.photo === photo) {
+    cached.row.classList.toggle("selected", selectedMessages.has(m.id));
+    return cached.row;
+  }
+  const date = new Date(m.time),
+    valid = !Number.isNaN(date.valueOf());
+  const time = el(
+    "time",
+    "",
+    valid ? "[" + messageTimes.format(date) + "]" : "",
+  );
+  if (valid) time.dateTime = date.toISOString();
+  const row = el(
+    m.event ? "div" : "article",
+    m.event
+      ? "event-message" + (m.error ? " error" : "")
+      : "message" +
+          (m.own ? " own" : "") +
+          (m.action ? " action" : "") +
+          (m.notice ? " notice" : "") +
+          (m.mention && !c.muted && config.settings.highlightMentions !== false
+            ? " mention"
+            : "") +
+          (selectedMessages.has(m.id) ? " selected" : ""),
+  );
+  row.dataset.messageId = m.id;
+  if (m.event) {
+    if (config.settings.timestamps) row.append(time);
+    const formatted = el("span", "event-text");
+    DreamsFormatting.render(formatted, m.text, context.background);
+    row.append(formatted);
+    if (m.eventType && !window.renderDreamsSpecialEvent?.(row, m, time, id, c))
+      window.renderDreamsChannelEvent?.(row, m, time, id, c);
+  } else {
+    if (m.notice) {
+      if (config.settings.noticeBackground)
+        row.style.backgroundColor = config.settings.noticeBackground;
+      row.style.fontWeight = config.settings.noticeStyle?.includes("bold")
+        ? "700"
+        : "";
+      row.style.fontStyle = config.settings.noticeStyle?.includes("italic")
+        ? "italic"
+        : "";
     }
-    row.oncontextmenu = e => messageMenu(e,m,row);
-    row.addEventListener('click',e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleMessageSelection(m.id,row); } },true);
-    destination.append(row);
+    const avatar = el(
+        "span",
+        "avatar",
+        (m.nick || "?").slice(0, 2).toUpperCase(),
+      ),
+      src = photo;
+    if (src) {
+      const img = el("img");
+      img.src = src;
+      img.alt = m.nick;
+      avatar.replaceChildren(img);
+    }
+    if (
+      config.settings.showMessageAvatars !== false &&
+      config.settings.mediaEnabled !== false
+    )
+      row.append(avatar);
+    const content = el("div", "message-content"),
+      header = el("div", "message-header");
+    const nick = el("button", "message-nick", "{" + m.nick + "}");
+    nick.setAttribute("aria-label", m.nick);
+    if (!m.own && config.settings.coloredNicks !== false) {
+      let hash = 0;
+      for (const ch of fold(m.nick)) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+      nick.style.color = `hsl(${Math.abs(hash) % 360} ${config.settings.nickPalette === "pastel" ? 48 : 78}% ${DreamsFormatting.luminance(context.background) > 0.4 ? (config.settings.nickPalette === "pastel" ? 36 : 28) : config.settings.nickPalette === "pastel" ? 78 : 68}%)`;
+    }
+    nick.onclick = () => window.openDreamsUser?.(id, m.nick);
+    if (config.settings.timestamps)
+      header.append(time, document.createTextNode(" "));
+    header.append(nick, document.createTextNode(" "));
+    const body = el("div", "message-text");
+    DreamsFormatting.render(
+      body,
+      m.action ? "* " + m.nick + " " + m.text : m.text,
+      context.background,
+    );
+    if (
+      m.notice &&
+      (config.settings.noticeColor || config.settings.noticeBackground)
+    ) {
+      const bg = config.settings.noticeBackground || context.background;
+      body.style.color = DreamsFormatting.readableColor(
+        config.settings.noticeColor || context.foreground,
+        bg,
+      );
+      for (const span of body.querySelectorAll("span"))
+        span.style.color = config.settings.noticeColor
+          ? "inherit"
+          : DreamsFormatting.readableColor(
+              span.style.color || body.style.color,
+              bg,
+            );
+    }
+    content.append(header, body);
+    if (api.advanced && config.settings.mediaEnabled !== false) {
+      for (const url of m.text.match(
+        /https:\/\/[^\s<>]+\.(?:png|jpe?g|gif|webp|bmp|avif)(?:\?[^\s<>]*)?/gi,
+      ) || []) {
+        const preview = el("button", "message-media", "Cargar imagen");
+        preview.onclick = () => window.previewDreamsMedia?.(url);
+        content.append(preview);
+      }
+    }
+    if (m.pending)
+      content.append(
+        el("small", "delivery-state", "Pendiente de confirmación"),
+      );
+    if (m.failed)
+      content.append(
+        el("small", "delivery-state", "No se confirmó la entrega"),
+      );
+    if (m.replyTo)
+      content.prepend(
+        el("small", "reply-reference", "↳ Respuesta a " + m.replyTo),
+      );
+    if (m.reactions)
+      content.append(
+        el(
+          "small",
+          "reactions",
+          Object.entries(m.reactions)
+            .map(([emoji, nicks]) => emoji + " " + nicks.join(", "))
+            .join(" · "),
+        ),
+      );
+    row.append(content);
   }
-  if(eventList){if(!eventList.children.length)eventList.append(el("div","event-message","Sin eventos de sala."));eventList.scrollTop=c.eventsFollow===false?c.eventScrollTop||0:eventList.scrollHeight;}
+  row.oncontextmenu = (e) => {
+    if (active?.id !== id || fold(active.target) !== fold(c.name))
+      choose(id, c.name, false);
+    messageMenu(e, m, row);
+  };
+  row.addEventListener(
+    "click",
+    (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMessageSelection(m.id, row);
+      }
+    },
+    true,
+  );
+
+  context.cache.set(m.id, { signature, row, photo });
+  return row;
+}
+window.getDreamsMessageRow = messageRow;
+window.getDreamsMessageContext = messageRenderContext;
+window.syncDreamsMessageChildren = syncMessageChildren;
+function renderMessages(preserveScroll = false) {
+  const list = $("messages"),
+    c = selected(),
+    query = fold($("message-search").value);
+  const eventList = window.prepareDreamsEventPane?.(c);
+  list.hidden = !c;
+  $("welcome").hidden = !!c;
+  if (!c) {
+    list.replaceChildren();
+    lastMessageView = "";
+    return;
+  }
+  const signature = JSON.stringify([
+    profile(active.id)?.photo,
+    network(active.id).avatarRevision,
+    c.revision,
+    c.messages.at(-1)?.pending,
+    c.messages.at(-1)?.failed,
+    c.messages.at(-1)?.messageId,
+    active.id,
+    fold(c.name),
+    c.messages.length,
+    c.messages.at(-1)?.id,
+    query,
+    config.settings.noticeColor,
+    config.settings.noticeBackground,
+    config.settings.noticeStyle,
+    config.settings.showMessageAvatars,
+    config.settings.mediaEnabled,
+    config.settings.showClones,
+    config.settings.roomView,
+    config.settings.highlightMentions,
+    config.settings.timestamps,
+    config.settings.showEvents,
+    c.muted,
+  ]);
+  if (signature === lastMessageView) return;
+  const anchor =
+    preserveScroll && !c.follow
+      ? [...list.querySelectorAll("[data-message-id]")].find(
+          (row) => row.offsetTop + row.offsetHeight > list.scrollTop,
+        )
+      : null;
+  const anchorId = anchor?.dataset.messageId,
+    anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
+  lastMessageView = signature;
+  const context = messageRenderContext(active.id, c),
+    messageNodes = [],
+    eventNodes = [];
+  const visible = c.messages.filter(
+    (m) =>
+      (m.eventType !== "clones" || config.settings.showClones !== false) &&
+      (!m.event ||
+        c.kind === "queries" ||
+        config.settings.showEvents ||
+        m.error) &&
+      (!query ||
+        fold(DreamsFormatting.plain(m.text) + " " + (m.nick || "")).includes(
+          query,
+        )),
+  );
+  $("search-count").textContent = query ? `${visible.length} resultados` : "";
+  if (!visible.some((m) => !eventList || !m.event))
+    messageNodes.push(
+      el(
+        "div",
+        "event-message",
+        query
+          ? "No hay mensajes que coincidan."
+          : c.kind === "server"
+            ? "Conecta esta red para ver su actividad."
+            : "Este es el comienzo de la conversación.",
+      ),
+    );
+  let day = "";
+  for (const m of visible) {
+    const date = new Date(m.time),
+      valid = !Number.isNaN(date.valueOf());
+    const label = valid ? messageDates.format(date) : "";
+    const destination = m.event && eventList ? eventNodes : messageNodes;
+    if (destination === messageNodes && label && label !== day) {
+      day = label;
+      messageNodes.push(el("div", "message-day", label));
+    }
+    destination.push(messageRow(active.id, c, m, context));
+  }
+  syncMessageChildren(list, messageNodes);
+  if (eventList) syncMessageChildren(eventList, eventNodes);
+  if (eventList) {
+    if (!eventList.children.length)
+      eventList.append(el("div", "event-message", "Sin eventos de sala."));
+    eventList.scrollTop =
+      c.eventsFollow === false ? c.eventScrollTop || 0 : eventList.scrollHeight;
+  }
   if (query) list.scrollTop = 0;
-  else if (c.follow && config.settings.autoScroll) list.scrollTop = list.scrollHeight;
+  else if (c.follow && config.settings.autoScroll)
+    list.scrollTop = list.scrollHeight;
   else {
-    const savedAnchor = preserveScroll && anchorId && [...list.querySelectorAll('[data-message-id]')].find(row => row.dataset.messageId === anchorId);
-    list.scrollTop = savedAnchor ? savedAnchor.offsetTop - anchorOffset : c.scrollTop;
+    const savedAnchor =
+      preserveScroll &&
+      anchorId &&
+      [...list.querySelectorAll("[data-message-id]")].find(
+        (row) => row.dataset.messageId === anchorId,
+      );
+    list.scrollTop = savedAnchor
+      ? savedAnchor.offsetTop - anchorOffset
+      : c.scrollTop;
   }
-  $('new-messages').hidden = c.follow || !c.unread;
-  $('first-unread').disabled = !c.firstUnreadId;
+  $("new-messages").hidden = c.follow || !c.unread;
+  $("first-unread").disabled = !c.firstUnreadId;
 }
 function stripFormatting(text) { return DreamsFormatting.plain(text); }
-let lastUsersView='';
+let lastUsersView = "",
+  lastUserConversation = "",
+  userRows = new Map();
 function renderUsers() {
-  const view=JSON.stringify([active,selected()?.users,(active?network(active.id).avatarRevision:null),$('user-search').value,config.settings.mediaEnabled,config.settings.showAvatars]);
-  if(view===lastUsersView)return;lastUsersView=view;
-  const list = $('user-list'); list.replaceChildren(); const c = selected(), n = active && network(active.id), query = fold($('user-search').value);
-  const rank = user => { const i = n.prefixes.indexOf(user[0]); return i < 0 ? 999 : i; };
-  const users = [...(c?.users || [])].sort((a,b) => rank(a) - rank(b) || a.localeCompare(b));
-  $('user-count').textContent = String(users.length);
-  if (!users.length) { list.append(el('div','empty-users',c?.kind === 'channel' ? 'Los usuarios aparecerán al entrar en la sala.' : 'Selecciona una sala para ver sus usuarios.')); return; }
-  for (const user of users.filter(user => fold(user).includes(query))) {
-    const bare = bareNick(user,n), b = el('button','user-button' + (rank(user) < 999 ? ' operator' : ''));
-    b.setAttribute('aria-label',statusPrefix(user,n)+bare);
-    const picture=el('span','user-avatar',bare.slice(0,2).toUpperCase()),photo=avatarFor(active.id,bare);if(photo){const img=el('img');img.src=photo;img.alt=bare;picture.replaceChildren(img);}b.append(picture,el('span','user-name',statusPrefix(user,n)+bare));
-    b.setAttribute('aria-label',user); b.title = 'Doble clic para abrir un privado con ' + bare;
-    const id = active.id; let profileTimer; b.onclick=()=>{clearTimeout(profileTimer);profileTimer=setTimeout(()=>window.openDreamsUser?.(id,bare),220);}; b.ondblclick = () => {clearTimeout(profileTimer);choose(id,bare);}; b.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); choose(id,bare); } };
-    b.oncontextmenu = e => userMenu(e,id,c,bare); list.append(b);
+  const view = JSON.stringify([
+    active,
+    selected()?.users,
+    active ? network(active.id).avatarRevision : null,
+    $("user-search").value,
+    config.settings.mediaEnabled,
+    config.settings.showAvatars,
+  ]);
+  if (view === lastUsersView) return;
+  lastUsersView = view;
+  const list = $("user-list");
+  const c = selected(),
+    n = active && network(active.id),
+    query = fold($("user-search").value),
+    key = active?.id + "|" + c?.name,
+    nodes = [],
+    liveUsers = new Set();
+  if (key !== lastUserConversation) {
+    lastUserConversation = key;
+    userRows.clear();
   }
+  const rank = (user) => {
+    const i = n.prefixes.indexOf(user[0]);
+    return i < 0 ? 999 : i;
+  };
+  const users = [...(c?.users || [])].sort(
+    (a, b) => rank(a) - rank(b) || a.localeCompare(b),
+  );
+  $("user-count").textContent = String(users.length);
+  if (!users.length) {
+    userRows.clear();
+    list.replaceChildren(
+      el(
+        "div",
+        "empty-users",
+        c?.kind === "channel"
+          ? "Los usuarios aparecerán al entrar en la sala."
+          : "Selecciona una sala para ver sus usuarios.",
+      ),
+    );
+    return;
+  }
+  for (const user of users.filter((user) => fold(user).includes(query))) {
+    const bare = bareNick(user, n),
+      photo = avatarFor(active.id, bare),
+      cached = userRows.get(user);
+    liveUsers.add(user);
+    if (cached?.photo === photo && cached?.node) {
+      nodes.push(cached.node);
+      continue;
+    }
+    const b = el(
+      "button",
+      "user-button" + (rank(user) < 999 ? " operator" : ""),
+    );
+    b.setAttribute("aria-label", statusPrefix(user, n) + bare);
+    const picture = el("span", "user-avatar", bare.slice(0, 2).toUpperCase());
+    if (photo) {
+      const img = el("img");
+      img.src = photo;
+      img.alt = bare;
+      picture.replaceChildren(img);
+    }
+    b.append(picture, el("span", "user-name", statusPrefix(user, n) + bare));
+    b.setAttribute("aria-label", user);
+    b.title = "Doble clic para abrir un privado con " + bare;
+    const id = active.id;
+    let profileTimer;
+    b.onclick = () => {
+      clearTimeout(profileTimer);
+      profileTimer = setTimeout(() => window.openDreamsUser?.(id, bare), 220);
+    };
+    b.ondblclick = () => {
+      clearTimeout(profileTimer);
+      choose(id, bare);
+    };
+    b.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        choose(id, bare);
+      }
+    };
+    b.oncontextmenu = (e) => userMenu(e, id, c, bare);
+    userRows.set(user, { photo, node: b });
+    nodes.push(b);
+  }
+  for (const user of userRows.keys())
+    if (!liveUsers.has(user)) userRows.delete(user);
+  syncMessageChildren(list, nodes);
 }
 function statusPrefix(user,n){let i=0;while(i<user.length&&n.prefixes.includes(user[i]))i++;return user.slice(0,i);}
 function bareNick(user,n) { let i = 0; while (i < user.length && n.prefixes.includes(user[i])) i++; return user.slice(i).split("!")[0]; }
@@ -204,7 +571,7 @@ function renderHeader() {
   $('new-messages').hidden = !c || c.follow || !c.unread;
   $('footer-status').textContent = n?.state === 'connecting' ? `Conectando a ${p.name}…` : connected ? `${connected} ${connected === 1 ? 'red conectada' : 'redes conectadas'}${p ? ' · ' + p.name : ''}` : 'Listo para conectar';
 }
-function render(preserveScroll = false) { renderSidebar(); renderTabs(); renderHeader(); renderMessages(preserveScroll); renderUsers();window.loadDreamsAvatars?.();window.refreshDreamsUserPhoto?.(); }
+function render(preserveScroll = false) { pruneMessageRows();renderSidebar(); renderTabs(); renderHeader(); renderMessages(preserveScroll); renderUsers();window.loadDreamsAvatars?.();window.refreshDreamsUserPhoto?.(); }
 function scheduleRender() { if (!framePending) { framePending = true; requestAnimationFrame(() => { framePending = false; render(true); }); } }
 function conversationShowsUsers(c=selected()){return !!c&&(c.kind!=='server'||c.profileVisible)&&(c.showUsers??config.settings.showUsers)!==false;}
 function applyConversationUsers(){const visible=conversationShowsUsers(),sizes=DreamsWorkspace.panelSizes(innerWidth,{...config.settings,showUsers:visible});document.documentElement.style.setProperty('--sidebar-width',sizes.left+'px');document.documentElement.style.setProperty('--users-width',sizes.right+'px');$('users-panel').hidden=$('users-resizer').hidden=!visible;$('users-toggle').disabled=(selected()?.kind==='server'&&!selected()?.profileVisible)||!selected();$('users-toggle').setAttribute('aria-pressed',String(visible));$('users-toggle').setAttribute('aria-label',(visible?'Ocultar':'Mostrar')+' usuarios');}
@@ -309,7 +676,7 @@ function userMenu(event,id,c,nick) {
     ] : [])
   ]);
 }
-function effectiveComposerSettings(){const p=profile(active?.id),s={...config.settings};if(p?.textColor)s.textColor=p.textColor;if(p?.textStyle){s.composerBold=p.textStyle.includes('bold');s.composerItalic=p.textStyle.includes('italic');s.composerUnderline=p.textStyle.includes('underline');}return s;}
+function effectiveComposerSettings(id=active?.id){const p=profile(id),s={...config.settings};if(p?.textColor)s.textColor=p.textColor;if(p?.textStyle){s.composerBold=p.textStyle.includes('bold');s.composerItalic=p.textStyle.includes('italic');s.composerUnderline=p.textStyle.includes('underline');}return s;}
 function composeText(text){const service=DreamsServices.outgoingTarget(text,active?.target);if(DreamsServices.isService(service))return DreamsFormatting.plain(text);const s=effectiveComposerSettings(),colorIndex=s.textColor?DreamsFormatting.colors.findIndex(c=>c.toLowerCase()===s.textColor.toLowerCase()):s.composerColor,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(s.textColor?DreamsWriting.colorCode(s.textColor):Number.isInteger(colorIndex)&&colorIndex>=0?'\x03'+String(colorIndex).padStart(2,'0'):'');text=window.prepareDreamsOutgoing?.(text,prefix)??text;if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
 function applyComposerStyle(){const s=effectiveComposerSettings(),i=$('message-input');i.style.color=s.textColor?DreamsFormatting.readableColor(s.textColor,getComputedStyle(document.querySelector('.composer-input')).backgroundColor):Number.isInteger(s.composerColor)?DreamsFormatting.readableColor(DreamsFormatting.colors[s.composerColor],getComputedStyle(document.querySelector('.composer-input')).backgroundColor):'';i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?!!s.textColor||Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
 function previewFormat(){applyComposerStyle();$('format-preview').hidden=true;}
@@ -467,7 +834,7 @@ for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFami
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };
 }
 for (const [id,key,min,max,pointer] of [['sidebar-resizer','sidebarWidth',160,420,e => e.clientX],['users-resizer','usersWidth',140,360,e => innerWidth - e.clientX]]) DreamsDesktop.bindResizer($(id),{ min,max,read:() => config.settings[key],write:v => { config.settings[key] = v; },apply:applySettings,save:() => persist().catch(() => {}),fromPointer:pointer });
-window.addEventListener('resize',() => applySettings());
+let resizeFrame;window.addEventListener('resize',()=>{if(resizeFrame)return;resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;applySettings();});});
 document.addEventListener('keydown',e => {
   if (e.ctrlKey && e.key.toLowerCase() === 'c' && selectedMessages.size && !document.getSelection()?.toString() && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); copyMessages(); return; }
   if (!e.ctrlKey || e.altKey) return;
@@ -534,7 +901,7 @@ api.onEvent(event => {
     workspace = new DreamsWorkspace.Workspace(config.profiles,{}); networks = workspace.networks; active = null;workspace.active=null;selectedNetworkId=config.profiles[0]?.id||null;
     appVersion = result.version || '0.4.0';
     if (active) $('message-input').value = selected().draft;
-    applySettings(); previewFormat();render();
+    applySettings(); previewFormat();render();window.dreamsUIReady=true;
     if (result.warnings?.length) notify(result.warnings.join(' '), true);
   } catch (error) { notify('No se pudo iniciar la interfaz: ' + error.message, true); }
 })();

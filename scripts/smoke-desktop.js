@@ -60,16 +60,20 @@ async function run() {
     app = await electron.launch({ args, env, timeout:20000, ...(process.env.DREAMS_BINARY?{executablePath:process.env.DREAMS_BINARY}:{}) }); let page = await app.firstWindow({timeout:20000});
     await app.evaluate(({Notification,shell})=>{Notification.isSupported=()=>false;global.__notifyBeeps=0;shell.beep=()=>global.__notifyBeeps++;});
     const rendererErrors = []; page.on('pageerror', e => rendererErrors.push(e.message));
+    await page.waitForLoadState('load');await page.waitForFunction(()=>window.dreamsUIReady===true);await page.bringToFront();
     await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a HexDreams IRC');
     await page.getByRole('button', { name: 'Añadir red', exact: true }).click();
-    await page.locator('#profile-name').fill('Servidor de prueba'); await page.locator('#profile-host').fill('127.0.0.1');
+    await page.locator('#profile-name').fill('Servidor de prueba'); await page.locator('#profile-host').fill('127.0.0.1');await expect(page.locator('#profile-host')).toHaveValue('127.0.0.1');
     await page.locator('#profile-port').fill(String(server.address().port)); await page.locator('#profile-tls').uncheck();
     await page.locator('#profile-nick').fill('Dreamer'); await page.locator('#profile-channels').fill('#dreams');
     await page.getByRole('button', { name: 'Guardar y conectar', exact: true }).click();
-    await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
+    await expect(page.locator('#messages .message-text')).toHaveText('Desktop IPC works');
     await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
+    console.log('Prueba Electron: dado de seis lados y menú ortográfico nativo');
+    await page.locator('#message-input').fill('/dice');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.some(line=>/^PRIVMSG #dreams :\x01ACTION lanza un dado de 6 lados y obtiene [1-6] 🎲\x01$/.test(line))).toBe(true);
+    const spelling=await app.evaluate(({BrowserWindow,Menu})=>{const win=BrowserWindow.getAllWindows()[0],wc=win.webContents,build=Menu.buildFromTemplate,replace=wc.replaceMisspelling;let items,replacement;try{Menu.buildFromTemplate=template=>({popup:()=>{items=template;}});wc.replaceMisspelling=word=>replacement=word;wc.emit('context-menu',{}, {isEditable:true,misspelledWord:'holaa',dictionarySuggestions:['hola']});items.find(item=>item.label==='hola').click();return{replacement,paste:items.some(item=>item.role==='paste')};}finally{Menu.buildFromTemplate=build;wc.replaceMisspelling=replace;}});expect(spelling).toEqual({replacement:'hola',paste:true});
     console.log('Prueba Electron: comandos de MeMo sin formato en MSG y PV');
     await page.evaluate(()=>{window.__memoSettings={...config.settings};config.settings.composerBold=true;config.settings.composerColor=6;applySettings();});await page.locator('#message-input').fill('/msg memo read 7');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG memo :read 7')).toBe(true);await page.evaluate(()=>choose(config.profiles[0].id,'MeMo'));await page.locator('#message-input').fill('read last');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG MeMo :read last')).toBe(true);await page.evaluate(()=>{config.settings=window.__memoSettings;applySettings();choose(config.profiles[0].id,'#dreams');});
 
@@ -99,6 +103,7 @@ async function run() {
     await page.locator('#notify-list .notify-row').filter({hasText:'Alice'}).getByRole('button',{name:'WHOIS',exact:true}).click();
     await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');
     await expect(page.locator('#whois-profile-dialog')).toContainText('0 h 2 min 5 s');
+    await expect(page.locator('#whois-profile-dialog')).toContainText('Conectado desde');await expect(page.locator('#whois-profile-dialog')).toContainText('Tiempo conectado (al consultar)');
     await page.locator('#whois-profile-dialog .dialog-header').getByRole('button',{name:'Cerrar',exact:true}).click();
 
 
@@ -165,7 +170,7 @@ async function run() {
     await expect.poll(() => received.some(line => line.startsWith('PART #dreams'))).toBe(true);
     await page.getByRole('button',{name:'Salas',exact:true}).click();await page.getByRole('menuitem',{name:'Entrar a otra sala…',exact:true}).click();
     await page.locator('#join-channel').fill('#dreams'); await page.locator('#join-form button[type=submit]').click();
-    await expect(page.locator('.message-text')).toHaveText('Desktop IPC works');
+    await expect(page.locator('#messages .message-text')).toHaveText('Desktop IPC works');
     await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     console.log('Prueba Electron: formato permanente sin códigos en el editor');
     await page.getByLabel('Estilos de escritura',{exact:true}).click();
@@ -178,7 +183,7 @@ async function run() {
       await expect(page.locator('#message-input')).toHaveValue(text);
       await page.locator('#message-input').press('Enter');
       await expect.poll(()=>received.includes('PRIVMSG #dreams :\x02\x0313'+text+'\x0f')).toBe(true);
-      await expect(page.locator('.message-text span').filter({hasText:text})).toHaveCSS('font-weight','700');
+      await expect(page.locator('#messages .message-text span').filter({hasText:text})).toHaveCSS('font-weight','700');
     }
     if(!await page.locator('.composer-styles').getAttribute('open').then(v=>v!==null))await page.getByLabel('Estilos de escritura',{exact:true}).click();
     await page.getByRole('button',{name:'Negrita',exact:true}).click();
@@ -339,9 +344,9 @@ async function run() {
     const identity=await page.evaluate(async()=>{const c=await window.dreams.load();return c.profiles[0];});expect(identity.username).toBe('desktop_ident');expect(identity.realName).toBe('Desktop Real Name');expect(identity.photo).toMatch(/^data:image\/png;base64,/);const storedCommands=await page.evaluate(async id=>(await window.dreams.advanced('network.commands.get',{network:id})).commands,identity.id);expect(storedCommands).toEqual(['/nick Dreamer']);
     await page.locator('#settings-dialog .dialog-header button').click();
     await page.locator('#message-input').fill('\x0398,16visible extended color\x0f');await page.locator('#message-input').press('Enter');
-    await expect(page.locator('.message-text span').filter({hasText:'visible extended color'})).toHaveCSS('color','rgb(255, 255, 255)');
-    await expect(page.locator('.message-text span').filter({hasText:'visible extended color'})).toHaveCSS('background-color','rgb(71, 0, 0)');
-    await expect(page.locator('.message.own .avatar img').last()).toBeVisible();
+    await expect(page.locator('#messages .message-text span').filter({hasText:'visible extended color'})).toHaveCSS('color','rgb(255, 255, 255)');
+    await expect(page.locator('#messages .message-text span').filter({hasText:'visible extended color'})).toHaveCSS('background-color','rgb(71, 0, 0)');
+    await expect(page.locator('#messages .message.own .avatar img').last()).toBeVisible();
     // Exercise the advanced controls through the actual preload and main process.
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await expect(page.locator('.advanced-dialog')).toBeVisible();
@@ -435,8 +440,8 @@ async function run() {
     await expect(page.locator('#connection-button')).toHaveText('Conectar');
     await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toHaveCount(0);
     await page.locator('#connection-button').click();
-    await expect(page.locator('.message-text').last()).toHaveText('Desktop IPC works');
-    await expect(page.locator('.message-text').filter({hasText:'persisted SQLite desktop message'})).toHaveCount(1);
+    await expect(page.locator('#messages .message-text').last()).toHaveText('Desktop IPC works');
+    await expect(page.locator('#messages .message-text').filter({hasText:'persisted SQLite desktop message'})).toHaveCount(1);
     // A second launch must exit and restore the existing application window.
     const child = spawn(process.env.DREAMS_BINARY||require('electron'), args, { cwd: path.resolve(__dirname, '..'), env, stdio: 'ignore' });
     const timer = setTimeout(() => child.kill(), 10000);
@@ -472,6 +477,7 @@ async function run() {
     fs.writeFileSync(path.join(dataPath, 'settings.json'), '{broken-settings');
     console.log('Prueba Electron: '+(process.env.DREAMS_BINARY?'ejecutable empaquetado':'código fuente')+' · abrir');
     app = await electron.launch({ args, env, timeout:20000, ...(process.env.DREAMS_BINARY?{executablePath:process.env.DREAMS_BINARY}:{}) }); page = await app.firstWindow({timeout:20000});
+    await page.waitForLoadState('load');await page.waitForFunction(()=>window.dreamsUIReady===true);await page.bringToFront();
     await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a HexDreams IRC');
     await expect(page.locator('#toast')).toContainText('No se pudo leer la configuración');
     expect(fs.readdirSync(dataPath).some(name => name.startsWith('settings.json.recovery-'))).toBe(true);

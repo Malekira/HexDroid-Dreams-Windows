@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.20.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.21.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.20.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.21.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.20.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.21.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -33,6 +33,9 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 - Usuarios ordenados por los rangos anunciados, búsqueda, doble clic para privado y menú WHOIS/WHO/invitación/moderación. Las acciones privilegiadas se deshabilitan si el rango local no las autoriza; el servidor siempre decide si acepta una petición.
 - El historial de sala conserva mensajes y eventos (entradas, salidas, cambios de nick, expulsiones, sanciones, tema y modos recibidos), con fecha y hora en TXT y búsqueda local si está activada.
 - Al activar una sala, privado o Status, o hacer clic en su fondo o título, el cuadro de escritura recibe el foco y conserva el borrador.
+- Las ventanas activas e inactivas comparten la presentación de mensajes. Se reutilizan filas, se actualizan fotos por usuario y se agrupan los movimientos por frame; las ventanas cubiertas o minimizadas posponen su redibujado. La caché adicional se limita a ocho conversaciones y se libera al cerrar chats.
+- WHOIS separa inactividad, fecha/hora de conexión y duración calculada al consultar, cuando el servidor entrega un sign-on válido en 317.
+- Clic derecho en el editor ofrece sugerencias del corrector de Electron, añadir al diccionario y acciones de edición. `/dice` lanza un dado de seis lados en la sala o PV actual.
 - Chat con formato IRC/mIRC y ANSI básico seguro, selección y copia de mensajes, búsqueda en los mensajes cargados, primer mensaje sin leer y salto al final. Fuente, tamaño, color del apodo propio, interlineado y separación configurables.
 - Borradores y posiciones de lectura individuales durante la sesión, historial de lo escrito en memoria, sugerencias de apodos y comandos (incluidos scripts activos), Tab/Shift+Tab para recorrer coincidencias del prefijo original, Enter para enviar y Shift+Enter para varias líneas.
 - Ventana con tamaño/posición/maximización persistentes y recuperación si se desconecta un monitor. Configuración arriba a la derecha con búsqueda de opciones.
@@ -43,7 +46,7 @@ En Status, `/raw` y `/quote` pueden enviar comandos de servidor largos, como `VA
 
 Los comandos dirigidos a servicios conocidos como MeMo/MemoServ, NickServ y ChanServ se envían en texto plano. El formato de escritura, el diccionario y el nick completion decorado no alteran sus órdenes. Funciona con `/msg memo read 7` y escribiendo `read last` en el PV de MeMo.
 
-Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/notice`, `/me`, `/whois`, `/who`, `/topic`, `/mode`, `/invite`, `/kick`, `/ban`, `/unban`, `/op`, `/deop`, `/voice`, `/devoice`, `/away`, `/back`, `/list`, `/time`, `/version`, `/motd`, `/admin`, `/info`, `/raw`, `/quote`, `/markread` y `/quit`. Para texto que empiece por `/`, escribe `//`.
+Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/notice`, `/me`, `/dice`, `/whois`, `/who`, `/topic`, `/mode`, `/invite`, `/kick`, `/ban`, `/unban`, `/op`, `/deop`, `/voice`, `/devoice`, `/away`, `/back`, `/list`, `/time`, `/version`, `/motd`, `/admin`, `/info`, `/raw`, `/quote`, `/markread` y `/quit`. Para texto que empiece por `/`, escribe `//`.
 
 ![Interfaz de escritorio con mensajes de prueba](docs/images/workspace-0.2.0.png)
 

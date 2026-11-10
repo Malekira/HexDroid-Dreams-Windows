@@ -707,7 +707,7 @@ html[data-theme="light"] .event-part .event-arrow {
 .messages {
   --room-muted: var(--muted);
 }
-#messages
+:is(#messages,.mdi-messages)
   :is(
     .event-message,
     .event-message time,
@@ -717,10 +717,10 @@ html[data-theme="light"] .event-part .event-arrow {
   ) {
   color: var(--room-muted);
 }
-#messages .event-nick {
+:is(#messages,.mdi-messages) .event-nick {
   color: var(--room-muted);
 }
-#messages .own .message-nick {
+:is(#messages,.mdi-messages) .own .message-nick {
   color: var(--room-own, var(--own-nick-color));
 }
 .tree-row.has-mention:not(.active) {
@@ -750,13 +750,13 @@ html[data-theme="light"] .event-part .event-arrow {
 #composer .composer-input textarea {
   color: inherit;
 }
-#messages .event-join .event-arrow {
+:is(#messages,.mdi-messages) .event-join .event-arrow {
   color: var(--room-join, var(--green));
 }
-#messages .event-part .event-arrow {
+:is(#messages,.mdi-messages) .event-part .event-arrow {
   color: var(--room-part, #d8b541);
 }
-#messages .event-quit .event-arrow {
+:is(#messages,.mdi-messages) .event-quit .event-arrow {
   color: var(--room-quit, #e07878);
 }
 .profile-action-buttons {
@@ -923,24 +923,24 @@ html[data-theme="violet"] .brand-mark {
   color: var(--text);
   background: var(--raised);
 }
-#messages .message.mention,
-html[data-theme="violet"] #messages .message.mention {
+:is(#messages,.mdi-messages) .message.mention,
+html[data-theme="violet"] :is(#messages,.mdi-messages) .message.mention {
   background: var(--mention-background);
   border-left: 3px solid var(--mention-border);
   box-shadow: none;
   padding-left: 9px;
   border-radius: 4px;
 }
-#messages .message.mention .message-nick {
+:is(#messages,.mdi-messages) .message.mention .message-nick {
   font-weight: 700;
 }
-#messages .event-nick-change,
-#messages .event-clones,
+:is(#messages,.mdi-messages) .event-nick-change,
+:is(#messages,.mdi-messages) .event-clones,
 #channel-events .event-nick-change,
 #channel-events .event-clones {
   color: var(--room-red, #df666f);
 }
-#messages :is(.event-nick-change, .event-clones) .event-nick,
+:is(#messages,.mdi-messages) :is(.event-nick-change, .event-clones) .event-nick,
 #channel-events :is(.event-nick-change, .event-clones) .event-nick {
   color: inherit;
 }
@@ -951,7 +951,7 @@ html[data-theme="violet"] #messages .message.mention {
   min-height: 0;
   overflow: hidden;
 }
-.conversation-panes > #messages {
+.conversation-panes > :is(#messages,.mdi-messages) {
   min-height: 0;
   flex: 1;
 }
@@ -1016,18 +1016,18 @@ html[data-theme="violet"] #messages .message.mention {
   margin: 5px 0;
   color: var(--text);
 }
-#messages .event-message.event-nick-change,
-#messages .event-message.event-clones,
+:is(#messages,.mdi-messages) .event-message.event-nick-change,
+:is(#messages,.mdi-messages) .event-message.event-clones,
 #channel-events .event-message.event-nick-change,
 #channel-events .event-message.event-clones {
   color: var(--room-red, #e65f6f);
 }
-#messages :is(.event-nick-change, .event-clones) .event-nick,
+:is(#messages,.mdi-messages) :is(.event-nick-change, .event-clones) .event-nick,
 #channel-events :is(.event-nick-change, .event-clones) .event-nick {
   color: inherit;
 }
 /* Compact spacing must not override the explicit message-thumbnail preference. */
-.compact #messages .message>.avatar {display:grid;width:24px;height:24px;flex:0 0 24px;margin-top:1px}
+.compact :is(#messages,.mdi-messages) .message>.avatar {display:grid;width:24px;height:24px;flex:0 0 24px;margin-top:1px}
 html[data-theme="purple-light"] :is(.menubar,.sidebar,.statusbar,.dialog-header){background:linear-gradient(125deg,#38205e,#121d43)}
 html[data-theme="purple-light"] :is(dialog,.users-panel,.settings-nav){background:#191b3a}
 .user-details dd,.user-profile,.theme-live-preview{font-family:'Segoe UI','Segoe UI Emoji','Noto Color Emoji',sans-serif}

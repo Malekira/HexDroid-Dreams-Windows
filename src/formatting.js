@@ -235,9 +235,9 @@
         .trim() || "#0d111b"
     );
   }
-  function render(node, text) {
+  function render(node, text, suppliedBackground) {
     node.replaceChildren();
-    const background = renderBackground(node);
+    const background = suppliedBackground || renderBackground(node);
     for (const s of segments(text)) {
       const span = node.ownerDocument.createElement("span");
       span.textContent = s.text;
