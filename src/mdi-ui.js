@@ -549,7 +549,7 @@
           (c.modes ? " " + c.modes : "") +
           " · " +
           (profile(id)?.name || "");
-        w.usersButton.hidden = c.kind === "server";
+        w.usersButton.hidden = c.kind === "server" && !c.profileVisible;
         const shown = conversationShowsUsers(c);
         w.usersButton.setAttribute(
           "aria-label",

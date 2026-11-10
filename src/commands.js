@@ -52,7 +52,7 @@ function executeInput(client, target, text, emit = () => {}) {
     const space = args.indexOf(" ");
     if (space < 1) throw new Error(`Uso: /${command} apodo mensaje`);
     const to = args.slice(0, space),
-      body = args.slice(space + 1);
+      body = require("./service-targets").plain(to,args.slice(space + 1));
     token(to, "Destino");
     if (command === "msg") client.sendMessage(to, body);
     else {

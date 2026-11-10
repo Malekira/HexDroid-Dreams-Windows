@@ -70,6 +70,9 @@ async function run() {
     await page.locator('#message-input').fill('borrador de foco');await page.evaluate(()=>document.activeElement.blur());await page.locator('.mdi-active .mdi-title').click();await expect(page.locator('#message-input')).toBeFocused();await expect(page.locator('#message-input')).toHaveValue('borrador de foco');await page.locator('#message-input').fill('');
     await expect(page.getByRole('button', { name: '@Alice', exact: true })).toBeVisible();
     await expect(page.locator('#channel-modes')).toHaveText('+nt');
+    console.log('Prueba Electron: comandos de MeMo sin formato en MSG y PV');
+    await page.evaluate(()=>{window.__memoSettings={...config.settings};config.settings.composerBold=true;config.settings.composerColor=6;applySettings();});await page.locator('#message-input').fill('/msg memo read 7');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG memo :read 7')).toBe(true);await page.evaluate(()=>choose(config.profiles[0].id,'MeMo'));await page.locator('#message-input').fill('read last');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.includes('PRIVMSG MeMo :read last')).toBe(true);await page.evaluate(()=>{config.settings=window.__memoSettings;applySettings();choose(config.profiles[0].id,'#dreams');});
+
     console.log('Prueba Electron: VALIDATE largo desde Status, sin cortar ni dividir');
     const longStatusToken='eyJ'+('Test_9-'.repeat(1800));await page.evaluate(()=>choose(config.profiles[0].id,'*'));await page.locator('#message-input').fill('/raw VALIDATE '+longStatusToken);await page.locator('#message-input').press('Enter');await expect.poll(()=>received.filter(line=>line.startsWith('VALIDATE '))).toEqual(['VALIDATE '+longStatusToken]);await expect(page.locator('#message-input')).toHaveValue('');await page.getByRole('button',{name:'Sala #dreams',exact:true}).click();
     await expect.poll(()=>received.some(line=>line.startsWith('METADATA * SET avatar :https://chat-avatars.chateagratis.net/avatar/Chat/Dreamer.png?v='))).toBe(true);
@@ -83,6 +86,8 @@ async function run() {
     await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
     await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
     await expect(page.locator('#notify-list')).toContainText('En línea');
+    const notifyWhoisBefore=received.filter(line=>line.startsWith('WHOIS ')).length;await page.locator('#notify-list').getByRole('button',{name:'Alice',exact:true}).click();await expect(page.locator('#user-profile')).toBeVisible();await expect(page.locator('#user-profile h3')).toHaveText('Alice');expect(received.filter(line=>line.startsWith('WHOIS ')).length).toBe(notifyWhoisBefore);await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
+
     await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toBeVisible();
     expect(await app.evaluate(()=>global.__notifyBeeps)).toBe(0);
     for(const socket of sockets)socket.write(':local 731 Dreamer :Alice\r\n');

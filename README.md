@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.19.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.20.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.19.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.20.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.19.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.20.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -19,7 +19,7 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 
 ## Interfaz de escritorio
 
-- Árbol izquierdo compacto con Notify, conexiones, salas y privados. Un clic en Notify abre las acciones del usuario; abrir un privado requiere su acción explícita.
+- Árbol izquierdo compacto con Notify, conexiones, salas y privados. Los nicks del árbol y del administrador de Notify abren el perfil lateral, incluso desde Status, sin pedir WHOIS ni abrir un PV. Un clic en Notify abre las acciones del usuario; abrir un privado requiere su acción explícita.
 - Salas y privados en ventanas internas con usuarios incluidos. Arrastra su barra o sus bordes; usa **Ver → Ventanas → Mosaico vertical / Mosaico horizontal / Cascada** para ver varias conversaciones. Cada ventana interna puede minimizarse y restaurarse desde la barra inferior o el árbol; conserva su borrador. Se cierran al desconectar y no se restauran al reiniciar.
 - Barra superior compacta: Red, conexión, consola, Salas, Topic, Notify, Tema, configuración y campana. El selector Tema reúne temas incluidos y personalizados. El botón de usuarios pertenece a cada ventana de conversación. Canales, privados, borradores y posición de lectura permanecen separados por red, incluso con apodos o salas iguales.
 - Configuración organizada en Redes e identidad, Apariencia, Chat y notificaciones y Herramientas. Chat y notificaciones separa General, Away, NOTICE, notificaciones, resaltado y sonido. Los temas se gestionan en Colores del entorno, con edición compacta y vista previa. Color del nick y color/estilo de escritura independientes por red en Editar red.
@@ -40,6 +40,8 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 Atajos: **Ctrl+Shift+Z** oculta en la bandeja sin desconectar; **Ctrl+Tab / Ctrl+Shift+Tab** cambia de canal; **Ctrl+P** muestra/oculta privados; **Ctrl+U** muestra/oculta usuarios; **Ctrl+F** busca mensajes; **Ctrl+J** abre una sala; **Ctrl+N** añade red; **Ctrl+,** abre configuración. Selecciona mensajes con Ctrl+clic y copia con Ctrl+C.
 
 En Status, `/raw` y `/quote` pueden enviar comandos de servidor largos, como `VALIDATE`, sin aplicar el límite de mensajes de chat. Se envían como una sola línea intacta; el servidor decide si los admite. Hay un techo técnico de 64 KiB incluyendo CRLF. Los mensajes de sala/PV y NOTICE conservan sus límites habituales. Los tokens VALIDATE se omiten del diagnóstico de protocolo.
+
+Los comandos dirigidos a servicios conocidos como MeMo/MemoServ, NickServ y ChanServ se envían en texto plano. El formato de escritura, el diccionario y el nick completion decorado no alteran sus órdenes. Funciona con `/msg memo read 7` y escribiendo `read last` en el PV de MeMo.
 
 Comandos disponibles: `/join`, `/part`, `/cycle`, `/nick`, `/query`, `/msg`, `/notice`, `/me`, `/whois`, `/who`, `/topic`, `/mode`, `/invite`, `/kick`, `/ban`, `/unban`, `/op`, `/deop`, `/voice`, `/devoice`, `/away`, `/back`, `/list`, `/time`, `/version`, `/motd`, `/admin`, `/info`, `/raw`, `/quote`, `/markread` y `/quit`. Para texto que empiece por `/`, escribe `//`.
 

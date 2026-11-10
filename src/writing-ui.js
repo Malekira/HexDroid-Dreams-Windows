@@ -15,6 +15,7 @@
     store();
   }
   const canFormat = (start) => {
+    if(DreamsServices.isService(DreamsServices.outgoingTarget(input.value,active?.target)))return false;
     if (!input.value.startsWith("/")) return true;
     const m = /^(\/me\s+|\/(?:msg|notice)\s+\S+\s+)/i.exec(input.value);
     return !!m && start >= m[0].length;

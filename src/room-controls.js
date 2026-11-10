@@ -197,11 +197,14 @@
       const target =
         (currentNicks.get(notifyNetwork) || {})[fold(nick)] || nick;
       const name = el(
-          "strong",
-          "",
+          "button",
+          "notify-profile-name",
           target === nick ? nick : nick + " → " + target,
         ),
         label = el("span", "notify-status" + (online ? " online" : ""), status);
+      name.type="button";
+      name.title="Abrir perfil de "+target;
+      name.onclick=()=>{dialog.close();window.openDreamsUser?.(notifyNetwork,target);};
       row.append(name, label);
       const actions = el("div", "notify-row-actions");
       row.append(actions);

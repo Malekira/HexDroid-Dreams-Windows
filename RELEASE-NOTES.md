@@ -1,14 +1,14 @@
-# HexDreams IRC 0.19.0 para Windows
+# HexDreams IRC 0.20.0 para Windows
 
-- Corrige el rechazo de comandos largos como `/raw VALIDATE token` desde Status. `/raw` y `/quote` en Status envían el comando completo como una sola línea, sin el límite de 510 bytes de mensajes de chat, sin cortarlo ni dividirlo. El servidor decide si lo admite.
-- Status permite introducir comandos de hasta 64 KiB, con un límite técnico de 65.534 bytes antes de CRLF. Sala, PV, PRIVMSG, NOTICE y TAGMSG conservan sus controles habituales.
-- Se siguen rechazando saltos de línea e inyección de órdenes. Los tokens VALIDATE se omiten del diagnóstico de protocolo.
+- Corrige los comandos a MeMo que recibían códigos de color y negrita de la escritura. `/msg memo read 7`, `/msg memo read last` y lo escrito directamente en el privado de MeMo se envían en texto plano, conservando las palabras y argumentos.
+- Los servicios reconocidos, incluidos MemoServ, NickServ y ChanServ, no reciben formato de escritura, reemplazos del diccionario ni nick completion decorado. El envío interno también elimina formato IRC/ANSI al dirigir mensajes a estos servicios. Los mensajes normales conservan su formato.
+- Los nicks de la lista de Notify son botones que abren el perfil lateral. El árbol mantiene el mismo comportamiento. Funciona incluso desde Status, sin cambiar de conversación, abrir un PV ni pedir WHOIS automáticamente; esas acciones siguen teniendo sus botones propios.
 - Se conservan configuración, historial, scripts y rutas de firma.
 
 ## Uso
 
-Extrae todo el ZIP y abre HexDreamsIRC.exe. Selecciona el Status de la red y ejecuta el comando completo, por ejemplo `/raw VALIDATE token`. El ZIP distribuido no está firmado.
+Extrae todo el ZIP y abre HexDreamsIRC.exe. Puedes ejecutar `/msg memo read 7` desde la conversación activa o escribir `read last` dentro del privado de MeMo. Haz clic en un nick de Notify para ver su perfil. El ZIP distribuido no está firmado.
 
 ## Validación
 
-143 pruebas de lógica e integración, 58 flujos de interfaz y Electron real con IRC TCP/TLS. La prueba incluye un token de prueba de más de 12.000 caracteres, enviado completo desde el editor de Status y recibido como una sola orden por el servidor local. Windows comprueba el arranque normal y el ejecutable empaquetado antes de publicar.
+146 pruebas de lógica e integración, 60 flujos de interfaz y Electron real con IRC TCP/TLS. Las pruebas comprueban el envío exacto de MeMo sin formato, la conservación de estilos en chats normales y perfiles de Notify sin WHOIS/PV. Windows verifica el arranque normal y el ejecutable empaquetado antes de publicar el ZIP.

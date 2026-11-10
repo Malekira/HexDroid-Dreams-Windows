@@ -788,6 +788,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       if (!this.ready) throw new Error("Espera a que termine la conexión.");
       token(target, "Destino");
       cleanText(text);
+      text = require("../service-targets").plain(target,text);
       if (!text.trim()) return;
       const clientId = options.clientId || crypto.randomUUID();
       const frames = this.cipher

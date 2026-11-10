@@ -91,6 +91,7 @@
     if (whoisWindow.dialog.open) whoisWindow.dialog.close();
     $("users-panel").append(userPanel);
     viewing = null;
+    if(selected()?.kind==='server'&&selected().profileVisible){delete selected().profileVisible;applyConversationUsers();}
     userPanel.hidden = true;
     $("user-list").hidden = false;
     document.querySelector(".user-search").hidden = false;
@@ -267,7 +268,7 @@
     if (!options.floating && whoisWindow.dialog.open)
       whoisWindow.dialog.close();
     (options.floating ? whoisWindow.body : $("users-panel")).append(userPanel);
-    if(!options.floating&&selected()?.kind!=='server'){selected().showUsers=true;applyConversationUsers();}
+    if(!options.floating&&selected()){if(selected().kind==='server')selected().profileVisible=true;selected().showUsers=true;applyConversationUsers();}
     viewing = { id, nick, details: {}, floating: !!options.floating };
     userPanel.hidden = false;
     $("user-list").hidden = true;
