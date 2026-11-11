@@ -40,10 +40,9 @@ on LOAD {
 on TEXT {
   if ($isprivate == true && $isme == false && $notice != true && $historical != true) {
     set -l %key $join($list($network,$lower($nick)),::)
+    if ($get(%pv.auto,$lower($nick)) == yes) { return }
     if ($get(%pv.blocked,%key) == yes) { halt }
-    if (%pv.mode == auto || $get(%pv.auto,$lower($nick)) == yes || $get(%pv.accepted,%key) == yes) {
-      return
-    }
+    if (%pv.mode == auto || $get(%pv.accepted,%key) == yes) { return }
     if ($get(%pv.pending,%key) == "") {
       setat %pv.pending %key $nick
       setat %pv.preview %key $text
