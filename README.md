@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.21.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.22.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.21.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.22.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.21.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.22.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -36,6 +36,7 @@ Si no aparece la ventana, ejecuta `Iniciar-con-diagnostico.cmd`. La configuraci�
 - Las ventanas activas e inactivas comparten la presentación de mensajes. Se reutilizan filas, se actualizan fotos por usuario y se agrupan los movimientos por frame; las ventanas cubiertas o minimizadas posponen su redibujado. La caché adicional se limita a ocho conversaciones y se libera al cerrar chats.
 - WHOIS separa inactividad, fecha/hora de conexión y duración calculada al consultar, cuando el servidor entrega un sign-on válido en 317.
 - Clic derecho en el editor ofrece sugerencias del corrector de Electron, añadir al diccionario y acciones de edición. `/dice` lanza un dado de seis lados en la sala o PV actual.
+- Escritura compacta: recuadro de texto independiente y, a su derecha, estilos y Enviar por fuera del borde. La misma disposición se mantiene en ventanas activas, mosaico y restauración, conservando tamaño de letra y colores elegidos.
 - Chat con formato IRC/mIRC y ANSI básico seguro, selección y copia de mensajes, búsqueda en los mensajes cargados, primer mensaje sin leer y salto al final. Fuente, tamaño, color del apodo propio, interlineado y separación configurables.
 - Borradores y posiciones de lectura individuales durante la sesión, historial de lo escrito en memoria, sugerencias de apodos y comandos (incluidos scripts activos), Tab/Shift+Tab para recorrer coincidencias del prefijo original, Enter para enviar y Shift+Enter para varias líneas.
 - Ventana con tamaño/posición/maximización persistentes y recuperación si se desconecta un monitor. Configuración arriba a la derecha con búsqueda de opciones.

@@ -21,6 +21,7 @@
   popup.append(typingLabel);
   styles.append(toggle, popup);
   wrap.insertBefore(styles, $("send-button"));
+  window.openDreamsComposerStyles=()=>{styles.open=true;toggle.focus();};
   const baseApply = applySettings;
   applySettings = function () {
     baseApply();
@@ -40,6 +41,7 @@
   };
   const resize = () => {
     input.style.height = "auto";
+    if(!input.value){input.style.height=Math.max(32,parseFloat(getComputedStyle(input).lineHeight)+12)+"px";return;}
     input.style.height = Math.min(150, Math.max(24, input.scrollHeight)) + "px";
   };
   input.addEventListener("input", resize);

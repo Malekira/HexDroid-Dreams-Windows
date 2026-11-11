@@ -445,8 +445,7 @@
     const writing = effectiveComposerSettings(w.id),
       inputBackground =
         a.inputBackground ||
-        getComputedStyle(document.querySelector(".composer-input"))
-          .backgroundColor;
+        getComputedStyle($("message-input")).backgroundColor;
     input.style.background = inputBackground;
     input.style.color = DreamsFormatting.readableColor(
       writing.textColor ||
@@ -478,7 +477,20 @@
       activate(w);
       $("composer").requestSubmit();
     };
-    form.append(input, send);
+    const styleButton = el(
+      "button",
+      "mdi-style-button mdi-window-control",
+      "A✎",
+    );
+    styleButton.type = "button";
+    styleButton.setAttribute("aria-label", "Estilos de escritura de " + c.name);
+    styleButton.title = "Estilos de escritura";
+    styleButton.disabled = input.disabled;
+    styleButton.onclick = () => {
+      activate(w);
+      window.openDreamsComposerStyles?.();
+    };
+    form.append(input, styleButton, send);
     timeline.append(messages);
     if (split) timeline.append(events);
     timeline.append(form);

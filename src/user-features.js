@@ -762,7 +762,7 @@
         background,
       ),
     );
-    const composer = document.querySelector(".composer-input");
+    const composer = $("message-input");
     composer.style.backgroundColor = a.inputBackground || "";
     composer.style.color = DreamsFormatting.readableColor(
       getComputedStyle(document.documentElement)
