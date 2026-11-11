@@ -78,6 +78,59 @@
   max-height: 85vh;
   overflow: auto;
 }
+.script-view .form-content {
+  min-width: min(760px, 78vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.script-view .hex-row {
+  flex-wrap: wrap;
+}
+.script-view .hex-column {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.script-view .hex-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+.script-view .hex-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.script-view .hex-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text);
+}
+.script-view .hex-radio,
+.script-view .hex-checkbox {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: center;
+}
+.script-view .hex-radio input,
+.script-view .hex-checkbox input {
+  width: auto;
+}
+.script-view .hex-field textarea {
+  min-height: 62px;
+  resize: vertical;
+}
+.script-view .hex-field input[type="text"],
+.script-view .hex-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 html[data-theme="matrix"] {
   --bg: #020b04;
   --sidebar: #061108;

@@ -1,0 +1,217 @@
+; HexDreams IRC - Control de privados
+; /pv          Abrir solicitudes pendientes y autoaceptados
+; /pvconfig    Configurar mensajes y comportamiento
+; /si nick     Aceptar un PV de esta red (solo en esta sesión)
+; /no nick     Rechazar y bloquear un PV de esta red
+; /pvauto nick Agregar un nick a autoaceptados
+; /pvoff nick  Quitar un nick de autoaceptados
+
+on LOAD {
+  set %pv.pending $map()
+  set %pv.preview $map()
+  set %pv.accepted $map()
+  set %pv.blocked $map()
+  set %pv.auto $map()
+  set %pv.mode $state(pv_mode)
+  set %pv.wait $state(pv_wait)
+  set %pv.greet $state(pv_greet)
+  set %pv.reject $state(pv_reject)
+  set %pv.open $state(pv_open)
+  set %pv.tip $state(pv_tip)
+  if (%pv.mode == "") { set %pv.mode ask }
+  if (%pv.wait == "") { set %pv.wait "Espere por favor, cuando tenga tiempo y ganas le respondo :P" }
+  if (%pv.greet == "") { set %pv.greet "Hola {nick}, tienes 5 segundos para convencerme de no cerrar tu pv." }
+  if (%pv.reject == "") { set %pv.reject "Disculpa {nick}, no puedo aceptar tu privado en este momento." }
+  if (%pv.open == "") { set %pv.open true }
+  if (%pv.tip == "") { set %pv.tip true }
+  if ($state(pv_auto) != "") {
+    foreach %nick $split($state(pv_auto),"|") {
+      if (%nick != "") { setat %pv.auto $lower(%nick) yes }
+    }
+  }
+  if ($state(pv_blocked) != "") {
+    foreach %key $split($state(pv_blocked),"|") {
+      if (%key != "") { setat %pv.blocked %key yes }
+    }
+  }
+  sidebar add antiprivados pv.panel "Anti-PV"
+}
+
+on TEXT {
+  if ($isprivate == true && $isme == false && $notice != true && $historical != true) {
+    set -l %key $join($list($network,$lower($nick)),::)
+    if ($get(%pv.blocked,%key) == yes) { halt }
+    if (%pv.mode == auto || $get(%pv.auto,$lower($nick)) == yes || $get(%pv.accepted,%key) == yes) {
+      return
+    }
+    if ($get(%pv.pending,%key) == "") {
+      setat %pv.pending %key $nick
+      setat %pv.preview %key $text
+      msg $nick "$replace(%pv.wait,{nick},$nick)"
+      if (%pv.tip == true) { tip "Solicitud de privado" "$nick quiere hablarte por privado." }
+      if (%pv.open == true) { pv.panel }
+    }
+    halt
+  }
+}
+
+alias pv { pv.panel }
+alias pvconfig { pv.config }
+alias si {
+  if ($1 != "") {
+    pv.accept $join($list($network,$lower($1)),::)
+  }
+}
+alias no {
+  if ($1 != "") {
+    pv.rejectnick $join($list($network,$lower($1)),::)
+  }
+}
+alias pvauto { if ($1 != "") { pv.add $1 } }
+alias pvoff { if ($1 != "") { pv.remove $1 } }
+
+alias pv.add {
+  if ($1 == "") { return }
+  setat %pv.auto $lower($1) yes
+  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  pv.panel
+}
+
+alias pv.remove {
+  if ($1 == "") { return }
+  delat %pv.auto $lower($1)
+  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  pv.panel
+}
+
+alias pv.accept {
+  if ($1 == "") { return }
+  set -l %nick $get(%pv.pending,$1)
+  if (%nick == "") { return }
+  set -l %network $get($split($1,::),0)
+  if (%network != $network) { return }
+  setat %pv.accepted $1 yes
+  delat %pv.pending $1
+  echo %nick "Privado aceptado. Primer mensaje retenido de %nick: $get(%pv.preview,$1)"
+  delat %pv.preview $1
+  msg %nick "$replace(%pv.greet,{nick},%nick)"
+  pv.panel
+}
+
+alias pv.rejectnick {
+  if ($1 == "") { return }
+  set -l %nick $get(%pv.pending,$1)
+  if (%nick == "") { return }
+  set -l %network $get($split($1,::),0)
+  if (%network != $network) { return }
+  msg %nick "$replace(%pv.reject,{nick},%nick)"
+  setat %pv.blocked $1 yes
+  state.set pv_blocked "$join($keys(%pv.blocked),"|")"
+  delat %pv.pending $1
+  delat %pv.preview $1
+  pv.panel
+}
+
+alias pv.ignore {
+  if ($1 == "") { return }
+  delat %pv.pending $1
+  delat %pv.preview $1
+  pv.panel
+}
+
+alias pv.promote {
+  if ($1 == "") { return }
+  set -l %nick $get(%pv.pending,$1)
+  if (%nick == "") { return }
+  setat %pv.auto $lower(%nick) yes
+  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  pv.accept $1
+}
+
+alias pv.manualadd {
+  if ($1 != "") { pv.add $1 }
+}
+
+alias pv.save {
+  if ($1 != ask && $1 != auto) { return }
+  set %pv.mode $1
+  set %pv.wait $2
+  set %pv.greet $3
+  set %pv.reject $4
+  set %pv.open $5
+  set %pv.tip $6
+  state.set pv_mode %pv.mode
+  state.set pv_wait "%pv.wait"
+  state.set pv_greet "%pv.greet"
+  state.set pv_reject "%pv.reject"
+  state.set pv_open %pv.open
+  state.set pv_tip %pv.tip
+  toast "Configuración Anti-PV guardada"
+  pv.config
+}
+
+alias pv.config {
+  view config {
+    column gap 10 {
+      text "Control de privados · Configuración" bold textsize 19
+      textarea "Mensaje de espera (al recibir un PV nuevo)" pv_wait "%pv.wait"
+      textarea "Mensaje de aceptación / saludo" pv_greet "%pv.greet"
+      textarea "Mensaje de rechazo (/no o botón Rechazar)" pv_reject "%pv.reject"
+      text "Puedes usar {nick} en los mensajes. Ignorar no responde ni bloquea."
+      text "Comportamiento de los privados nuevos" bold
+      radio "Preguntar antes de aceptar" pv_mode ask %pv.mode
+      radio "Aceptar automáticamente" pv_mode auto %pv.mode
+      checkbox "Abrir ventana con los privados pendientes" pv_open %pv.open
+      checkbox "Aviso emergente de Windows" pv_tip %pv.tip
+      row gap 8 {
+        button "Guardar" pv.save
+        button "Pendientes y autoaceptados" pv.panel
+      }
+    }
+  }
+}
+
+alias pv.panel {
+  view pending {
+    column gap 12 {
+      text "Control de privados · Pendientes y autoaceptados" bold textsize 19
+      text "Rechazar avisa y bloquea. Ignorar descarta sin bloquear."
+      row gap 16 {
+        column gap 7 weight 1 {
+          text "SOLICITUDES PENDIENTES" bold
+          if ($len(%pv.pending) == 0) {
+            text "(No hay privados pendientes)"
+          }
+          foreach %key $keys(%pv.pending) {
+            card pad 6 {
+              text "$get(%pv.pending,%key) · $get($split(%key,::),0)" bold
+              text "$get(%pv.preview,%key)"
+              row gap 5 {
+                button "Aceptar" pv.accept %key
+                button "Rechazar" pv.rejectnick %key
+                button "Ignorar" pv.ignore %key
+              }
+              button "Autoaceptar con un clic" pv.promote %key
+            }
+          }
+        }
+        column gap 7 weight 1 {
+          text "NICKS AUTOACEPTADOS (GUARDADOS)" bold
+          if ($len(%pv.auto) == 0) {
+            text "(No hay nicks autoaceptados)"
+          }
+          foreach %nick $keys(%pv.auto) {
+            row gap 8 {
+              text %nick
+              button "Quitar" pv.remove %nick
+            }
+          }
+          input "Escribí el nick que querés autoaceptar" pv_newnick ""
+          button "Agregar nick" pv.manualadd
+        }
+      }
+      text "Los nicks autoaceptados se conservan incluso después de reiniciar HexDreams IRC."
+      button "Configuración" pv.config
+    }
+  }
+}

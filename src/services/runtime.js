@@ -269,6 +269,8 @@ class Runtime {
         chan: data.target,
         nick: data.nick,
         own: data.own,
+        notice: data.notice === true,
+        historical: data.historical === true,
         text: data.text,
       });
       if (result.halted) return;
@@ -527,6 +529,19 @@ class Runtime {
       this.emit(null, "script-launchers", {
         launchers: [...this.launchers.values()],
       });
+      return;
+    }
+    if (action.type === "tip") {
+      const title = String(action.args?.[0] || "HexDreams IRC").slice(0, 100);
+      const body = String(action.args?.[1] || "").slice(0, 300);
+      if (body && this.electron.Notification.isSupported()) {
+        new this.electron.Notification({ title, body, silent: true }).show();
+      } else if (body) {
+        this.emit(id, "script-ui", {
+          subtype: "toast", text: title + ": " + body, fields,
+          script: fields.script,
+        });
+      }
       return;
     }
     if (["toast", "view"].includes(action.type)) {

@@ -736,25 +736,101 @@
         .catch(() => {}),
     500,
   );
-  const scriptViews=new Map();
+  const scriptViews = new Map();
   function showScript(event) {
-    const key=event.script+'|'+(event.fields?.network||'');
-    let item=scriptViews.get(key);
-    if(!item){const d=el('dialog','script-view'),content=el('div','form-content'),end=el('button','secondary','Cerrar');d.append(content,end);document.body.append(d);item={d,content,event};scriptViews.set(key,item);end.onclick=()=>d.close();d.addEventListener('close',()=>{scriptViews.delete(key);d.remove();const e=item.event;call('script.signal',{network:e.fields?.network,target:e.fields?.buffer,script:e.script,signal:'view_closed',args:[]}).catch(()=>{});});}
-    item.event=event;item.content.replaceChildren();
-    function tree(nodes,parent,depth=0){
-      if(depth>40)return;
-      for(const node of (nodes||[]).slice(0,2000)){
-        const n=el(node.type==='button'?'button':'div','hex-'+node.type,node.text),props=node.props||{};
-        if(node.type==='image')n.textContent='[Imagen: '+node.text+']';
-        if(node.type==='button')n.onclick=()=>run(()=>call('script.signal',{network:item.event.fields?.network,target:item.event.fields?.buffer,script:event.script,signal:node.action,args:node.args}));
-        for(const[key,css]of Object.entries({color:'color',bg:'backgroundColor'}))if(/^#[a-f\d]{3,8}$/i.test(props[key]||''))n.style[css]=props[key];
-        for(const[key,css,max]of [['pad','padding',32],['gap','gap',24],['radius','borderRadius',32],['textsize','fontSize',36]])if(props[key]!==undefined&&Number.isFinite(Number(props[key])))n.style[css]=Math.max(0,Math.min(max,Number(props[key])))+'px';
-        if(props.bold)n.style.fontWeight='700';if(props.weight&&Number.isFinite(Number(props.weight)))n.style.flex=String(Math.max(0,Math.min(10,Number(props.weight))));if(props.fill)n.style.width='100%';
-        parent.append(n);tree(node.children,n,depth+1);
+    const key = event.script + "|" + (event.fields?.network || "") + "|" + (event.viewId || "");
+    let item = scriptViews.get(key);
+    if (!item) {
+      const d = el("dialog", "script-view"),
+        content = el("div", "form-content"),
+        end = el("button", "secondary", "Cerrar");
+      d.append(content, end);
+      document.body.append(d);
+      item = { d, content, event };
+      scriptViews.set(key, item);
+      end.onclick = () => d.close();
+      d.addEventListener("close", () => {
+        scriptViews.delete(key);
+        d.remove();
+        const e = item.event;
+        call("script.signal", { network: e.fields?.network, target: e.fields?.buffer,
+          script: e.script, signal: "view_closed", args: [e.viewId || ""] }).catch(() => {});
+      });
+    }
+    item.event = event;
+    // Las vistas de un script pueden actualizarse con cada PV sin perder el texto
+    // que la persona está escribiendo en un formulario abierto.
+    const existing = new Map(
+      [...item.content.querySelectorAll("[data-hex-field]")].map(n =>
+        [n.dataset.hexField, n.type === "checkbox" || n.type === "radio" ? n.checked : n.value])
+    );
+    item.content.replaceChildren();
+    const runAction = (action, args, form = false) => run(async () => {
+      const additions = form
+        ? [...item.content.querySelectorAll("[data-hex-field]")]
+            .filter(n => n.type !== "radio" || n.checked)
+            .map(n => n.type === "checkbox" ? String(n.checked) : n.type === "radio" ? n.value : n.value)
+        : [];
+      await call("script.signal", { network: item.event.fields?.network,
+        target: item.event.fields?.buffer, script: item.event.script,
+        signal: action, args: [...args, ...additions] });
+    });
+    function tree(nodes, parent, depth = 0) {
+      if (depth > 40) return;
+      for (const node of (nodes || []).slice(0, 2000)) {
+        const props = node.props || {},
+          editable = ["input", "textarea", "checkbox", "radio"].includes(node.type),
+          n = editable
+            ? el("label", "hex-field")
+            : el(node.type === "button" ? "button" : "div", "hex-" + node.type, node.text);
+        if (node.type === "image") n.textContent = "[Imagen: " + node.text + "]";
+        if (editable) {
+          const control = el(node.type === "textarea" ? "textarea" : "input");
+          if (node.type !== "textarea") control.type =
+            node.type === "input" ? "text" : node.type;
+          control.dataset.hexField = props.name || "";
+          control.setAttribute("aria-label", node.text || props.name || "");
+          if (node.type === "radio") {
+            control.name = "hex-" + key + "-" + props.name;
+            control.value = props.value || "";
+            control.checked = existing.has(props.name + ":" + control.value)
+              ? existing.get(props.name + ":" + control.value)
+              : props.value === props.current;
+            control.dataset.hexField = props.name + ":" + control.value;
+          } else if (node.type === "checkbox") {
+            control.checked = existing.has(props.name)
+              ? existing.get(props.name) : props.value === "true";
+          } else {
+            control.value = existing.has(props.name)
+              ? existing.get(props.name) : (props.value || "");
+            control.maxLength = node.type === "textarea" ? 2000 : 500;
+          }
+          n.append(el("span", "", node.text), control);
+          n.classList.add("hex-" + node.type);
+        }
+        if (node.type === "button")
+          n.onclick = () => runAction(node.action, node.args || [],
+            // Los formularios se envían solo cuando el botón lo solicita.
+            node.action === "pv.save" || node.action === "pv.manualadd");
+        for (const [prop, css] of Object.entries({ color: "color", bg: "backgroundColor" }))
+          if (/^#[a-f\d]{3,8}$/i.test(props[prop] || "")) n.style[css] = props[prop];
+        for (const [prop, css, max] of [
+          ["pad", "padding", 32], ["gap", "gap", 24],
+          ["radius", "borderRadius", 32], ["textsize", "fontSize", 36]])
+          if (props[prop] !== undefined && Number.isFinite(Number(props[prop])))
+            n.style[css] = Math.max(0, Math.min(max, Number(props[prop]))) + "px";
+        if (props.bold) n.style.fontWeight = "700";
+        if (props.weight && Number.isFinite(Number(props.weight)))
+          n.style.flex = String(Math.max(0, Math.min(10, Number(props.weight))));
+        if (props.fill) n.style.width = "100%";
+        parent.append(n);
+        tree(node.children, n, depth + 1);
       }
     }
-    tree(event.tree||event.view||event.nodes,item.content);if(!item.content.childNodes.length)note(event.text||'Vista del script',item.content);if(!item.d.open)item.d.showModal();
+    tree(event.tree || event.view || event.nodes, item.content);
+    if (!item.content.childNodes.length)
+      note(event.text || "Vista del script", item.content);
+    if (!item.d.open) item.d.showModal();
   }
   window.previewDreamsMedia = async (url) => {
     try {
