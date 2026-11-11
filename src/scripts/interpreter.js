@@ -735,6 +735,7 @@ class HexVM {
           script: ctx.owner,
           callers: [...(ctx.callers || [ctx.owner])],
           tree: this.view(node.body || [], ctx),
+          viewId: str(this.value(raw, ctx)).slice(0, 80),
         });
         continue;
       }
@@ -801,6 +802,17 @@ class HexVM {
             collection[Number(key)] = v;
           else throw new Error("setat requiere una colección válida.");
         }
+        continue;
+      }
+      if (word === "delat") {
+        const parts = tokens(raw);
+        const variable = parts.shift();
+        if (!/^%[\w.]+$/.test(variable || ""))
+          throw new Error("Variable no válida.");
+        const collection = this.variable(variable, ctx),
+          key = str(this.value(parts.join(" "), ctx));
+        if (collection instanceof Map) collection.delete(key);
+        else throw new Error("delat requiere un mapa.");
         continue;
       }
       if (word === "rewrite") {
@@ -951,6 +963,10 @@ class HexVM {
           "button",
           "card",
           "image",
+          "input",
+          "textarea",
+          "checkbox",
+          "radio",
           "spacer",
         ].includes(type)
       )
@@ -960,12 +976,18 @@ class HexVM {
       const values = parts.map((p) => str(this.value(p, ctx))),
         entry = {
           type,
-          text: ["text", "button", "card", "image"].includes(type)
+          text: ["text", "button", "card", "image", "input", "textarea", "checkbox", "radio"].includes(type)
             ? values.shift() || ""
             : "",
           props: {},
           children: [],
         };
+      if (["input", "textarea", "checkbox", "radio"].includes(type)) {
+        entry.props.name = (values.shift() || "").slice(0, 60);
+        entry.props.value = (values.shift() || "").slice(0, 2000);
+        if (type === "radio")
+          entry.props.current = (values.shift() || "").slice(0, 60);
+      }
       if (type === "button") {
         entry.action = values.shift() || "";
         entry.args = [];
