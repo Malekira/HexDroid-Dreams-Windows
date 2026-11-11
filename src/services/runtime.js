@@ -235,7 +235,7 @@ class Runtime {
         JSON.stringify(this.sts),
       );
     }
-    if(type==='presence-nick'){
+    if(type==='presence-nick'&&!data.privateOnly){
       const s=this.getConfig().settings;
       if(s.notifications!==false&&s.notifyPresence!==false&&s.notifyNickChanges!==false&&!(s.mutedUsers?.[id]||[]).some(n=>[data.nick,data.old,data.newNick].some(name=>require('../irc').fold(n)===require('../irc').fold(name)))){
         const text=data.old+' → '+data.newNick;
@@ -244,7 +244,7 @@ class Runtime {
         if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const notification=new this.electron.Notification({title:'Notify · Cambio de nick',body:text,silent:true});notification.show();}
       }
     }
-    if(type==='presence'&&!data.initial&&!data.renamed&&!data.duplicate){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
+    if(type==='presence'&&!data.privateOnly&&!data.initial&&!data.renamed&&!data.duplicate){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
     if (type === "message") {
       if (
         !data.own &&
@@ -604,6 +604,7 @@ class Runtime {
       case 'notifications.clear':this.notificationLog=[];return{ok:true};
       case 'identity.publish':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Guarda la red antes de publicar.');const session=this.sessions.sessions.get(id);if(session){session.profile.publishPhoto=p.publishPhoto;session.profile.photoUrl=p.photoUrl;}if(!client?.ready)return{pending:true};client.profile.publishPhoto=p.publishPhoto;client.ownAvatarTemplate=p.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';return client.publishOwnAvatar(true);}
       case 'presence.sync':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Red no válida.');const session=this.sessions.sessions.get(id);if(session)session.profile.notifyNicks=[...p.notifyNicks];if(client){client.profile.notifyNicks=[...p.notifyNicks];client.presence.names=[...p.notifyNicks];if(client.ready)client.presence.start();}return{ok:true};}
+      case 'presence.privates':if(client?.ready)client.presence.watchPrivates(data.nicks);return{ok:true};
       case 'presence.status':return client?.ready?client.presence.snapshot():(this.getConfig().profiles.find(p=>p.id===id)?.notifyNicks||[]).map(nick=>({nick,online:null}));
 
       case 'tls.accept':{
@@ -730,7 +731,7 @@ class Runtime {
         return { ok: true };
       }
       case "history.search":
-        return this.history.query(data);
+        return this.history.query(data,600);
       case "history.clear":
         if (await this.confirm("¿Eliminar todo el historial local?"))
           this.history.clear();

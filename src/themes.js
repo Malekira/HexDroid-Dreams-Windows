@@ -9,7 +9,7 @@
     "roomAppearance",
     "fontFamily",
     "fontSize",
-    "lineHeight",
+    "lineHeight","lineHeightPt","messageSpacingPt",
     "messageSpacing",
     "ownNickColor",
     "coloredNicks",

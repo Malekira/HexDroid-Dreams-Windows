@@ -216,7 +216,7 @@
         "HexDreams IRC · Salas · Privados",
       );
       environment.style.background =
-        draft.customColors.sidebar ||
+        draft.roomAppearance.windowBackground || draft.customColors.sidebar ||
         getComputedStyle(document.documentElement).getPropertyValue(
           "--sidebar",
         );
@@ -299,6 +299,7 @@
       );
     for (const [key, label] of Object.entries({
       background: "Fondo de sala",
+      windowBackground:"Fondo de la ventana",
       inputBackground: "Fondo del cuadro de texto",
       text: "Color del texto de sala",
     }))
@@ -307,7 +308,7 @@
         "color",
         draft.roomAppearance[key] ||
           {
-            background: "#ffffff",
+            background: "#ffffff",windowBackground:"#191b3a",
             inputBackground: "#f7f4ff",
             text: "#211630",
           }[key],

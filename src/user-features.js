@@ -588,6 +588,7 @@
     const a = config.settings.roomAppearance || {};
     appearanceFields = {};
     for (const [key, label, fallback] of [
+      ["windowBackground","Fondo de la ventana",getComputedStyle(document.documentElement).getPropertyValue("--surface").trim()],
       [
         "background",
         "Fondo de sala",
@@ -659,6 +660,7 @@
           "[12:34] {" + (active ? network(active.id).nick : "TuNick") + "}",
         ),
       );
+      const frame=el('div','preview-window-header','Ventana de sala');frame.style.background=appearanceFields.windowBackground.value;frame.style.color=DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),appearanceFields.windowBackground.value);preview.prepend(frame);
       const text = el("p");
       DreamsFormatting.render(
         text,
@@ -694,7 +696,7 @@
         config.settings.coloredNicks = appearanceFields.nicks.checked;
         config.settings.ownNickColor = ownColor.value;
         config.settings.roomAppearance = {
-          background: appearanceFields.background.value,
+          background: appearanceFields.background.value,windowBackground:appearanceFields.windowBackground.value,
           inputBackground: appearanceFields.inputBackground.value,
           text: appearanceFields.text.value,
           style: style.value,

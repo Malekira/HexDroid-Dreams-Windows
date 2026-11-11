@@ -35,7 +35,7 @@ function applySettings() {
   const root = document.documentElement.style;
   root.setProperty('--sidebar-width', sizes.left + 'px'); root.setProperty('--users-width', sizes.right + 'px');
   root.setProperty('--font-size', s.fontSize + 'px'); root.setProperty('--chat-font', s.fontFamily);
-  root.setProperty('--chat-line-height',s.lineHeight); root.setProperty('--message-spacing',s.messageSpacing + 'px'); root.setProperty('--own-nick-color',s.ownNickColor);
+  root.setProperty('--chat-line-height',Number.isFinite(s.lineHeightPt)?s.lineHeightPt+'pt':s.lineHeight); root.setProperty('--message-spacing',Number.isFinite(s.messageSpacingPt)?s.messageSpacingPt+'pt':s.messageSpacing+'px');document.body.toggleAttribute('data-spacing-points',Number.isFinite(s.messageSpacingPt)); root.setProperty('--own-nick-color',s.ownNickColor);
   $('sidebar-resizer').setAttribute('aria-valuenow',String(sizes.left)); $('users-resizer').setAttribute('aria-valuenow',String(sizes.right));
   document.body.classList.toggle('compact',s.compact);
   $('private-panel').hidden = !s.showPrivates; $('sidebar-resizer').hidden = !s.showPrivates;
@@ -44,7 +44,7 @@ function applySettings() {
     $(id).setAttribute('aria-pressed',String(s[key])); $(id).setAttribute('aria-label',(s[key] ? 'Ocultar ' : 'Mostrar ') + noun);
   }
   $('private-sort').value = s.privateSort;
-  for (const [id,key] of [['font','fontSize'],['sidebar','sidebarWidth'],['usersWidth','usersWidth'],['fontFamily','fontFamily'],['lineHeight','lineHeight'],['messageSpacing','messageSpacing'],['ownNickColor','ownNickColor']]) $('setting-' + id).value = String(s[key]);
+  for (const [id,key] of [['font','fontSize'],['sidebar','sidebarWidth'],['usersWidth','usersWidth'],['fontFamily','fontFamily'],['ownNickColor','ownNickColor']]) $('setting-' + id).value = String(s[key]);
   for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).checked = s[key];
   applyConversationUsers();
 }
@@ -207,7 +207,7 @@ function messageRow(id, c, m, context) {
     DreamsFormatting.render(formatted, m.text, context.background);
     row.append(formatted);
     if (m.eventType && !window.renderDreamsSpecialEvent?.(row, m, time, id, c))
-      window.renderDreamsChannelEvent?.(row, m, time, id, c);
+      if(["join","part","quit","kick"].includes(m.eventType))window.renderDreamsChannelEvent?.(row, m, time, id, c);
   } else {
     if (m.notice) {
       if (config.settings.noticeBackground)
@@ -382,7 +382,7 @@ function renderMessages(preserveScroll = false) {
     (m) =>
       (m.eventType !== "clones" || config.settings.showClones !== false) &&
       (!m.event ||
-        c.kind === "queries" ||
+        c.kind === "queries" || m.eventType==="presence" ||
         config.settings.showEvents ||
         m.error) &&
       (!query ||
@@ -677,7 +677,7 @@ function userMenu(event,id,c,nick) {
   ]);
 }
 function effectiveComposerSettings(id=active?.id){const p=profile(id),s={...config.settings};if(p?.textColor)s.textColor=p.textColor;if(p?.textStyle){s.composerBold=p.textStyle.includes('bold');s.composerItalic=p.textStyle.includes('italic');s.composerUnderline=p.textStyle.includes('underline');}return s;}
-function composeText(text){const service=DreamsServices.outgoingTarget(text,active?.target);if(DreamsServices.isService(service))return DreamsFormatting.plain(text);const s=effectiveComposerSettings(),colorIndex=s.textColor?DreamsFormatting.colors.findIndex(c=>c.toLowerCase()===s.textColor.toLowerCase()):s.composerColor,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(s.textColor?DreamsWriting.colorCode(s.textColor):Number.isInteger(colorIndex)&&colorIndex>=0?'\x03'+String(colorIndex).padStart(2,'0'):'');text=window.prepareDreamsOutgoing?.(text,prefix)??text;if(!prefix)return text;const wrap=value=>value.split('\n').map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
+function composeText(text){const service=DreamsServices.outgoingTarget(text,active?.target);if(DreamsServices.isService(service))return DreamsFormatting.plain(text);const s=effectiveComposerSettings(),colorIndex=s.textColor?DreamsFormatting.colors.findIndex(c=>c.toLowerCase()===s.textColor.toLowerCase()):s.composerColor,prefix=(s.composerBold?'\x02':'')+(s.composerItalic?'\x1d':'')+(s.composerUnderline?'\x1f':'')+(s.textColor?DreamsWriting.colorCode(s.textColor):Number.isInteger(colorIndex)&&colorIndex>=0?'\x03'+String(colorIndex).padStart(2,'0'):'');text=window.prepareDreamsOutgoing?.(text,prefix)??text;if(!prefix)return text;const wrap=value=>value.split('\n').filter(line=>DreamsFormatting.plain(line).trim()).map(line=>prefix+line+'\x0f').join('\n');if(text.startsWith('/')){const m=/^(\/(?:me)\s+|\/(?:msg|notice)\s+\S+\s+)([\s\S]*)$/i.exec(text);return m?m[1]+wrap(m[2]):text;}return wrap(text);}
 function applyComposerStyle(){const s=effectiveComposerSettings(),i=$('message-input');i.style.color=s.textColor?DreamsFormatting.readableColor(s.textColor,getComputedStyle($('message-input')).backgroundColor):Number.isInteger(s.composerColor)?DreamsFormatting.readableColor(DreamsFormatting.colors[s.composerColor],getComputedStyle($('message-input')).backgroundColor):DreamsFormatting.readableColor(getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),getComputedStyle(i).backgroundColor);i.style.fontWeight=s.composerBold?'700':'';i.style.fontStyle=s.composerItalic?'italic':'';i.style.textDecoration=s.composerUnderline?'underline':'';for(const b of document.querySelectorAll('[data-format]'))b.setAttribute('aria-pressed',String(b.dataset.format==='color'?!!s.textColor||Number.isInteger(s.composerColor):!!s[{bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[b.dataset.format]]));}
 function previewFormat(){applyComposerStyle();$('format-preview').hidden=true;}
 document.querySelectorAll('[data-format]').forEach(button=>button.onclick=event=>{const type=button.dataset.format;if(type==='color'){contextMenu.show(event,'Color permanente para escribir',[{label:'Sin color',action:()=>{config.settings.composerColor=null;const p=profile(active?.id);if(p)delete p.textColor;previewFormat();persist().catch(()=>{});}},...DreamsFormatting.colors.map((color,i)=>({label:'Color '+String(i).padStart(2,'0'),color,action:()=>{config.settings.composerColor=i;const p=profile(active?.id);if(p)p.textColor=color;applySettings();previewFormat();persist().catch(()=>{});$('message-input').focus();}}))]);}else{const key={bold:'composerBold',italic:'composerItalic',underline:'composerUnderline'}[type];const current=effectiveComposerSettings();config.settings[key]=!current[key];const p=profile(active?.id);if(p?.textStyle){current[key]=config.settings[key];p.textStyle=[current.composerBold?'bold':'',current.composerItalic?'italic':'',current.composerUnderline?'underline':''].filter(Boolean).join('-')||'normal';}previewFormat();persist().catch(()=>{});$('message-input').focus();}});
@@ -829,7 +829,7 @@ $('messages').addEventListener('scroll',() => {
   if (c.follow) { c.unread = 0; c.mentions = 0; $('new-messages').hidden = true; }
 });
 for (const key of ['compact','timestamps','showPrivates','showUsers','showTopic','showEvents','eventShowHost','autoScroll']) $('setting-' + key).onchange = () => { config.settings[key] = $('setting-' + key).checked;if(key==='showUsers'&&selected())delete selected().showUsers;applySettings(); render(); persist().catch(() => {}); };
-for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFamily',false],['ownNickColor','ownNickColor',false],['lineHeight','lineHeight',true],['messageSpacing','messageSpacing',true],['sidebar','sidebarWidth',true],['usersWidth','usersWidth',true]]) {
+for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFamily',false],['ownNickColor','ownNickColor',false],['sidebar','sidebarWidth',true],['usersWidth','usersWidth',true]]) {
   const node = $('setting-' + id); node.oninput = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); };
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };
 }
@@ -851,7 +851,7 @@ api.onEvent(event => {
     case 'status':
       n.state = event.state; if (event.nick) n.nick = event.nick; if (event.connection) n.connection = event.connection;
       addMessage(id, '*', { event: true, text: event.text });
-      if(event.state==='disconnected')n.ircOper=false;
+      if(event.state==='disconnected'){n.ircOper=false;n.privatePresence={};}
       if(event.state==='connected'&&!active&&id===(selectedNetworkId||config.profiles[0]?.id))choose(id,'*',false);
       if (event.state === 'disconnected') {n.conversations.clear();n.lastTarget='*';if(active?.id===id){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);persist().catch(()=>{});}
       break;
@@ -859,6 +859,11 @@ api.onEvent(event => {
     case 'server': addMessage(id,event.target||'*',{event:true,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
     case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
+    case 'presence': {
+      n.privatePresence||={};const nick=event.currentNick||event.nick,key=fold(nick),c=n.conversations.get(key);if(c?.kind!=='private')break;const previous=n.privatePresence[key];n.privatePresence[key]=event.online;
+      if(!event.initial&&!event.renamed&&previous!==event.online){const c=n.conversations.get(key);if(c?.kind==='private')addMessage(id,c.name,{event:true,eventType:'presence',time:event.time,text:nick+(event.online?' volvió a conectarse':' se desconectó')});}
+      break;
+    }
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
     case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
     case 'oper-state':n.ircOper=event.oper;break;

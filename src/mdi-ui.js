@@ -335,7 +335,7 @@
     let day = "";
     for (const m of c.messages) {
       if (
-        (m.event && !s.showEvents && c.kind !== "queries" && !m.error) ||
+        (m.event && !s.showEvents && c.kind !== "queries" && m.eventType!=="presence" && !m.error) ||
         (m.eventType === "clones" && s.showClones === false)
       )
         continue;
@@ -569,8 +569,7 @@
         let w = windows.get(k);
         if (!w) w = create(id, c);
         w.covered = activeMaximized && !isActive(w);
-        w.host.style.background =
-          config.settings.roomAppearance?.background || "var(--bg)";
+        w.host.style.background = config.settings.roomAppearance?.windowBackground || "var(--bg)";
         w.title.textContent =
           c.name +
           (c.modes ? " " + c.modes : "") +
@@ -665,6 +664,7 @@
         w.maximized = true;
         apply(w);
       }
+      render(true);
       return;
     }
     const tile = ["tile", "vertical", "horizontal"].includes(mode),
@@ -673,7 +673,10 @@
           ? list.length
           : mode === "horizontal"
             ? 1
-            : Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h))),
+            : Math.min(
+                list.length,
+                Math.max(1, Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h)))),
+              ),
       rows = Math.ceil(list.length / cols);
     list.forEach((w, i) => {
       w.maximized = false;
@@ -701,6 +704,7 @@
     menu = el("details", "mdi-layout-menu");
   menu.append(el("summary", "", "Ventanas"));
   for (const [label, mode] of [
+    ["Mosaico en cuadrícula", "tile"],
     ["Mosaico vertical", "vertical"],
     ["Mosaico horizontal", "horizontal"],
     ["Cascada", "cascade"],

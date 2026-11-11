@@ -302,6 +302,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       cleanText(line);
       const command = line.replace(/^@[^ ]+ /, "");
       const outgoing = /^(?:PRIVMSG|NOTICE) ([^ ]+) :/i.exec(command);
+      if(outgoing){const body=command.slice(command.indexOf(' :')+2).replace(/^\x01ACTION ([\s\S]*)\x01$/,'$1');if(!require('../formatting').plain(body).trim())return;}
       if (
         outgoing &&
         !this.encryptedWire &&
@@ -789,7 +790,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       token(target, "Destino");
       cleanText(text);
       text = require("../service-targets").plain(target,text);
-      if (!text.trim()) return;
+      if (!require("../formatting").plain(text).trim()) return;
       const clientId = options.clientId || crypto.randomUUID();
       const frames = this.cipher
         ? this.cipher.encrypt(target, text, { ...options, clientId, action })
@@ -843,6 +844,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     sendMultiline(target, lines) {
       if (!this.ready) throw new Error("Conecta primero esta red.");
       token(target, "Destino");
+      lines=lines.filter(line=>require('../formatting').plain(line).trim());if(!lines.length)return;
       if (
         !this.capabilities.has("draft/multiline") ||
         !this.capabilities.has("batch") ||

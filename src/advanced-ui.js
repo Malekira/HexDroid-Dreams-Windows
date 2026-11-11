@@ -371,13 +371,15 @@
       );
     } else if (section === "history") {
       const fields={};for(const[key,label]of Object.entries({textLogRooms:'Guardar historial en TXT por sala (mensajes y eventos)',textLogPrivates:'Guardar historial en TXT por PV',textLogStatus:'Guardar historial de status de red',textLogQueries:'Guardar historial de WHOIS/WHO'}))fields[key]=input(label,config.settings.textLogsEnabled!==false&&config.settings[key]!==false,'checkbox');
+      const roomRows=input('Recargar últimas filas de salas',config.settings.historyRoomRows??(config.settings.historyEnabled?300:0),'number'),privateRows=input('Recargar últimas filas de PV',config.settings.historyPrivateRows??(config.settings.historyEnabled?300:0),'number');
+      roomRows.min=privateRows.min='0';roomRows.max=privateRows.max='600';roomRows.step=privateRows.step='1';note('0 no recarga. Máximo 600 filas por conversación. Elegir filas activa el guardado para recarga y búsqueda; el TXT se configura por separado.');
       const days=input('Tiempo de conservación (días)',config.settings.textLogDays||0,'number'),max=input('Límite por archivo (MB)',config.settings.textLogMaxMB||0,'number');days.min=max.min='0';
       note('0 conserva indefinidamente y no limita el tamaño. Con límite de tamaño se conservan las líneas más recientes; la retención elimina los archivos sin actividad durante ese tiempo.');
       const folder=el('p','note','Carpeta de historial TXT: …');body.append(folder);call('logs.text.status').then(r=>folder.textContent='Carpeta de historial TXT: '+r.directory);
       note('Seleccionar otra ruta cambia el destino de los nuevos logs; no mueve los archivos anteriores.');
       button('Seleccionar ruta',async()=>{const r=await call('logs.text.folder');if(r.directory)folder.textContent='Carpeta de historial TXT: '+r.directory;});
       button('Abrir historial',()=>window.openDreamsHistory());
-      button('Guardar preferencias',()=>settings({...Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.checked])),textLogsEnabled:true,textLogDays:Number(days.value),textLogMaxMB:Number(max.value)}));
+      button('Guardar preferencias',()=>settings({...Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.checked])),historyRoomRows:Math.max(0,Math.min(600,Math.floor(Number(roomRows.value)||0))),historyPrivateRows:Math.max(0,Math.min(600,Math.floor(Number(privateRows.value)||0))),historyEnabled:config.settings.historyEnabled||Number(roomRows.value)>0||Number(privateRows.value)>0,textLogsEnabled:true,textLogDays:Number(days.value),textLogMaxMB:Number(max.value)}));
     } else if(section==='palette'){
       window.renderDreamsThemeManager?.(body);
       const fields={};for(const[key,label]of Object.entries({bg:'Fondo de conversación',sidebar:'Fondo de paneles',surface:'Ventanas y controles',raised:'Superficies destacadas',border:'Bordes',text:'Texto normal',muted:'Texto secundario',accent:'Color de selección'}))fields[key]=input(label,config.settings.customColors?.[key]||getComputedStyle(document.documentElement).getPropertyValue('--'+key).trim(),'color');
@@ -790,34 +792,23 @@
   window.resetDreamsAvatars=()=>{avatarRequests.clear();for(const n of networks.values()){n.avatarEpoch=(n.avatarEpoch||0)+1;n.avatars={};n.avatarRevision=(n.avatarRevision||0)+1;}};
   window.loadDreamsAvatars=()=>{if(!active||config.settings.mediaEnabled===false||(config.settings.showAvatars===false&&config.settings.showMessageAvatars===false)||!config.settings.autoAvatars)return;const n=network(active.id),c=selected(),names=new Set([n.nick,...(config.settings.showAvatars!==false?c?.users||[]:[]).map(user=>bareNick(user,n)),...(c?.messages||[]).slice(-100).map(m=>m.nick).filter(Boolean)]);for(const nick of names){const version=n.userStates?.[fold(nick)]?.avatarVersion||0,epoch=n.avatarEpoch||0,key=active.id+'|'+fold(nick)+'|'+version+'|'+epoch+'|'+config.settings.avatarUrlTemplate+'|'+(profile(active.id)?.photoUrl||'');if(Date.now()-(avatarRequests.get(key)||0)<60000)continue;if(avatarQueue.length>=200)break;avatarRequests.set(key,Date.now());if(avatarRequests.size>1000)avatarRequests.delete(avatarRequests.keys().next().value);avatarQueue.push({id:active.id,nick,version,epoch,template:config.settings.avatarUrlTemplate,photoUrl:profile(active.id)?.photoUrl||''});}drainAvatars();};
   api.onEvent(event=>{if(event.type==='attention'&&event.flash){const workspace=document.querySelector('.workspace');workspace.classList.remove('mention-flash');void workspace.offsetWidth;workspace.classList.add('mention-flash');setTimeout(()=>workspace.classList.remove('mention-flash'),2200);}if(event.type==='attention'){const c=conversation(event.id,event.target);c.mentionUntil=Date.now()+4000;renderTabs();}});
-  const historyLoaded = new Set(),
-    originalChoose = choose;
-  choose = function (id, target) {
+  const historyLoaded = new WeakSet(), originalChoose = choose;
+  choose = function (id, target,...rest) {
     if(active && config.settings.sendTyping!==false)call("typing",{...context(),state:"done"}).catch(()=>{});
-    lastTyping=0;
-    typing.textContent = "";
-    clearTimeout(typingTimer);
-    originalChoose(id, target);
-    call("read", { network: id, target }).catch(() => {});
-    const key = id + "\0" + fold(target);
-    if (target === "*consultas*" || !config.settings.historyEnabled || historyLoaded.has(key)) return;
-    historyLoaded.add(key);
-    call("history.search", { network: id, target, limit: 300 })
-      .then((rows) => {
-        const c = conversation(id, target),
-          live = [...c.messages];
-        c.messages = [];
-        for (const message of rows)
-          workspace.addMessage(id, target, {
-            ...message,
-            historical: true,
-            own: !!message.own,
-            action: !!message.action,
-          });
-        for (const message of live) workspace.addMessage(id, target, message);
-        render();
-      })
-      .catch((e) => notify(e.message, true));
+    lastTyping=0;typing.textContent="";clearTimeout(typingTimer);
+    originalChoose(id,target,...rest);call("read",{network:id,target}).catch(()=>{});
+    const n=network(id),c=n.conversations.get(fold(target)),limit=c?.kind==='channel'?(config.settings.historyRoomRows??300):c?.kind==='private'?(config.settings.historyPrivateRows??300):0;
+    if(!c||!config.settings.historyEnabled||!limit||historyLoaded.has(c))return;
+    historyLoaded.add(c);
+    const identity=m=>m.messageId?'server:'+m.messageId:m.clientId?'client:'+m.clientId:JSON.stringify([m.nick||'',m.text||'',Number(new Date(m.time)),!!m.event,!!m.action]);
+    call("history.search",{network:id,target,limit}).then(rows=>{
+      if(networks.get(id)!==n||n.conversations.get(fold(target))!==c)return;
+      const live=[...c.messages],counts=new Map();for(const m of live){const key=identity(m);counts.set(key,(counts.get(key)||0)+1);}
+      const saved={unread:c.unread,mentions:c.mentions,firstUnreadId:c.firstUnreadId,activityUntil:c.activityUntil,mentionUntil:c.mentionUntil};c.messages=[];
+      for(const m of rows){const key=identity(m),count=counts.get(key)||0;if(count){counts.set(key,count-1);continue;}workspace.addMessage(id,target,{...m,historical:true,own:!!m.own,action:!!m.action});}
+      for(const m of live){const inserted=workspace.addMessage(id,target,{...m,historical:true});Object.assign(inserted,m);if(!Object.hasOwn(m,'historical'))delete inserted.historical;}
+      Object.assign(c,saved);c.revision=(c.revision||0)+1;render(true);
+    }).catch(e=>{historyLoaded.delete(c);notify(e.message,true);});
   };
   matchMedia("(prefers-color-scheme: light)").addEventListener(
     "change",

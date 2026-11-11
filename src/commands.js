@@ -11,7 +11,7 @@ function executeInput(client, target, text, emit = () => {}) {
       throw new Error("Selecciona una sala o un privado para enviar mensajes.");
     const lines = (text.startsWith("//") ? text.slice(1) : text)
       .split(/\r?\n/)
-      .filter((line) => line.trim());
+      .filter((line) => require("./formatting").plain(line).trim());
     if (lines.length > 20)
       throw new Error("Envía como máximo 20 líneas cada vez.");
     for (const line of lines) {
@@ -58,6 +58,7 @@ function executeInput(client, target, text, emit = () => {}) {
     const to = args.slice(0, space),
       body = require("./service-targets").plain(to,args.slice(space + 1));
     token(to, "Destino");
+    if(!require("./formatting").plain(body).trim())return;
     if (command === "msg") client.sendMessage(to, body);
     else {
       client.sendRaw(`NOTICE ${to} :${body}`);

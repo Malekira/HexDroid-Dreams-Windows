@@ -140,6 +140,7 @@
   };
   function badge() {
     const count = entries.filter((e) => !e.read).length;
+    bell.classList.toggle("has-unread",count>0);
     bell.replaceChildren(
       bellIcon,
       document.createTextNode(count ? " " + count : ""),

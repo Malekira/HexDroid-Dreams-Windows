@@ -33,31 +33,40 @@ class Presence {
   constructor(client, names = []) {
     this.client = client;
     this.names = normalizeNotify(names);
+    this.privateNames=[];
     this.states = new Map();
     this.aliases = new Map();
     this.pending = [];
     this.monitor = false;
   }
+  trackedNames(){return [...new Map([...this.names,...this.privateNames].map(name=>[fold(name),name])).values()];}
+  watchPrivates(names){
+    if(!Array.isArray(names)||names.length>500)throw new Error('Lista de privados no válida.');
+    const next=[...new Map(names.map(name=>{normalizeNotify([name]);return[fold(name),name];})).values()];
+    if(JSON.stringify(next)===JSON.stringify(this.privateNames))return;
+    this.privateNames=next;this.needsPrivatePoll=true;this.start();
+  }
   start() {
     clearInterval(this.timer);
     this.configure(this.names);
-    if (this.names.length || this.client.profile.recoverNick) {
+    if (this.trackedNames().length || this.client.profile.recoverNick) {
       this.timer = setInterval(() => this.poll(), 30000);
       this.timer.unref();
     }
   }
   configure(names) {
     this.names = normalizeNotify(names);
+    const tracked=new Set(this.trackedNames().map(fold));
     for (const key of this.aliases.keys())
-      if (!this.names.some((n) => fold(n) === key)) this.aliases.delete(key);
+      if (!tracked.has(key)) this.aliases.delete(key);
     for (const key of this.states.keys())
-      if (!this.names.some((n) => fold(n) === key)) this.states.delete(key);
+      if (!tracked.has(key)) this.states.delete(key);
     if (!this.client.ready) return;
     if (this.monitor) {
       this.client.sendRaw("MONITOR C");
       const names = [
         ...new Map(
-          this.names.map((n) => {
+          this.trackedNames().map((n) => {
             const current = this.aliases.get(fold(n)) || n;
             return [fold(current), current];
           }),
@@ -80,7 +89,7 @@ class Presence {
       ? []
       : [
           ...new Map(
-            this.names.map((n) => {
+            this.trackedNames().map((n) => {
               const current = this.aliases.get(fold(n)) || n;
               return [fold(current), current];
             }),
@@ -100,12 +109,12 @@ class Presence {
   observe(line) {
     const m = /^ISON\s+(.+)$/i.exec(line.replace(/^@[^ ]+ /, ""));
     if (m) {
-      if (this.pending.length >= 100) this.pending.shift();
+      if (this.pending.length >= 200) this.pending.shift();
       this.pending.push({ names: m[1].split(/ +/), time: Date.now() });
     }
   }
   update(nick, online, options = {}) {
-    const names = this.names.filter(
+    const names = this.trackedNames().filter(
       (n) => fold(this.aliases.get(fold(n)) || n) === fold(nick),
     );
     let reset = false,
@@ -119,7 +128,8 @@ class Presence {
       this.client.emit("presence", {
         nick: name,
         online,
-        initial,
+        initial:initial&&!(options.observed&&this.privateNames.some(n=>fold(n)===key)),
+        privateOnly:!this.names.some(n=>fold(n)===key),privateWatch:this.privateNames.some(n=>fold(n)===key),
         ...(currentNick !== name ? { currentNick } : {}),
         ...(options.renamed ? { renamed: true } : {}),
         ...(emitted++ ? { duplicate: true } : {}),
@@ -134,10 +144,10 @@ class Presence {
   handle(m) {
     const p = m.params,
       c = this.client;
-    if (m.command === "JOIN") this.update(m.nick, true);
-    if (m.command === "QUIT") this.update(m.nick, false);
+    if (m.command === "JOIN") this.update(m.nick, true,{observed:true});
+    if (m.command === "QUIT") this.update(m.nick, false,{observed:true});
     if (m.command === "NICK" && m.nick !== p[0]) {
-      const matches = this.names.filter(
+      const matches = this.trackedNames().filter(
         (n) => fold(this.aliases.get(fold(n)) || n) === fold(m.nick),
       );
       for (const name of matches) {
@@ -148,7 +158,7 @@ class Presence {
       if (matches.length)
         this.client.emit("presence-nick", {
           nick: matches[0],
-          watched: matches,
+          watched: matches,privateOnly:matches.every(name=>!this.names.some(n=>fold(n)===fold(name))),
           old: m.nick,
           newNick: p[0],
           online: true,
@@ -175,6 +185,7 @@ class Presence {
       )
         c.sendRaw("NICK " + c.profile.nick);
     }
+    if(m.command==='303'&&!this.pending.length&&this.needsPrivatePoll){this.needsPrivatePoll=false;this.poll();}
     if (m.command === "730" || m.command === "731")
       for (const mask of (p.at(-1) || "").split(","))
         this.update(mask.split("!")[0], m.command === "730");
@@ -196,7 +207,7 @@ class Presence {
   stop() {
     clearInterval(this.timer);
     this.pending = [];
-    this.states.clear();
+    this.states.clear();this.privateNames=[];this.needsPrivatePoll=false;
     this.aliases.clear();
   }
 }

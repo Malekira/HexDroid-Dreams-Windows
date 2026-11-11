@@ -352,10 +352,10 @@ async function run() {
     await expect(page.locator('.advanced-dialog')).toBeVisible();
     await page.getByRole('button',{name:'Historial',exact:true}).click();
     await page.getByLabel('Guardar historial en TXT por sala (mensajes y eventos)',{exact:true}).check();
-    await page.evaluate(async()=>{const c=await window.dreams.load();c.settings.historyEnabled=true;await window.dreams.save(c);});
+    await page.getByLabel('Recargar últimas filas de salas',{exact:true}).fill('20');
+    await page.getByLabel('Recargar últimas filas de PV',{exact:true}).fill('10');
     await page.getByRole('button',{name:'Guardar preferencias',exact:true}).click();
     await expect(page.locator('#settings-feedback')).toHaveText('Listo.');
-    await page.evaluate(async()=>{config.settings.historyEnabled=true;await persist();});
     await page.locator('.advanced-dialog .dialog-header button').click();
     await page.locator('#message-input').fill('persisted SQLite desktop message');
     await page.locator('#message-input').press('Enter');

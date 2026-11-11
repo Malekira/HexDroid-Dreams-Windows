@@ -61,7 +61,7 @@ const groups = {
     "textLogQueries",
     "textLogDays",
     "textLogMaxMB",
-    "historyEnabled",
+    "historyEnabled","historyRoomRows","historyPrivateRows",
     "historyDays",
     "queryHistoryEnabled",
     "protocolLogging",

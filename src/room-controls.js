@@ -319,6 +319,7 @@
     });
   if (api.advanced)
     api.onEvent((event) => {
+      if(event.privateOnly&&(event.type==="presence"||event.type==="presence-nick"))return;
       if (event.type === "presence-nick") {
         const names = currentNicks.get(event.id) || {},
           state = states.get(event.id) || {};
