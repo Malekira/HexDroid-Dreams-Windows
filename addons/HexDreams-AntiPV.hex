@@ -25,12 +25,12 @@ on LOAD {
   if (%pv.open == "") { set %pv.open true }
   if (%pv.tip == "") { set %pv.tip true }
   if ($state(pv_auto) != "") {
-    foreach %nick $split($state(pv_auto),"|") {
+    foreach %nick $split($state(pv_auto),~) {
       if (%nick != "") { setat %pv.auto $lower(%nick) yes }
     }
   }
   if ($state(pv_blocked) != "") {
-    foreach %key $split($state(pv_blocked),"|") {
+    foreach %key $split($state(pv_blocked),~) {
       if (%key != "") { setat %pv.blocked %key yes }
     }
   }
@@ -73,14 +73,14 @@ alias pvoff { if ($1 != "") { pv.remove $1 } }
 alias pv.add {
   if ($1 == "") { return }
   setat %pv.auto $lower($1) yes
-  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  state.set pv_auto "$join($keys(%pv.auto),~)"
   pv.panel
 }
 
 alias pv.remove {
   if ($1 == "") { return }
   delat %pv.auto $lower($1)
-  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  state.set pv_auto "$join($keys(%pv.auto),~)"
   pv.panel
 }
 
@@ -106,7 +106,7 @@ alias pv.rejectnick {
   if (%network != $network) { return }
   msg %nick "$replace(%pv.reject,{nick},%nick)"
   setat %pv.blocked $1 yes
-  state.set pv_blocked "$join($keys(%pv.blocked),"|")"
+  state.set pv_blocked "$join($keys(%pv.blocked),~)"
   delat %pv.pending $1
   delat %pv.preview $1
   pv.panel
@@ -124,7 +124,7 @@ alias pv.promote {
   set -l %nick $get(%pv.pending,$1)
   if (%nick == "") { return }
   setat %pv.auto $lower(%nick) yes
-  state.set pv_auto "$join($keys(%pv.auto),"|")"
+  state.set pv_auto "$join($keys(%pv.auto),~)"
   pv.accept $1
 }
 
@@ -183,7 +183,7 @@ alias pv.panel {
             text "(No hay privados pendientes)"
           }
           foreach %key $keys(%pv.pending) {
-            card pad 6 {
+            card "" pad 6 {
               text "$get(%pv.pending,%key) · $get($split(%key,::),0)" bold
               text "$get(%pv.preview,%key)"
               row gap 5 {
