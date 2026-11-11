@@ -766,10 +766,18 @@
     );
     item.content.replaceChildren();
     const runAction = (action, args, form = false) => run(async () => {
-      const additions = form
-        ? [...item.content.querySelectorAll("[data-hex-field]")]
-            .filter(n => n.type !== "radio" || n.checked)
-            .map(n => n.type === "checkbox" ? String(n.checked) : n.type === "radio" ? n.value : n.value)
+      const controls = [...item.content.querySelectorAll("[data-hex-field]")];
+      const field = name => controls.find(n => n.dataset.hexField === name);
+      const additions = action === "pv.save" ? [
+        controls.find(n => n.type === "radio" && n.checked)?.value || "ask",
+        field("pv_wait")?.value || "",
+        field("pv_greet")?.value || "",
+        field("pv_reject")?.value || "",
+        String(field("pv_open")?.checked === true),
+        String(field("pv_tip")?.checked === true),
+      ] : form
+        ? controls.filter(n => n.type !== "radio" || n.checked)
+            .map(n => n.type === "checkbox" ? String(n.checked) : n.value)
         : [];
       await call("script.signal", { network: item.event.fields?.network,
         target: item.event.fields?.buffer, script: item.event.script,
