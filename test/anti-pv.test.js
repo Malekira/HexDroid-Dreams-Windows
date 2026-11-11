@@ -81,7 +81,7 @@ test("Guardar configuración permite autoaceptar, bloquear evita futuros PV e ig
   assert.equal(vm.dispatch("TEXT", bob).actions.length, 0);
 });
 test("Los autoaceptados guardados sobreviven a reinicios del motor de scripts", () => {
-  const vm = setup({ pv_auto: "Alice|Bob", pv_blocked: "red-2::eve", pv_mode: "ask" });
+  const vm = setup({ pv_auto: "Alice~Bob", pv_blocked: "red-2::eve", pv_mode: "ask" });
   assert.equal(vm.dispatch("TEXT", alice).halted, false);
   assert.equal(vm.dispatch("TEXT", bob).halted, false);
   assert.equal(vm.dispatch("TEXT", { ...alice, nick: "Eve", buffer: "Eve", network: "red-2" }).halted, true);
