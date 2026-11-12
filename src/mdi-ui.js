@@ -596,7 +596,33 @@
         b.append(picture, el("span", "user-name", raw));
         usersList.append(b);
       }
-      body.append(users);
+      const resizer = el("div", "resizer mdi-users-resizer");
+      resizer.tabIndex = 0;
+      resizer.setAttribute("role", "separator");
+      resizer.setAttribute("aria-label", "Ancho de usuarios de " + c.name);
+      resizer.setAttribute("aria-orientation", "vertical");
+      resizer.setAttribute("aria-valuemin", "140");
+      resizer.setAttribute("aria-valuemax", "360");
+      resizer.setAttribute("aria-valuenow", String(s.usersWidth || 192));
+      resizer.onpointerdown = (e) => {
+        activate(w);
+        $("users-resizer").dispatchEvent(
+          new PointerEvent("pointerdown", {
+            pointerId: e.pointerId,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            button: e.button,
+            bubbles: true,
+          }),
+        );
+      };
+      resizer.onkeydown = (e) => {
+        activate(w);
+        $("users-resizer").dispatchEvent(
+          new KeyboardEvent("keydown", { key: e.key, bubbles: true }),
+        );
+      };
+      body.append(resizer, users);
       usersList.scrollTop = c.userScroll || 0;
       usersList.onscroll = () => {
         c.userScroll = usersList.scrollTop;

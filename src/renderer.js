@@ -834,7 +834,7 @@ for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFami
   const node = $('setting-' + id); node.oninput = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); };
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };
 }
-for (const [id,key,min,max,pointer] of [['sidebar-resizer','sidebarWidth',160,420,e => e.clientX],['users-resizer','usersWidth',140,360,e => innerWidth - e.clientX]]) DreamsDesktop.bindResizer($(id),{ min,max,read:() => config.settings[key],write:v => { config.settings[key] = v; },apply:applySettings,save:() => persist().catch(() => {}),fromPointer:pointer });
+for (const [id,key,min,max,pointer] of [['sidebar-resizer','sidebarWidth',160,420,e => e.clientX],['users-resizer','usersWidth',140,360,e => ($('users-resizer').closest('.mdi-window')?.getBoundingClientRect().right||innerWidth)-e.clientX]]) DreamsDesktop.bindResizer($(id),{ min,max,read:() => config.settings[key],write:v => { config.settings[key] = v; },apply:applySettings,save:() => persist().catch(() => {}),fromPointer:pointer });
 let resizeFrame;window.addEventListener('resize',()=>{if(resizeFrame)return;resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;applySettings();});});
 document.addEventListener('keydown',e => {
   if (e.ctrlKey && e.key.toLowerCase() === 'c' && selectedMessages.size && !document.getSelection()?.toString() && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); copyMessages(); return; }
