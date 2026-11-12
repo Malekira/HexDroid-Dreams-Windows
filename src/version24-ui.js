@@ -255,7 +255,7 @@
   // Theme files use the validated appearance snapshot, never executable content.
   window.openDreamsThemes = () => {
     const { body } = dialog("Temas", "themes-dialog");
-    window.renderDreamsThemeManager(body);
+    window.renderDreamsThemeManager(body,{preview:false});
     const manager = body.querySelector(".theme-manager"),
       select = manager.querySelector("select"),
       preview = el("div", "theme-file-preview"),

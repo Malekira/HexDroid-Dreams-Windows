@@ -222,8 +222,8 @@
     const section = el("section", "nick-completion-editor");
     parent.append(section);
     if(sectionMode==="dictionary")section.hidden=true;
-    if(sectionMode==="nick")for(const node of [...parent.children])if(node!==section&&node.tagName!=="H3")node.hidden=true;
-    section.append(el("h3", "", "Nick completion"));
+    if(sectionMode==="nick")for(const node of [...parent.children])if(node!==section&&node.tagName!=="H3")node.remove();
+    if(sectionMode!=="nick")section.append(el("h3", "", "Nick completion"));
     let draft = DreamsWriting.validate(config.settings).nickCompletion;
     const on = field(
         "Personalizar nick completion",

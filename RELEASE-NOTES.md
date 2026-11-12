@@ -1,19 +1,15 @@
-# HexDreams IRC 0.25.0 para Windows
+# HexDreams IRC 0.26.0 para Windows
 
-- Correcciones de confirmación: Pendiente termina aunque un script esté ocupado, se conserva el texto original y se reconocen ecos después de cambios de nick. No hay reenvíos automáticos.
-- El primer comando de identificación no espera el intervalo entre comandos. La recuperación del nick limita los intentos repetidos.
-- IPVirtual se trata como servicio: sus comandos salen sin colores ni estilos, tanto en PV como con /msg.
-- Ctrl+F resalta y recorre coincidencias sin ocultar mensajes ni cambiar borradores; Esc cierra. Se conserva la lupa de usuarios.
-- Ventanas activas e inactivas con presentación compartida. Barra de escritura compacta y rectangular, con controles fuera del texto.
-- Listado de salas en Salas; Ventanas dentro de Ver, conservando todas sus acciones.
-- Apariencia → Chat reúne espaciado, NOTICE y /me en filas compactas con vistas previas y guardado inmediato. El nick de /me utiliza su color normal.
-- Navegación breve, Status en su sección propia y Diccionario separado de Nick completion.
-- Diccionario con formato por fragmentos y 16 colores IRC clásicos, conservados al guardar y editar. Importar tema mantiene lista, vista previa y persistencia.
+- Tamaño del texto, fuente, mensajes compactos, hora y colores de nicks pasan de Colores del entorno a Apariencia → Chat, conservando sus valores y aplicación inmediata.
+- Formato de NOTICE reemplaza Espacios por Estilo: Normal, Negrita, Cursiva o Negrita y cursiva, con vista previa y guardado. /me mantiene su configuración independiente.
+- Se quita Temas de la navegación lateral. El bloque Tema de Colores del entorno incorpora Importar y Exportar, conservando Aplicar, Agregar, Guardar y Eliminar, con vista previa de selección.
+- Activar diccionario queda únicamente en Diccionario; no se vuelve a mostrar en Nick completion al navegar o buscar opciones.
+- Se elimina Chat de la barra de menús principal. Apariencia → Chat y el corrector multicolor siguen disponibles dentro de Configuración.
 
-Las correcciones de conexión se prueban con servidores simulados y TCP/TLS locales; el paso a Guest en una red concreta todavía requiere comprobar su identificación real. Detalles y correspondencia con el PDF en docs/CAMBIOS-0.25.0.md.
+Se mantienen las preferencias, redes, historial, scripts y las correcciones anteriores. El orden de espaciado, NOTICE y /me se conserva; los ajustes generales se agrupan a continuación.
 
 ## Validación
 
-Pruebas de lógica, interfaz y Electron con IRC TCP/TLS, confirmaciones, cambios de nick, IPVirtual, diccionario multicolor y búsqueda. El flujo de Windows repite las comprobaciones y verifica el ejecutable empaquetado antes de publicar.
+Pruebas automatizadas de persistencia, formato real de NOTICE, importación/exportación de temas y ausencia de controles duplicados, más la suite de lógica, interfaz y Electron con IRC TCP/TLS. Windows repite las comprobaciones y verifica el ejecutable empaquetado antes de publicar.
 
 Extrae todo el ZIP y abre HexDreamsIRC.exe. El ZIP distribuido no está firmado.

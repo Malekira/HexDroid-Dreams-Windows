@@ -24,7 +24,10 @@
     baseApply();
     applyVisualTheme();
   };
-  window.renderDreamsThemeManager = (parent) => {
+  window.renderDreamsThemeManager = (
+    parent,
+    { preview: showPreview = true } = {},
+  ) => {
     const group = el("section", "theme-manager"),
       heading = el("h3", "", "Tema"),
       select = el("select"),
@@ -108,6 +111,55 @@
       selection();
       notify("Tema guardado: " + label);
     });
+    add("Importar", async () => {
+      const r = await api.advanced("theme.import");
+      if (r?.error) throw Error(r.error);
+      if (!r?.theme) return;
+      if ((config.settings.savedThemes || []).length >= 40)
+        throw Error("Puedes guardar hasta 40 temas.");
+      config.settings.savedThemes ||= [];
+      config.settings.savedThemes.push(r.theme);
+      await persist();
+      window.dispatchEvent(
+        new CustomEvent("dreams-themes-changed", { detail: r.theme.id }),
+      );
+      notify("Tema importado: " + r.theme.name);
+    });
+    add("Exportar", async () => {
+      const r = await api.advanced("theme.export", {
+        name: name.value.trim() || "Mi tema",
+        settings: DreamsThemes.snapshot(config.settings),
+      });
+      if (r?.error) throw Error(r.error);
+    });
+    const preview = el("div", "theme-mini-preview");
+    preview.setAttribute("aria-label", "Vista previa del tema");
+    function drawPreview() {
+      if (!showPreview) return;
+      const id = select.value,
+        t =
+          config.settings.savedThemes?.find((t) => t.id === id)?.settings ||
+          (id === "violet"
+            ? DreamsThemes.violet
+            : id === "purple-light"
+              ? DreamsThemes.purpleLight
+              : {}),
+        light = id === "light";
+      preview.textContent = "Nora: Así se verá el chat.";
+      preview.style.background =
+        t.roomAppearance?.background ||
+        t.customColors?.bg ||
+        (light ? "#ffffff" : "#101526");
+      preview.style.color =
+        t.roomAppearance?.text ||
+        t.customColors?.text ||
+        (light ? "#222222" : "#eeeeff");
+      preview.style.fontFamily =
+        (t.fontFamily || config.settings.fontFamily || "Segoe UI") +
+        ", sans-serif";
+      preview.style.fontSize =
+        (t.fontSize || config.settings.fontSize || 14) + "px";
+    }
     const remove = add("Eliminar", async () => {
       const id = select.value;
       if (!(config.settings.savedThemes || []).some((t) => t.id === id))
@@ -126,6 +178,7 @@
         (t) => t.id === select.value,
       );
       name.value = saved?.name || "";
+      drawPreview();
       remove.disabled = !saved;
       remove.title = saved
         ? "Eliminar este tema"
@@ -145,6 +198,7 @@
     selection();
     row.append(select, name);
     group.append(heading, row, actions);
+    if (showPreview) group.append(preview);
     parent.append(group);
   };
   window.renderDreamsThemeManager(

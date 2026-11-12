@@ -1,0 +1,30 @@
+.chat-general-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+  padding: 3px 9px 7px;
+}
+#settings-dialog .chat-general-settings .setting-row {
+  gap: 8px;
+  min-width: 0;
+}
+#settings-dialog .chat-general-settings select {
+  max-width: 150px;
+}
+.chat-corrector {
+  font-size: 11px;
+  padding: 2px 5px;
+  color: var(--muted);
+}
+.theme-mini-preview {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .chat-general-settings {
+    grid-template-columns: 1fr;
+  }
+}

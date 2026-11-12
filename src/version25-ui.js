@@ -174,6 +174,7 @@
       s = config.settings,
       prefixKey = action ? "actionPrefix" : "noticePrefix",
       colorKey = action ? "actionColor" : "noticeColor",
+      styleKey = action ? "actionStyle" : "noticeStyle",
       block = el("section", "chat-format-block"),
       head = el("div", "chat-format-heading"),
       row = el("div", "chat-format-row"),
@@ -207,40 +208,28 @@
       "aria-label",
       action ? "Usar color propio de /me" : "Usar color propio de NOTICE",
     );
-    let extra;
-    if (action) {
-      extra = field(
-        row,
-        "Estilo:",
-        "select",
-        s.actionStyle || "normal",
-        "actionStyle",
-      );
-      extra.setAttribute("aria-label", "Estilo de /me");
-      for (const [v, t] of [
-        ["normal", "Normal"],
-        ["bold", "Negrita"],
-        ["italic", "Cursiva"],
-        ["bold italic", "Negrita y cursiva"],
-      ]) {
-        const o = el("option", "", t);
-        o.value = v;
-        extra.append(o);
-      }
-      extra.value = s.actionStyle || "normal";
-    } else {
-      extra = field(
-        row,
-        "Espacios:",
-        "number",
-        s.noticePrefixGap ?? 1,
-        "noticePrefixGap",
-      );
-      extra.setAttribute("aria-label", "Espacios del NOTICE");
-      extra.min = 0;
-      extra.max = 8;
-      extra.step = 1;
+    const extra = field(
+      row,
+      "Estilo:",
+      "select",
+      s[styleKey] || "normal",
+      styleKey,
+    );
+    extra.setAttribute(
+      "aria-label",
+      action ? "Estilo de /me" : "Estilo de NOTICE",
+    );
+    for (const [value, label] of [
+      ["normal", "Normal"],
+      ["bold", "Negrita"],
+      ["italic", "Cursiva"],
+      ["bold italic", "Negrita y cursiva"],
+    ]) {
+      const option = el("option", "", label);
+      option.value = action ? value : value.replace(" ", "-");
+      extra.append(option);
     }
+    extra.value = s[styleKey] || "normal";
     function update() {
       const settings = config.settings,
         bg =
@@ -255,9 +244,7 @@
       if (settings[colorKey]) color.value = settings[colorKey];
       color.disabled = !use.checked;
       if (document.activeElement !== extra)
-        extra.value = action
-          ? settings.actionStyle || "normal"
-          : (settings.noticePrefixGap ?? 1);
+        extra.value = settings[styleKey] || "normal";
       preview.style.background = bg;
       preview.style.color = settings[colorKey]
         ? DreamsFormatting.readableColor(settings[colorKey], bg)
@@ -285,14 +272,18 @@
           ? "italic"
           : "";
       } else preview.append(document.createTextNode("Aviso de ejemplo"));
+      preview.style.fontWeight = settings[styleKey]?.includes("bold")
+        ? "700"
+        : "";
+      preview.style.fontStyle = settings[styleKey]?.includes("italic")
+        ? "italic"
+        : "";
     }
     const commit = () => {
       const s = config.settings;
       s[prefixKey] = prefix.value;
       s[colorKey] = use.checked ? color.value : null;
-      if (action) s.actionStyle = extra.value;
-      else
-        s.noticePrefixGap = Math.max(0, Math.min(8, Number(extra.value) || 0));
+      s[styleKey] = extra.value;
       run(save);
     };
     for (const i of [prefix, use, color, extra])
@@ -301,13 +292,8 @@
       const s = config.settings;
       s[prefixKey] = action ? "*" : "";
       s[colorKey] = null;
-      if (action) {
-        s.actionStyle = "normal";
-        extra.value = "normal";
-      } else {
-        s.noticePrefixGap = 1;
-        extra.value = "1";
-      }
+      s[styleKey] = "normal";
+      extra.value = "normal";
       return save();
     });
     reset.className = "format-reset";
