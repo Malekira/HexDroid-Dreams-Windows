@@ -484,7 +484,7 @@ class ScriptManager extends EventEmitter {
           this.allowed(owner, "crypto", action.callers);
         else if (action.type.startsWith("state."))
           this.allowed(owner, "persist", action.callers);
-        else if (["echo", "view", "toast", "sidebar"].includes(action.type))
+        else if (["echo", "view", "view.close", "tip", "toast", "sidebar"].includes(action.type))
           this.allowed(owner, "ui", action.callers);
         else throw new Error("Comando .hex no soportado: " + action.type);
         await this.host(action, {

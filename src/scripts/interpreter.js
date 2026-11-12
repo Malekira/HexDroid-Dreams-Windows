@@ -252,12 +252,14 @@ class HexVM {
   constructor() {
     this.globals = new Map();
     this.aliases = new Map();
+    this.scopedAliases = new Map();
     this.handlers = [];
     this.scripts = new Map();
   }
   install(scripts) {
     this.globals.clear();
     this.aliases.clear();
+    this.scopedAliases.clear();
     this.handlers = [];
     this.scripts.clear();
     for (const script of scripts) {
@@ -267,10 +269,12 @@ class HexVM {
         const alias = /^alias\s+([a-z][a-z0-9_.-]*)$/i.exec(node.header);
         if (alias) {
           if (!node.body) throw new Error("Alias sin bloque.");
-          this.aliases.set(alias[1].toLowerCase(), {
-            ...node,
-            owner: script.id,
-          });
+          const entry = { ...node, owner: script.id };
+          this.aliases.set(alias[1].toLowerCase(), entry);
+          this.scopedAliases.set(
+            script.id + "\0" + alias[1].toLowerCase(),
+            entry,
+          );
           continue;
         }
         const event = /^on\s+(.+)$/i.exec(node.header);
@@ -524,6 +528,8 @@ class HexVM {
               : v,
         ),
       setting: () => ctx.fields.settings?.[s(0)] ?? "",
+      form: () =>
+        Object.hasOwn(ctx.fields.form || {}, s(0)) ? ctx.fields.form[s(0)] : "",
       state: () => this.scripts.get(ctx.owner)?.state?.[s(0)] ?? "",
       urlencode: () => encodeURIComponent(s(0)),
       json: () => {
@@ -730,8 +736,19 @@ class HexVM {
         continue;
       }
       if (word === "view") {
+        const options = tokens(raw).map((p) => str(this.value(p, ctx)));
+        const dimension = (k) => {
+          const i = options.indexOf(k);
+          return i >= 0
+            ? Math.max(160, Math.min(1600, Number(options[i + 1]) || 600))
+            : undefined;
+        };
         ctx.actions.push({
           type: "view",
+          windowId: options[0] || "default",
+          title: options[1] || "",
+          width: dimension("width"),
+          height: dimension("height"),
           script: ctx.owner,
           callers: [...(ctx.callers || [ctx.owner])],
           tree: this.view(node.body || [], ctx),
@@ -756,7 +773,8 @@ class HexVM {
         word === "inc" ||
         word === "dec" ||
         word === "push" ||
-        word === "setat"
+        word === "setat" ||
+        word === "delat"
       ) {
         const parts = tokens(raw);
         let local = false;
@@ -789,6 +807,13 @@ class HexVM {
           const collection = this.variable(variable, ctx),
             key = str(this.value(parts.shift() || "", ctx)),
             v = this.value(parts.join(" "), ctx);
+          if (word === "delat") {
+            if (collection instanceof Map) collection.delete(key);
+            else if (Array.isArray(collection) && /^\d+$/.test(key))
+              collection.splice(Number(key), 1);
+            else throw new Error("delat requiere una colección válida.");
+            continue;
+          }
           if (collection instanceof Map) {
             if (collection.size >= MAX_ITEMS && !collection.has(key))
               throw new Error("Mapa lleno.");
@@ -813,8 +838,13 @@ class HexVM {
         ctx.fields.text = str(this.value(raw, ctx));
         continue;
       }
-      if (this.aliases.has(word)) {
-        const alias = this.aliases.get(word),
+      if (
+        this.aliases.has(word) ||
+        this.scopedAliases.has(ctx.owner + "\0" + word)
+      ) {
+        const alias =
+            this.scopedAliases.get(ctx.owner + "\0" + word) ||
+            this.aliases.get(word),
           child = {
             ...ctx,
             owner: alias.owner,
@@ -952,6 +982,14 @@ class HexVM {
           "card",
           "image",
           "spacer",
+          "input",
+          "textarea",
+          "checkbox",
+          "radio",
+          "select",
+          "list",
+          "option",
+          "label",
         ].includes(type)
       )
         throw new Error("Elemento de vista .hex no soportado: " + type);
@@ -966,6 +1004,21 @@ class HexVM {
           props: {},
           children: [],
         };
+      if (
+        ["input", "textarea", "checkbox", "radio", "select", "list"].includes(
+          type,
+        )
+      ) {
+        entry.id = values.shift() || "";
+        entry.value = values.shift() || "";
+        if (!/^[a-zA-Z0-9_.-]{1,80}$/.test(entry.id))
+          throw new Error("Identificador de control inválido.");
+      }
+      if (type === "option") {
+        entry.value = values.shift() || "";
+        entry.text = values.shift() || entry.value;
+      }
+      if (type === "label") entry.text = values.shift() || "";
       if (type === "button") {
         entry.action = values.shift() || "";
         entry.args = [];
@@ -988,6 +1041,15 @@ class HexVM {
             "circle",
             "ellipse",
             "border",
+            "id",
+            "label",
+            "onchange",
+            "onclick",
+            "ondblclick",
+            "group",
+            "placeholder",
+            "reset",
+            "disabled",
           ].includes(values[0])
         )
           entry.args.push(values.shift());
@@ -1005,6 +1067,8 @@ class HexVM {
             "back",
             "crop",
             "fit",
+            "reset",
+            "disabled",
             "stretch",
           ].includes(key)
         )
@@ -1025,6 +1089,13 @@ class HexVM {
             "bg",
             "align",
             "border",
+            "id",
+            "label",
+            "onchange",
+            "onclick",
+            "ondblclick",
+            "group",
+            "placeholder",
           ].includes(key)
         )
           entry.props[key] = values[++i] || "";
@@ -1093,6 +1164,8 @@ class HexVM {
     this.handlers = this.handlers.filter((h) => h.owner !== id);
     for (const [name, a] of this.aliases)
       if (a.owner === id) this.aliases.delete(name);
+    for (const key of this.scopedAliases.keys())
+      if (key.startsWith(id + "\0")) this.scopedAliases.delete(key);
     this.scripts.delete(id);
   }
   dispatch(name, fields = {}, args = []) {
@@ -1115,7 +1188,9 @@ class HexVM {
     };
   }
   alias(name, fields = {}, args = []) {
-    const alias = this.aliases.get(name.toLowerCase());
+    const alias = fields.__onlyScript
+      ? this.scopedAliases.get(fields.__onlyScript + "\0" + name.toLowerCase())
+      : this.aliases.get(name.toLowerCase());
     if (!alias) return { handled: false, actions: [] };
     const ctx = {
       fields: { ...fields },

@@ -263,15 +263,19 @@ class Runtime {
         data = { ...data, text: "[Credenciales omitidas]" };
       data = this.cryptoAdapters.get(id).receive(data);
       if (!data) return;
-      const result = await this.scripts.event(data.action ? "ACTION" : "TEXT", {
+      const privateMessage=!/^[#&+!]/.test(data.target);
+      const eventFields={
+        private:privateMessage, channel:!privateMessage, notice:!!data.notice, historical:!!data.historical, new:!data.historical, conversation:data.target,
         network: id,
         buffer: data.target,
         chan: data.target,
         nick: data.nick,
-        own: data.own,
+        own: !!data.own,
         text: data.text,
-      });
-      if (result.halted) return;
+      };
+      const result=await this.scripts.event(data.action?"ACTION":"TEXT",eventFields);
+      if(data.notice){const notice=await this.scripts.event("NOTICE",{...eventFields,text:result.text});result.halted ||= notice.halted;result.text=notice.text;}
+      if (result.halted && privateMessage && !data.own && !data.historical) return;
       data = { ...data, text: result.text };
       const outputs=data.notice?require('./notice-policy').destinations(data,this.getConfig().settings,this.activeConversation?.id===id?this.activeConversation:null).map(target=>({...data,target,sourceTarget:data.target})):[data];
       for(const output of outputs){if(this.getConfig().settings.historyEnabled){this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,output);}
@@ -529,7 +533,8 @@ class Runtime {
       });
       return;
     }
-    if (["toast", "view"].includes(action.type)) {
+    if(action.type === "tip"){const Notification=this.electron.Notification;if(Notification.isSupported()){const popup=new Notification({title:action.args?.[0]||"Script",body:(action.args||[]).slice(1).join(" ").slice(0,4000)});popup.show();}return;}
+    if (["toast", "view", "view.close"].includes(action.type)) {
       this.emit(id, "script-ui", { ...action, fields, script: fields.script });
       return;
     }
@@ -541,7 +546,7 @@ class Runtime {
     }
     if (action.type === "state.set") {
       const [key, ...rest] = action.args;
-      if (!key || key.length > 100)
+      if (!key || key.length > 100 || ["__proto__","constructor","prototype"].includes(key))
         throw new Error("Clave de configuración inválida.");
       const state = this.vault.get("script-state:" + fields.script) || {};
       state[key] = rest.join(" ");
@@ -593,6 +598,9 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case "theme.import": {const file=await this.pick({filters:[{name:'Tema HexDreams',extensions:['json']}]});if(!file)return {cancelled:true};if(fs.statSync(file).size>262144)throw Error('El tema supera 256 KB.');return {theme:require('../theme-files').parseTheme(fs.readFileSync(file,'utf8'))};}
+      case "theme.export": {const text=require('../theme-files').serializeTheme(data.name||'Mi tema',data.settings||this.getConfig().settings);const file=await this.destination({defaultPath:'HexDreams-tema.json',filters:[{name:'Tema HexDreams',extensions:['json']}]});if(file)fs.writeFileSync(file,text,'utf8');return {ok:!!file};}
+
       case 'logs.text.list':this.textLogs.configure(this.getConfig().settings);this.textLogs.prune();return this.textLogs.describe(this.getConfig().profiles);
       case 'logs.text.read':return this.textLogs.read(data.id,data.offset);
       case 'logs.text.search':return this.textLogs.search(data.text,data.id);
@@ -923,8 +931,10 @@ class Runtime {
       }
       case "script.signal": {
         this.scripts.allowed(data.script, "ui");
+        const form=Object.create(null);
+        if(data.form&&typeof data.form==="object"){if(Buffer.byteLength(JSON.stringify(data.form))>65536||Object.keys(data.form).length>200)throw Error("Formulario demasiado grande.");for(const [k,v]of Object.entries(data.form).slice(0,200))if(/^[a-zA-Z0-9_.-]{1,80}$/.test(k)&&["string","boolean","number"].includes(typeof v))form[k]=v;}
         const fields = {
-          network: id,
+          network: id, form, window:data.windowId||"default", selected:data.selected||"", control:data.control||"", interaction:data.interaction||"click",
           buffer: target,
           __onlyScript: data.script,
           __scriptCallers: [data.script],

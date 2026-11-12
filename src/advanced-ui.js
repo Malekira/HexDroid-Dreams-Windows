@@ -736,26 +736,7 @@
         .catch(() => {}),
     500,
   );
-  const scriptViews=new Map();
-  function showScript(event) {
-    const key=event.script+'|'+(event.fields?.network||'');
-    let item=scriptViews.get(key);
-    if(!item){const d=el('dialog','script-view'),content=el('div','form-content'),end=el('button','secondary','Cerrar');d.append(content,end);document.body.append(d);item={d,content,event};scriptViews.set(key,item);end.onclick=()=>d.close();d.addEventListener('close',()=>{scriptViews.delete(key);d.remove();const e=item.event;call('script.signal',{network:e.fields?.network,target:e.fields?.buffer,script:e.script,signal:'view_closed',args:[]}).catch(()=>{});});}
-    item.event=event;item.content.replaceChildren();
-    function tree(nodes,parent,depth=0){
-      if(depth>40)return;
-      for(const node of (nodes||[]).slice(0,2000)){
-        const n=el(node.type==='button'?'button':'div','hex-'+node.type,node.text),props=node.props||{};
-        if(node.type==='image')n.textContent='[Imagen: '+node.text+']';
-        if(node.type==='button')n.onclick=()=>run(()=>call('script.signal',{network:item.event.fields?.network,target:item.event.fields?.buffer,script:event.script,signal:node.action,args:node.args}));
-        for(const[key,css]of Object.entries({color:'color',bg:'backgroundColor'}))if(/^#[a-f\d]{3,8}$/i.test(props[key]||''))n.style[css]=props[key];
-        for(const[key,css,max]of [['pad','padding',32],['gap','gap',24],['radius','borderRadius',32],['textsize','fontSize',36]])if(props[key]!==undefined&&Number.isFinite(Number(props[key])))n.style[css]=Math.max(0,Math.min(max,Number(props[key])))+'px';
-        if(props.bold)n.style.fontWeight='700';if(props.weight&&Number.isFinite(Number(props.weight)))n.style.flex=String(Math.max(0,Math.min(10,Number(props.weight))));if(props.fill)n.style.width='100%';
-        parent.append(n);tree(node.children,n,depth+1);
-      }
-    }
-    tree(event.tree||event.view||event.nodes,item.content);if(!item.content.childNodes.length)note(event.text||'Vista del script',item.content);if(!item.d.open)item.d.showModal();
-  }
+  function showScript(event) { window.showDreamsScriptView(event,call); }
   window.previewDreamsMedia = async (url) => {
     try {
       const result = await call("media.preview", { url });

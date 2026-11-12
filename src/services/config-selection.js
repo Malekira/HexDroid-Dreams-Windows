@@ -26,7 +26,7 @@ const groups = {
     "noticeDestinations",
     "noticeColor",
     "noticeBackground",
-    "noticeStyle",
+    "noticeStyle", "noticePrefix", "noticePrefixGap", "actionPrefix", "actionColor", "actionNickColor", "actionStyle", "statusFilters",
     "notificationPreview",
     "notificationSound",
     "flashOnMention",

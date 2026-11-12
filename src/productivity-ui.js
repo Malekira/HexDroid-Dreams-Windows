@@ -106,7 +106,7 @@
     const c = selected(),
       n = active && network(active.id);
     return c && n
-      ? (c.kind === "private" ? [c.name, n.nick, ...c.users] : c.users).map(
+      ? (c.kind === "private" ? [c.name, n.nick, ...c.users] : c.users).concat(profile(active.id)?.notifyNicks||[],[...n.conversations.values()].filter(c=>c.kind==="channel"&&c.joined!==false).map(c=>c.name)).map(
           (u) => bareNick(u, n),
         )
       : [];
@@ -188,13 +188,13 @@
     const t = DreamsCompletion.token(input.value, input.selectionStart),
       value =
         input.value.slice(0, t.start) +
-        (t.command ? c.name : window.dreamsNickText(c.name, t.start)) +
+        (t.command ? c.name : c.name.startsWith("#")||c.name.startsWith("&")?c.name:window.dreamsNickText(c.name, t.start)) +
         " " +
         input.value.slice(input.selectionEnd),
       caret = value.length - input.value.slice(input.selectionEnd).length;
     cycle.reset();
     replace(value, caret);
-    if (!t.command) window.markDreamsNick?.(t.start, caret - 1,c.name);
+    if (!t.command && !/^[#&]/.test(c.name)) window.markDreamsNick?.(t.start, caret - 1,c.name);
     hide();
     input.focus();
   }
@@ -235,13 +235,13 @@
           values,
           e.shiftKey ? -1 : 1,
           (name, start) =>
-            name.startsWith("/") ? name : window.dreamsNickText(name, start),
+            /^[/#&]/.test(name) ? name : window.dreamsNickText(name, start),
         );
         if (r) {
           e.preventDefault();
           e.stopImmediatePropagation();
           replace(r.value, r.caret);
-          if (!r.name.startsWith("/")) window.markDreamsNick?.(r.start, r.end,r.name);
+          if (!/^[/#&]/.test(r.name)) window.markDreamsNick?.(r.start, r.end,r.name);
           hide();
         }
         return;

@@ -76,19 +76,19 @@
       b = el(
         "button",
         kind === "private" ? "conversation-name" : "tree-name",
-        c.kind === "queries" ? "WHOIS / WHO" : c.name,
+        c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.name,
       );
     b.type = "button";
     b.setAttribute(
       "aria-label",
-      (kind === "private"
+      (kind === "server" ? "Status " : kind === "private"
         ? "Privado "
         : kind === "channel"
           ? "Sala "
           : "Consulta ") + c.name,
     );
     b.replaceChildren(
-      el("span", "tree-label", c.kind === "queries" ? "WHOIS / WHO" : c.name),
+      el("span", "tree-label", c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.name),
     );
     row.dataset.target = fold(c.name);
     row.dataset.network = id;
@@ -289,7 +289,7 @@
     }
     reconcile(
       list,
-      all.filter((c) => c.kind === "queries"),
+      all.filter((c) => c.kind === "queries" || c.kind === "server"),
     );
     for (const row of list.querySelectorAll(".tree-row"))
       if (!desired.has(row.dataset.target)) row.remove();

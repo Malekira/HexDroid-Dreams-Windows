@@ -209,6 +209,11 @@ async function run() {
       await page.keyboard.press('Control+Shift+Z');await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible())).toBe(false);
       await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.show();win.focus();});
     }
+    console.log('Prueba Electron: importar y exportar un tema validado');
+    const themeFile=path.join(root,'fixture-theme.json');
+    await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},themeFile);
+    const exportedTheme=await page.evaluate(()=>window.dreams.advanced('theme.export',{name:'Fixture Theme',settings:{theme:'violet',roomAppearance:{background:'#ffffff',inputText:'#123456'},nickBold:false}}));expect(exportedTheme.error).toBeUndefined();expect(JSON.parse(fs.readFileSync(themeFile,'utf8')).format).toBe('hexdreams-theme');
+    const importedTheme=await page.evaluate(()=>window.dreams.advanced('theme.import'));expect(importedTheme.error).toBeUndefined();expect(importedTheme.theme.settings.roomAppearance.inputText).toBe('#123456');expect(importedTheme.theme.settings.nickBold).toBe(false);
     console.log('Prueba Electron: importar script, permisos automáticos y ayuda');
     const fixture=path.join(root,'desktop.hex');fs.writeFileSync(fixture,'alias desktophello { msg $buffer scripted desktop transmission }');
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});dialog.showMessageBox=async()=>({response:1});},fixture);
@@ -225,6 +230,26 @@ async function run() {
 
     await page.locator('#message-input').fill('/desktophello');await page.locator('#message-input').press('Enter');
     await expect.poll(()=>received.includes('PRIVMSG #dreams :scripted desktop transmission')).toBe(true);
+    console.log('Prueba Electron: formularios .hex independientes, Unicode e intercepción antes de historiales');
+    const formScript=await page.evaluate(()=>window.dreams.advanced('script.save',{name:'Forms fixture.hex',source:`alias forms.open { view config "Native configuration" width 550 height 400 { column { input greeting $state(greeting) label "Greeting" | button Save forms.save } } }
+alias forms.save { state.set greeting $form(greeting) | view requests "Native requests" width 320 height 250 { text $form(greeting) } }
+on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) { halt } }`}));
+    expect(formScript.error).toBeUndefined();
+    const scriptStateSecure=(await page.evaluate(()=>window.dreams.advanced('status'))).secureStorage;
+    expect((await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true,domains:[]}),formScript.id)).error).toBeUndefined();
+    await page.evaluate(id=>window.dreams.advanced('script.signal',{script:id,network:active.id,target:active.target,signal:'forms.open'}),formScript.id);
+    const nativeForm=page.locator('.script-view').filter({has:page.getByRole('heading',{name:'Native configuration',exact:true})});
+    await nativeForm.getByLabel('Greeting',{exact:true}).fill('  Unicode 💜 <tag> con espacios  ');
+    await nativeForm.getByRole('button',{name:'Save',exact:true}).click();
+    await expect(page.locator('.script-view')).toHaveCount(2);
+    await page.evaluate(id=>window.dreams.advanced('script.signal',{script:id,network:active.id,target:active.target,signal:'forms.open'}),formScript.id);
+    await expect(nativeForm.getByLabel('Greeting',{exact:true})).toHaveValue('  Unicode 💜 <tag> con espacios  ');
+    await nativeForm.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await expect(page.locator('.script-view')).toHaveCount(1);await page.locator('.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();
+    for(const socket of sockets)socket.write(':BlockedFixture!u@host PRIVMSG Dreamer :must not reach any history\r\n');
+    await page.waitForTimeout(150);
+    await expect(page.getByRole('button',{name:'Privado BlockedFixture',exact:true})).toHaveCount(0);
+    const blockedHistory=await page.evaluate(()=>window.dreams.advanced('history.search',{text:'must not reach any history'}));expect(blockedHistory).toHaveLength(0);
     if(process.platform==='win32'){
       const secure=await page.evaluate(()=>window.dreams.advanced('status'));expect(secure.secureStorage).toBe(true);
       const encrypted=await app.evaluate(({safeStorage})=>{const secret='desktop DPAPI fixture';const bytes=safeStorage.encryptString(secret);return{plain:bytes.includes(Buffer.from(secret)),roundTrip:safeStorage.decryptString(bytes)};});expect(encrypted.plain).toBe(false);expect(encrypted.roundTrip).toBe('desktop DPAPI fixture');
@@ -320,7 +345,7 @@ async function run() {
     await page.locator('#join-dialog .dialog-header [data-close]').click();
     await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
     await page.getByLabel('Fondo de sala',{exact:true}).fill('#ffffff');
-    await page.getByLabel('Color del texto',{exact:true}).fill('#111111');
+    await page.getByLabel('Color del texto en sala',{exact:true}).fill('#111111');
     await page.getByLabel('Nicks coloreados',{exact:true}).uncheck();
     await expect(page.locator('.room-live-preview')).toHaveCSS('background-color','rgb(255, 255, 255)');
     await page.getByRole('button',{name:'Guardar apariencia',exact:true}).click();
@@ -400,7 +425,7 @@ async function run() {
     await expect.poll(async()=>await page.evaluate(async()=>{const rows=await window.dreams.advanced('history.search',{text:'Motivo historial evento'});return rows.some(m=>m.event===1&&m.target==='#dreams');})).toBe(true);
     const textFiles=fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt'));
     const roomLog=textFiles.filter(f=>String(f).includes(path.sep+'salas'+path.sep)).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n');
-    expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);
+    expect(roomLog).not.toContain('must not reach any history');expect(fs.readdirSync(textLogInfo.directory,{recursive:true}).filter(f=>String(f).endsWith('.txt')).map(f=>fs.readFileSync(path.join(textLogInfo.directory,f),'utf8')).join('\n')).not.toContain('must not reach any history');expect(roomLog).toContain('Historial TXT de sala');expect(roomLog).not.toContain('\x03');expect(roomLog).toMatch(/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]/);
     console.log('Prueba Electron: visor TXT en ventana independiente');
     const viewerPromise=app.waitForEvent('window');
     await page.evaluate(()=>window.dreams.advanced('history.window'));
@@ -436,6 +461,10 @@ async function run() {
     await expect(page.locator('#users-panel')).toBeHidden();
     await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveCount(0);
     await expect(page.locator('.mdi-window')).toHaveCount(0);
+    await page.waitForFunction(()=>window.dreamsUIReady===true);await page.bringToFront();
+    if(scriptStateSecure){await page.evaluate(id=>window.dreams.advanced('script.signal',{script:id,signal:'forms.open'}),formScript.id);
+    await expect(page.locator('.script-view').getByLabel('Greeting',{exact:true})).toHaveValue('  Unicode 💜 <tag> con espacios  ');
+    await page.locator('.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();}
     expect(fs.existsSync(path.join(dataPath,'window-state.json'))).toBe(true);
     await expect(page.locator('#connection-button')).toHaveText('Conectar');
     await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toHaveCount(0);

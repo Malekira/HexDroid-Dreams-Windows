@@ -335,7 +335,15 @@
     let day = "";
     for (const m of c.messages) {
       if (
-        (m.event && !s.showEvents && c.kind !== "queries" && m.eventType!=="presence" && !m.error) ||
+        (c.kind === "server" &&
+          window.DreamsStatus &&
+          !DreamsStatus.visible(m, s.statusFilters)) ||
+        (m.event &&
+          !s.showEvents &&
+          c.kind !== "queries" &&
+          c.kind !== "server" &&
+          m.eventType !== "presence" &&
+          !m.error) ||
         (m.eventType === "clones" && s.showClones === false)
       )
         continue;
@@ -448,7 +456,8 @@
         getComputedStyle($("message-input")).backgroundColor;
     input.style.background = inputBackground;
     input.style.color = DreamsFormatting.readableColor(
-      writing.textColor ||
+      a.inputText ||
+        writing.textColor ||
         getComputedStyle(document.documentElement)
           .getPropertyValue("--text")
           .trim(),
@@ -497,6 +506,9 @@
     body.append(timeline);
     if (conversationShowsUsers(c)) {
       const users = el("aside", "mdi-users");
+      users.style.width = users.style.flexBasis =
+        DreamsWorkspace.panelSizes(innerWidth, { ...s, showUsers: true })
+          .right + "px";
       users.setAttribute("aria-label", "Usuarios de " + c.name);
       users.append(
         el(
@@ -505,12 +517,41 @@
           c.kind === "private" ? "Usuario" : "Usuarios · " + c.users.length,
         ),
       );
-      const names = c.kind === "private" ? [c.name] : c.users;
+      const search = el("input");
+      search.placeholder = "Buscar usuario…";
+      search.setAttribute("aria-label", "Buscar usuarios de " + c.name);
+      search.hidden = !c.userSearchOpen;
+      search.value = c.userQuery || "";
+      const magnify = el("button", "user-search-toggle", "⌕");
+      magnify.type = "button";
+      magnify.setAttribute("aria-label", "Buscar en usuarios de " + c.name);
+      magnify.onclick = (e) => {
+        e.stopPropagation();
+        c.userSearchOpen = !c.userSearchOpen;
+        search.hidden = !c.userSearchOpen;
+        if (c.userSearchOpen) search.focus();
+        else {
+          c.userQuery = "";
+          search.value = "";
+          search.dispatchEvent(new Event("input"));
+        }
+      };
+      users.firstElementChild.append(magnify);
+      users.append(search);
+      search.oninput = () => {
+        c.userQuery = search.value;
+        for (const b of users.querySelectorAll(".mdi-user"))
+          b.hidden = !fold(b.dataset.nick).includes(fold(search.value));
+      };
+      const usersList = el("div", "user-list");
+      users.append(usersList);
+      const names = c.users;
       for (const raw of names) {
         const name = bareNick(raw, n),
           b = el("button", "mdi-user");
         b.type = "button";
         b.dataset.mdiUser = name;
+        b.classList.toggle("operator", !!statusPrefix(raw, n));
         b.setAttribute("aria-label", "Perfil de " + name + " en " + c.name);
         const picture = el(
             "span",
@@ -519,6 +560,7 @@
           ),
           source = avatarFor(w.id, name);
         b.dataset.nick = name;
+        b.hidden = !!c.userQuery && !fold(name).includes(fold(c.userQuery));
         b._photo = source;
         if (source) {
           const img = el("img");
@@ -527,9 +569,13 @@
           picture.replaceChildren(img);
         }
         b.append(picture, el("span", "user-name", raw));
-        users.append(b);
+        usersList.append(b);
       }
       body.append(users);
+      usersList.scrollTop = c.userScroll || 0;
+      usersList.onscroll = () => {
+        c.userScroll = usersList.scrollTop;
+      };
     }
     w.mirror.append(body);
     messages.scrollTop = c.follow ? messages.scrollHeight : c.scrollTop;
@@ -569,13 +615,14 @@
         let w = windows.get(k);
         if (!w) w = create(id, c);
         w.covered = activeMaximized && !isActive(w);
-        w.host.style.background = config.settings.roomAppearance?.windowBackground || "var(--bg)";
+        w.host.style.background =
+          config.settings.roomAppearance?.windowBackground || "var(--bg)";
         w.title.textContent =
-          c.name +
+          (c.kind === "server" ? "Status" : c.name) +
           (c.modes ? " " + c.modes : "") +
           " · " +
           (profile(id)?.name || "");
-        w.usersButton.hidden = c.kind === "server" && !c.profileVisible;
+        w.usersButton.hidden = c.kind !== "channel" && !c.profileVisible;
         const shown = conversationShowsUsers(c);
         w.usersButton.setAttribute(
           "aria-label",
@@ -655,9 +702,20 @@
       }
   };
   window.arrangeDreamsWindows = (mode) => {
-    const list = [...windows.values()].filter((w) => !w.minimized),
+    const list = [...windows.values()].filter(
+        (w) => mode === "maximize-all" || !w.minimized,
+      ),
       a = area();
     if (!list.length) return;
+    if (mode === "maximize-all") {
+      for (const w of list) {
+        w.maximized = true;
+        w.minimized = false;
+        apply(w);
+      }
+      render(true);
+      return;
+    }
     if (mode === "maximize") {
       const w = active && windows.get(key(active.id, active.target));
       if (w) {
@@ -675,7 +733,10 @@
             ? 1
             : Math.min(
                 list.length,
-                Math.max(1, Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h)))),
+                Math.max(
+                  1,
+                  Math.ceil(Math.sqrt((list.length * a.w) / Math.max(1, a.h))),
+                ),
               ),
       rows = Math.ceil(list.length / cols);
     list.forEach((w, i) => {
@@ -709,6 +770,7 @@
     ["Mosaico horizontal", "horizontal"],
     ["Cascada", "cascade"],
     ["Maximizar actual", "maximize"],
+    ["Maximizar todo", "maximize-all"],
   ]) {
     const b = el("button", "", label);
     b.type = "button";

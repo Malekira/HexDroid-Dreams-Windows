@@ -91,7 +91,7 @@
     if (whoisWindow.dialog.open) whoisWindow.dialog.close();
     $("users-panel").append(userPanel);
     viewing = null;
-    if(selected()?.kind==='server'&&selected().profileVisible){delete selected().profileVisible;applyConversationUsers();}
+    if(selected()?.kind!=='channel'&&selected()?.profileVisible){delete selected().profileVisible;applyConversationUsers();}
     userPanel.hidden = true;
     $("user-list").hidden = false;
     document.querySelector(".user-search").hidden = false;
@@ -269,7 +269,7 @@
     if (!options.floating && whoisWindow.dialog.open)
       whoisWindow.dialog.close();
     (options.floating ? whoisWindow.body : $("users-panel")).append(userPanel);
-    if(!options.floating&&selected()){if(selected().kind==='server')selected().profileVisible=true;selected().showUsers=true;applyConversationUsers();}
+    if(!options.floating&&selected()){if(selected().kind!=='channel')selected().profileVisible=true;selected().showUsers=true;applyConversationUsers();}
     viewing = { id, nick, details: {}, floating: !!options.floating };
     userPanel.hidden = false;
     $("user-list").hidden = true;
@@ -296,8 +296,6 @@
   choose = function (...args) {
     closeProfile();
     const result = originalChoose(...args);
-    if (selected()?.kind === "private")
-      window.openDreamsUser(args[0], selected().name);
     return result;
   };
   // Keep IRC controls out of the editable surface; serialize only supported styles.
@@ -321,24 +319,8 @@
   }
   function serializeReal(node, state = {}) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const fg = state.color
-          ? DreamsFormatting.colors.indexOf("#" + state.color)
-          : -1,
-        bg = state.background
-          ? DreamsFormatting.colors.indexOf("#" + state.background)
-          : -1;
-      const color =
-        fg >= 0 && (!state.background || bg >= 0)
-          ? "\x03" +
-            String(fg).padStart(2, "0") +
-            (bg >= 0 ? "," + String(bg).padStart(2, "0") : "")
-          : state.color
-            ? "\x04" +
-              state.color +
-              (state.background ? "," + state.background : "")
-            : state.background
-              ? "\x04000000," + state.background
-              : "";
+      const nearest=hex=>{if(!hex)return -1;const rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));return DreamsFormatting.colors.slice(0,16).map((c,i)=>({i,d:[1,3,5].reduce((sum,k,j)=>sum+(parseInt(c.slice(k,k+2),16)-rgb[j])**2,0)})).sort((a,b)=>a.d-b.d)[0].i;};
+      const fg=nearest(state.color),bg=nearest(state.background),color=fg>=0||bg>=0?'\x03'+String(fg>=0?fg:1).padStart(2,'0')+(bg>=0?','+String(bg).padStart(2,'0'):''):'';
       const prefix =
         (state.bold ? "\x02" : "") +
         (state.italic ? "\x1d" : "") +
@@ -431,7 +413,7 @@
     const empty = el("option", "", label);
     empty.value = "";
     picker.append(empty);
-    DreamsFormatting.colors.forEach((color, index) => {
+    DreamsFormatting.colors.slice(0,16).forEach((color, index) => {
       const option = el("option", "", String(index).padStart(2, "0"));
       option.value = color;
       option.style.color = color;
@@ -605,11 +587,12 @@
       ],
       [
         "text",
-        "Color del texto",
+        "Color del texto en sala",
         getComputedStyle(document.documentElement)
           .getPropertyValue("--text")
           .trim(),
       ],
+      ["inputText","Color del texto en el cuadro de escritura",getComputedStyle(document.documentElement).getPropertyValue("--text").trim()],
     ])
       appearanceFields[key] = field(grid, label, "color", a[key] || fallback);
     const font = field(grid, "Fuente", "select");
@@ -645,6 +628,7 @@
       "checkbox",
       config.settings.coloredNicks !== false,
     );
+    const nickBold=field(nickSettings,"Nicks en negrita","checkbox",config.settings.nickBold!==false),nickPalette=field(nickSettings,"Estilo de colores de nicks","select");for(const [v,t]of [["strong","Fuertes"],["pastel","Pastel"]]){const o=el("option","",t);o.value=v;nickPalette.append(o);}nickPalette.value=config.settings.nickPalette||"strong";
     const ownColor = field(
       nickSettings,
       "Color del propio nick",
@@ -666,9 +650,9 @@
         text,
         "\x0313Bienvenidos\x0f 🦆 Texto de ejemplo",
       );
-      preview.append(text);
+      const other=el("span","preview-other-nick","{Nora} ");other.style.fontWeight=nickBold.checked?"700":"400";other.style.color=appearanceFields.nicks.checked?(nickPalette.value==="pastel"?"#b6a0d8":"#a94bd6"):"inherit";text.prepend(other);preview.append(text);
       const input = el("div", "preview-input", "Escribir mensaje…");
-      input.style.backgroundColor = appearanceFields.inputBackground.value;
+      input.style.backgroundColor = appearanceFields.inputBackground.value;input.style.color=appearanceFields.inputText.value;
       preview.append(input);
       preview.style.backgroundColor = appearanceFields.background.value;
       preview.style.color = appearanceFields.text.value;
@@ -678,7 +662,7 @@
       preview.style.fontStyle = style.value.includes("italic")
         ? "italic"
         : "normal";
-      preview.querySelector("strong").style.color = appearanceFields.nicks
+      preview.querySelector("strong").style.fontWeight=nickBold.checked?"700":"400";preview.querySelector("strong").style.color = appearanceFields.nicks
         .checked
         ? ownColor.value
         : "inherit";
@@ -693,11 +677,12 @@
           11,
           Math.min(24, Number(size.value) || 14),
         );
+        config.settings.nickBold=nickBold.checked;config.settings.nickPalette=nickPalette.value;
         config.settings.coloredNicks = appearanceFields.nicks.checked;
         config.settings.ownNickColor = ownColor.value;
         config.settings.roomAppearance = {
           background: appearanceFields.background.value,windowBackground:appearanceFields.windowBackground.value,
-          inputBackground: appearanceFields.inputBackground.value,
+          inputBackground: appearanceFields.inputBackground.value,inputText:appearanceFields.inputText.value,
           text: appearanceFields.text.value,
           style: style.value,
         };

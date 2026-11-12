@@ -1,15 +1,19 @@
-# HexDreams IRC 0.23.0 para Windows
+# HexDreams IRC 0.24.0 para Windows
 
-- Fondo de la ventana independiente del fondo donde aparecen los mensajes, configurable en los estilos y en el editor de temas, con vista previa.
-- Altura de línea y separación entre mensajes en puntos, con controles numéricos compactos y vista previa. Se conserva el espaciado anterior hasta editarlo.
-- Historial: cantidades independientes para recargar salas y privados (0 desactiva; máximo 600). Usa el historial de búsqueda guardado por la aplicación; elegir filas activa ese guardado. Los TXT conservan sus opciones separadas. Cerrar una conversación impide que una respuesta tardía vuelva a abrirla.
-- Se omiten líneas vacías, espacios y líneas que solo contienen formato, también al enviar varias líneas y mensajes privados o NOTICE.
-- Los privados abiertos avisan cuando su usuario se desconecta o vuelve. El seguimiento es temporal y no agrega usuarios a Notify. Usa MONITOR cuando está disponible e ISON cada 30 segundos como alternativa.
-- Mosaico en cuadrícula disponible desde Ventanas, con distribución ajustada a las ventanas abiertas.
-- Campana amarilla mientras quedan notificaciones sin leer; recupera su color habitual al leerlas.
+- Panel de usuarios uniforme con lupa y búsqueda bajo demanda; se conserva el aviso flotante de mensajes nuevos. Estilo y vista dividida pasan al encabezado de las ventanas.
+- Privados sin listado lateral ni perfil automático; pulsar un nick abre su perfil. Status tiene nombre propio y entrada en el árbol, con filtros persistentes accesibles desde Chat y Configuración.
+- Texto de sala y texto de escritura con colores independientes. Nicks Fuertes/Pastel y negrita independiente, con vista previa. Opciones visuales generales agrupadas en Apariencia.
+- Menú Salas después de Comandos, conservando favoritos y acciones. Ventanas incluye Maximizar todo, también para ventanas minimizadas, privados y Status.
+- Gestión de temas desde Apariencia: importar/exportar archivos JSON de apariencia, previsualizar, aplicar, restaurar y eliminar temas guardados.
+- Formatos visuales de NOTICE y /me desde Chat, con prefijos, colores, vista previa y restauración. ACTION conserva su envío IRC.
+- Corrector multicolor con códigos clásicos IRC 00–15, vista previa, Ctrl+K y copia conservando colores; permite editar fragmentos sin unificar el resto.
+- Scripts: formularios con campos editables, listas, casillas, radios, selectores y botones; ventanas independientes redimensionables y movibles; transferencia genérica de valores Unicode, selección, clic y doble clic. Nuevas instrucciones delat, tip y view.close. Estado aislado por script en el almacén seguro. Interceptar un privado recibido nuevo lo detiene antes de notificaciones e historiales. No se incorpora un Anti-PV fijo al cliente.
+- Tab y Shift+Tab completan también salas en las que se participa y nicks de Notify de la red actual en cualquier posición del mensaje.
+
+Detalles de sintaxis y correspondencia con las 15 anotaciones: docs/CAMBIOS-0.24.0.md.
 
 ## Validación
 
-Pruebas de lógica e interfaz cubren los nuevos controles, persistencia, fondos independientes, límites de recarga, respuestas tardías, líneas vacías, presencia en privados y campana. La compilación de Windows ejecuta además Electron contra IRC TCP/TLS y comprueba el ejecutable empaquetado antes de publicar.
+Pruebas automatizadas de lógica, interfaz y Electron con IRC TCP/TLS. El flujo de Windows repite las pruebas y verifica el ejecutable empaquetado, incluidos formularios, persistencia tras reinicio e intercambio de temas, antes de publicar.
 
 Extrae todo el ZIP y abre HexDreamsIRC.exe. El ZIP distribuido no está firmado.
