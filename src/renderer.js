@@ -61,10 +61,11 @@ function choose(id,target,focus = true) {
   persist().catch(() => {});
 }
 let activityTimer;
+function applyDelivery(message,event){message.pending=false;message.failed=event.failed===true;message.deliveryError=event.text||'';if(event.messageId)message.messageId=event.messageId;}
 function addMessage(id,target,message) {
   workspace.active = active;
   if (!config.settings.autoScroll && !message.own && active?.id === id && fold(active.target) === fold(target)) conversation(id,target).follow = false;
-  workspace.addMessage(id,target,message);clearTimeout(activityTimer);activityTimer=setTimeout(renderTabs,4100);
+  const inserted=workspace.addMessage(id,target,message),delivery=network(id).deliveryStates?.get(message.clientId);if(delivery)applyDelivery(inserted,delivery);clearTimeout(activityTimer);activityTimer=setTimeout(renderTabs,4100);
 }
 function dragOrder(node,id,target) {
   node.draggable = true;
@@ -273,7 +274,7 @@ function messageRow(id, c, m, context) {
               bg,
             );
     }
-    if(m.action){const action=el('span','action-text');DreamsFormatting.render(action,m.text,context.background);const prefix=el('span','action-prefix',(config.settings.actionPrefix??'*')+' '),actionNick=el('span','action-nick',m.nick+' ');if(config.settings.actionNickColor)actionNick.style.color=DreamsFormatting.readableColor(config.settings.actionNickColor,context.background);body.replaceChildren(prefix,actionNick,action);const color=config.settings.actionColor;if(color){body.style.color=DreamsFormatting.readableColor(color,context.background);for(const span of body.querySelectorAll('.action-text span'))span.style.color='inherit';}body.style.fontWeight=config.settings.actionStyle?.includes('bold')?'700':'';body.style.fontStyle=config.settings.actionStyle?.includes('italic')?'italic':'';if(config.settings.actionNickColor)nick.style.color=DreamsFormatting.readableColor(config.settings.actionNickColor,context.background);}
+    if(m.action){const action=el('span','action-text');DreamsFormatting.render(action,m.text,context.background);const prefix=el('span','action-prefix',(config.settings.actionPrefix??'*')+' '),actionNick=el('span','action-nick',m.nick+' ');actionNick.style.color=nick.style.color||getComputedStyle($("messages")).getPropertyValue(m.own?"--room-own":"--text").trim()||context.foreground;body.replaceChildren(prefix,actionNick,action);const color=config.settings.actionColor;if(color){body.style.color=DreamsFormatting.readableColor(color,context.background);for(const span of body.querySelectorAll('.action-text span'))span.style.color='inherit';}body.style.fontWeight=config.settings.actionStyle?.includes('bold')?'700':'';body.style.fontStyle=config.settings.actionStyle?.includes('italic')?'italic':'';}
     content.append(header, body);
     if (api.advanced && config.settings.mediaEnabled !== false) {
       for (const url of m.text.match(
@@ -388,10 +389,7 @@ function renderMessages(preserveScroll = false) {
         c.kind === "queries" || c.kind === "server" || m.eventType==="presence" ||
         config.settings.showEvents ||
         m.error) &&
-      (!query ||
-        fold(DreamsFormatting.plain(m.text) + " " + (m.nick || "")).includes(
-          query,
-        )),
+      true,
   );
   $("search-count").textContent = query ? `${visible.length} resultados` : "";
   if (!visible.some((m) => !eventList || !m.event))
@@ -854,7 +852,7 @@ api.onEvent(event => {
     case 'status':
       n.state = event.state; if (event.nick) n.nick = event.nick; if (event.connection) n.connection = event.connection;
       addMessage(id, '*', { event: true,statusCategory:'connection', text: event.text });
-      if(event.state==='disconnected'){n.ircOper=false;n.privatePresence={};}
+      if(event.state==='disconnected'){n.ircOper=false;n.privatePresence={};n.deliveryStates=new Map();}
       if(event.state==='connected'&&!active&&id===(selectedNetworkId||config.profiles[0]?.id))choose(id,'*',false);
       if (event.state === 'disconnected') {n.conversations.clear();n.lastTarget='*';if(active?.id===id){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);persist().catch(()=>{});}
       break;
@@ -867,6 +865,7 @@ api.onEvent(event => {
       if(!event.initial&&!event.renamed&&previous!==event.online){const c=n.conversations.get(key);if(c?.kind==='private')addMessage(id,c.name,{event:true,eventType:'presence',time:event.time,text:nick+(event.online?' volvió a conectarse':' se desconectó')});}
       break;
     }
+    case 'delivery': {if(typeof event.clientId!=='string')break;n.deliveryStates||=new Map();n.deliveryStates.set(event.clientId,event);if(n.deliveryStates.size>256)n.deliveryStates.delete(n.deliveryStates.keys().next().value);for(const c of n.conversations.values())for(const m of c.messages)if(m.clientId===event.clientId){applyDelivery(m,event);c.revision=(c.revision||0)+1;}lastMessageView='';break;}
     case 'message': addMessage(id, event.target && event.target !== '*' ? event.target : '*', event); break;
     case 'users': if(event.prefixes)n.prefixes=event.prefixes;if(event.prefixModes)n.prefixModes=event.prefixModes;conversation(id,event.target).users=event.users.map(user=>statusPrefix(user,n)+bareNick(user,n));break;
     case 'oper-state':n.ircOper=event.oper;break;

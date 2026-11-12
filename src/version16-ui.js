@@ -11,12 +11,12 @@
       render();
     };
   const labels = {
-    general: "Configuración general",
-    away: "Configuración de Away",
-    notice: "Configuración de NOTICE",
-    notifications: "Configuración de notificaciones",
-    highlight: "Configuración de resaltado",
-    sound: "Configuración de sonido",
+    general: "General",
+    away: "Away",
+    notice: "NOTICE",
+    notifications: "Notificaciones",
+    highlight: "Resaltado",
+    sound: "Sonido",
   };
   window.renderDreamsChatPreferences = (host, key, commit = save) => {
     host.replaceChildren(el("h3", "", labels[key]));

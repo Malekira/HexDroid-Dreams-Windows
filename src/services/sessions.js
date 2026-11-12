@@ -88,7 +88,7 @@ class SessionManager extends EventEmitter {
                     this.emit("event", s.profile.id, "problem", e.message);
                   }
               },
-              s.profile.commandDelay * (i + 1),
+              s.profile.commandDelay * i,
             );
             timer.unref();
             s.timers.add(timer);

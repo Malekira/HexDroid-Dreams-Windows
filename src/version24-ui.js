@@ -175,7 +175,7 @@
             roomMode.value = select.value;
             roomMode.dispatchEvent(new Event("change"));
           };
-          tools.append(select);
+          tools.prepend(select);
         }
         user.after(tools);
       }
@@ -238,98 +238,7 @@
       );
     return r;
   };
-  window.openDreamsMessageFormat = (kind) => {
-    const action = kind === "action",
-      prefixKey = action ? "actionPrefix" : "noticePrefix",
-      colorKey = action ? "actionColor" : "noticeColor",
-      s = config.settings,
-      { body } = dialog(action ? "Formato de /me" : "Formato de NOTICE");
-    const prefix = field(
-        body,
-        "Prefijo visible",
-        "text",
-        s[prefixKey] ?? (action ? "*" : ""),
-      ),
-      custom = field(body, "Usar color propio", "checkbox", !!s[colorKey]),
-      color = field(
-        body,
-        "Color del mensaje",
-        "color",
-        s[colorKey] || "#a050cf",
-      );
-    prefix.maxLength = 60;
-    let gap, nick, style;
-    if (!action) {
-      gap = field(
-        body,
-        "Espacios después del prefijo",
-        "number",
-        s.noticePrefixGap ?? 1,
-      );
-      gap.min = 0;
-      gap.max = 8;
-    } else {
-      nick = field(
-        body,
-        "Color del nick de la acción",
-        "color",
-        s.actionNickColor || s[colorKey] || "#a050cf",
-      );
-      style = field(body, "Estilo de la acción", "select");
-      for (const [v, t] of [
-        ["normal", "Normal"],
-        ["bold", "Negrita"],
-        ["italic", "Cursiva"],
-        ["bold italic", "Negrita y cursiva"],
-      ]) {
-        const o = el("option", "", t);
-        o.value = v;
-        style.append(o);
-      }
-      style.value = s.actionStyle || "normal";
-    }
-    const preview = el("div", "format-preview");
-    preview.setAttribute("aria-label", "Vista previa del formato");
-    body.append(preview);
-    const update = () => {
-      preview.textContent =
-        prefix.value +
-        " ".repeat(
-          action ? 1 : Math.max(0, Math.min(8, Number(gap.value) || 0)),
-        ) +
-        (action ? "Nora saluda a la sala" : "Aviso de ejemplo");
-      preview.style.color = custom.checked ? color.value : "var(--text)";
-      preview.style.fontWeight = style?.value.includes("bold") ? "700" : "";
-      preview.style.fontStyle = style?.value.includes("italic") ? "italic" : "";
-    };
-    body.addEventListener("input", update);
-    update();
-    button(body, "Guardar formato", async () => {
-      s[prefixKey] = prefix.value;
-      s[colorKey] = custom.checked ? color.value : null;
-      if (gap) s.noticePrefixGap = Number(gap.value);
-      if (action) {
-        s.actionNickColor = nick.value;
-        s.actionStyle = style.value;
-      }
-      await save();
-      notify("Formato guardado.");
-    });
-    button(body, "Restaurar formato", async () => {
-      s[prefixKey] = action ? "*" : "";
-      s[colorKey] = null;
-      if (action) {
-        s.actionNickColor = null;
-        s.actionStyle = "normal";
-      } else s.noticePrefixGap = 1;
-      await save();
-      prefix.value = s[prefixKey];
-      custom.checked = false;
-      if (gap) gap.value = 1;
-      if (style) style.value = "normal";
-      update();
-    });
-  };
+  window.openDreamsMessageFormat = () => openSettings('chat');
   button(chat.lastElementChild, "NOTICE · color y prefijo", () =>
     window.openDreamsMessageFormat("notice"),
   );
@@ -378,7 +287,7 @@
     }
     select.addEventListener("change", draw);
     draw();
-    button(body, "Cargar tema", async () => {
+    button(body, "Importar tema", async () => {
       const r = await api.advanced("theme.import");
       if (r?.error) throw Error(r.error);
       if (!r?.theme) return;

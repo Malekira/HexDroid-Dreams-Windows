@@ -53,6 +53,7 @@
     typeof s === "string"
       ? s.replace(/[\x00-\x1f\x7f]/g, "").slice(0, max)
       : "";
+  function dictionaryText(value){if(typeof value!=="string")return "";return value.replace(/\x04[a-f\d]{6}(?:,[a-f\d]{6})?/gi,"").replace(/\x1b\[[\d;]*m/g,"").replace(/\x03(\d{1,2})?(?:,(\d{1,2}))?/g,(code,fg,bg)=>[fg,bg].some(n=>n!==undefined&&Number(n)>15)?"":code).replace(/[\x00-\x01\x04-\x0e\x10-\x1c\x1e\x7f]/g,"").slice(0,1000);}
   function validate(input = {}) {
     const dictionary = [],
       seen = new Set();
@@ -60,7 +61,7 @@
       ? input.dictionary.slice(0, 500)
       : []) {
       const from = clean(r?.from, 40),
-        to = clean(r?.to, 1000);
+        to = dictionaryText(r?.to);
       if (!from || /\s/.test(from) || !to) continue;
       const key = r.matchCase ? from : from.toLocaleLowerCase();
       if (seen.has(key)) continue;

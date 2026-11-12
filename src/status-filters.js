@@ -44,7 +44,7 @@
     if (m.error) return "errors";
     if (m.notice) return "notices";
     if (
-      /^(nickserv|chanserv|memoserv|memo|operserv|hostserv|auth|q)$/i.test(
+      /^(ipvirtual|nickserv|chanserv|memoserv|memo|operserv|hostserv|auth|q)$/i.test(
         m.nick || "",
       )
     )

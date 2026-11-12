@@ -661,13 +661,6 @@
       });
       render();
     }
-    if (event.type === "delivery") {
-      lastMessageView = "";
-      for (const c of networks.get(event.id)?.conversations.values() || [])
-        for (const m of c.messages)
-          if (m.clientId === event.clientId) Object.assign(m, event);
-      render();
-    }
     if (event.type === "reaction") {
       const c = conversation(event.id, event.target),
         m = c.messages.find((m) => m.messageId === event.messageId);

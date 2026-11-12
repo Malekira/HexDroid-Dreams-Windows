@@ -49,37 +49,96 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.advertised = new Map();
       this.batches = new Map();
       this.pendingEcho = new Map();
-      this.clones=new (require("./clones").CloneTracker)(this);
+      this.clones = new (require("./clones").CloneTracker)(this);
       this.labels = new Map();
       this.joined = new Map();
       this.byteBuffer = Buffer.alloc(0);
       this.nickAttempts = 0;
       this.userStates = new Map();
-      this.userModes=new Set();
-      this.presence=new (require("./presence").Presence)(this,this.profile.notifyNicks);this.ownAvatarTemplate=profile.ownAvatarTemplate||this.profile.photoUrl;
-      this.pendingWhois = new Map();this.avatarDiscovery=profile.avatarDiscovery!==false;this.avatarSequence=0;
+      this.userModes = new Set();
+      this.presence = new (require("./presence").Presence)(
+        this,
+        this.profile.notifyNicks,
+      );
+      this.ownAvatarTemplate =
+        profile.ownAvatarTemplate || this.profile.photoUrl;
+      this.pendingWhois = new Map();
+      this.avatarDiscovery = profile.avatarDiscovery !== false;
+      this.avatarSequence = 0;
     }
-    updateAvatar(nick,patch){
-      nick=nick==='*'?this.nick:String(nick||'').split('!')[0];if(!nick||/^[#&+!]/.test(nick))return;
-      const old=this.userStates.get(fold(nick))||{},next={...old,...patch,avatarVersion:++this.avatarSequence};
-      if(patch.metadata)next.metadata={...old.metadata,...patch.metadata};
-      this.userStates.set(fold(nick),next);this.emit('user-state',{nick,...next,avatarVersion:next.avatarVersion,key:patch.metadata?'avatar':undefined,value:patch.metadata?.avatar});
+    updateAvatar(nick, patch) {
+      nick = nick === "*" ? this.nick : String(nick || "").split("!")[0];
+      if (!nick || /^[#&+!]/.test(nick)) return;
+      const old = this.userStates.get(fold(nick)) || {},
+        next = { ...old, ...patch, avatarVersion: ++this.avatarSequence };
+      if (patch.metadata)
+        next.metadata = { ...old.metadata, ...patch.metadata };
+      this.userStates.set(fold(nick), next);
+      this.emit("user-state", {
+        nick,
+        ...next,
+        avatarVersion: next.avatarVersion,
+        key: patch.metadata ? "avatar" : undefined,
+        value: patch.metadata?.avatar,
+      });
     }
-    learnPhoto(nick,realName){const photo=require('./avatar-policy').legacyPhoto(realName);this.updateAvatar(nick,{legacyPhoto:photo});}
-    publishOwnAvatar(force=false){
-      if(!this.ready)return{pending:true};if(this.profile.publishPhoto&&!this.ownAvatarTemplate)return{missing:true};if(!this.capabilities.has('draft/metadata-2'))return{unsupported:true};
-      const url=this.profile.publishPhoto?require('./avatar-policy').resolveAvatar({nick:this.nick,explicit:this.ownAvatarTemplate,refresh:true}).url||'':'';
-      const base=url?new URL(url):null;if(base&&base.hostname==='chat-avatars.chateagratis.net')base.searchParams.delete('v');const key=base?.toString()||'';
-      if(!force&&this.lastPublishedAvatar===key)return{unchanged:true};
-      const line='METADATA * SET avatar'+(url?' :'+url:'');if(Buffer.byteLength(line)>510)throw new Error('La dirección de foto es demasiado larga para publicarla por IRC.');
-      this.sendRaw(line);this.lastPublishedAvatar=key;this.emit('avatar-publish',{state:'sent',url});return{ok:true,url};
+    learnPhoto(nick, realName) {
+      const photo = require("./avatar-policy").legacyPhoto(realName);
+      this.updateAvatar(nick, { legacyPhoto: photo });
     }
-    syncAvatars(){if(!this.capabilities.has('draft/metadata-2'))this.avatarSubscribed=false;if(!this.ready||!this.capabilities.has('draft/metadata-2'))return;try{this.publishOwnAvatar();}catch(e){this.emit('problem',e.message);}if(!this.avatarDiscovery||this.avatarSubscribed)return;this.avatarSubscribed=true;this.sendRaw('METADATA * SUB avatar');this.sendRaw('METADATA * GET avatar');for(const channel of this.joined.values())this.sendRaw('METADATA '+channel+' SYNC');}
+    publishOwnAvatar(force = false) {
+      if (!this.ready) return { pending: true };
+      if (this.profile.publishPhoto && !this.ownAvatarTemplate)
+        return { missing: true };
+      if (!this.capabilities.has("draft/metadata-2"))
+        return { unsupported: true };
+      const url = this.profile.publishPhoto
+        ? require("./avatar-policy").resolveAvatar({
+            nick: this.nick,
+            explicit: this.ownAvatarTemplate,
+            refresh: true,
+          }).url || ""
+        : "";
+      const base = url ? new URL(url) : null;
+      if (base && base.hostname === "chat-avatars.chateagratis.net")
+        base.searchParams.delete("v");
+      const key = base?.toString() || "";
+      if (!force && this.lastPublishedAvatar === key)
+        return { unchanged: true };
+      const line = "METADATA * SET avatar" + (url ? " :" + url : "");
+      if (Buffer.byteLength(line) > 510)
+        throw new Error(
+          "La dirección de foto es demasiado larga para publicarla por IRC.",
+        );
+      this.sendRaw(line);
+      this.lastPublishedAvatar = key;
+      this.emit("avatar-publish", { state: "sent", url });
+      return { ok: true, url };
+    }
+    syncAvatars() {
+      if (!this.capabilities.has("draft/metadata-2"))
+        this.avatarSubscribed = false;
+      if (!this.ready || !this.capabilities.has("draft/metadata-2")) return;
+      try {
+        this.publishOwnAvatar();
+      } catch (e) {
+        this.emit("problem", e.message);
+      }
+      if (!this.avatarDiscovery || this.avatarSubscribed) return;
+      this.avatarSubscribed = true;
+      this.sendRaw("METADATA * SUB avatar");
+      this.sendRaw("METADATA * GET avatar");
+      for (const channel of this.joined.values())
+        this.sendRaw("METADATA " + channel + " SYNC");
+    }
 
     connect() {
       if (this.socket && !this.socket.destroyed)
         throw new Error("La red ya está conectada.");
-      this.lastPublishedAvatar=undefined;this.closed = false;this.avatarSubscribed=false;this.userStates.clear();
+      this.lastPublishedAvatar = undefined;
+      this.closed = false;
+      this.avatarSubscribed = false;
+      this.userStates.clear();
       this.open().catch((e) => this.fail(e.message));
     }
     async open() {
@@ -118,8 +177,14 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         );
         this.capTimer.unref();
       };
-      this.tlsAccepted=false;
-      const pin = this.secrets.tlsPin && (!this.secrets.tlsPin.host || this.secrets.tlsPin.host===p.host&&this.secrets.tlsPin.port===p.port) ? this.secrets.tlsPin : null,
+      this.tlsAccepted = false;
+      const pin =
+          this.secrets.tlsPin &&
+          (!this.secrets.tlsPin.host ||
+            (this.secrets.tlsPin.host === p.host &&
+              this.secrets.tlsPin.port === p.port))
+            ? this.secrets.tlsPin
+            : null,
         material = this.secrets.clientCertificate || {};
       const options = {
         host: p.host,
@@ -147,7 +212,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
             }
           : {}),
         checkServerIdentity: (host, cert) => {
-          if(pin?.fingerprint && cert.fingerprint256?.replace(/:/g,'').toLowerCase()===pin.fingerprint)return;
+          if (
+            pin?.fingerprint &&
+            cert.fingerprint256?.replace(/:/g, "").toLowerCase() ===
+              pin.fingerprint
+          )
+            return;
           const error = tls.checkServerIdentity(host, cert);
           if (error) return error;
           if (
@@ -163,14 +233,46 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.socket = p.tls
         ? tls.connect(options, () => {
             const cert = this.socket.getPeerCertificate();
-            const fingerprint=cert.raw&&crypto.createHash('sha256').update(cert.raw).digest('hex');
-            const pinned=!!pin?.fingerprint&&pin.fingerprint===fingerprint;
-            const identityError=cert.raw?tls.checkServerIdentity(p.host,cert):new Error('Certificado ausente');
-            if(!pinned&&(!this.socket.authorized||identityError)||pin&&!pinned){
-              if(cert.raw)this.emit('certificate',{host:p.host,port:p.port,trusted:false,pem:new crypto.X509Certificate(cert.raw).toString(),fingerprint,subject:cert.subject,issuer:cert.issuer,validFrom:cert.valid_from,validTo:cert.valid_to,reason:pin?'El certificado cambió respecto al aprobado.':identityError?.message||String(this.socket.authorizationError)});
-              this.emit('problem','TLS: '+(this.socket.authorizationError||identityError?.message||'certificate changed')+'. Revisa y aprueba el certificado de esta red.');this.socket.destroy();return;
+            const fingerprint =
+              cert.raw &&
+              crypto.createHash("sha256").update(cert.raw).digest("hex");
+            const pinned =
+              !!pin?.fingerprint && pin.fingerprint === fingerprint;
+            const identityError = cert.raw
+              ? tls.checkServerIdentity(p.host, cert)
+              : new Error("Certificado ausente");
+            if (
+              (!pinned && (!this.socket.authorized || identityError)) ||
+              (pin && !pinned)
+            ) {
+              if (cert.raw)
+                this.emit("certificate", {
+                  host: p.host,
+                  port: p.port,
+                  trusted: false,
+                  pem: new crypto.X509Certificate(cert.raw).toString(),
+                  fingerprint,
+                  subject: cert.subject,
+                  issuer: cert.issuer,
+                  validFrom: cert.valid_from,
+                  validTo: cert.valid_to,
+                  reason: pin
+                    ? "El certificado cambió respecto al aprobado."
+                    : identityError?.message ||
+                      String(this.socket.authorizationError),
+                });
+              this.emit(
+                "problem",
+                "TLS: " +
+                  (this.socket.authorizationError ||
+                    identityError?.message ||
+                    "certificate changed") +
+                  ". Revisa y aprueba el certificado de esta red.",
+              );
+              this.socket.destroy();
+              return;
             }
-            this.tlsAccepted=true;
+            this.tlsAccepted = true;
             if (p.tofu && !pin && cert.raw)
               this.emit("certificate", {
                 host: p.host,
@@ -191,7 +293,9 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.socket.on("timeout", () =>
         this.fail("Se agotó el tiempo de conexión."),
       );
-      this.socket.on("data", (data) => {if(!p.tls||this.tlsAccepted)this.receive(data);});
+      this.socket.on("data", (data) => {
+        if (!p.tls || this.tlsAccepted) this.receive(data);
+      });
       this.socket.on("error", (e) => {
         if (p.tls && p.tofu) {
           let cert;
@@ -215,7 +319,8 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       });
       this.socket.on("close", () => {
         clearTimeout(this.capTimer);
-        clearInterval(this.nickRecovery);this.presence.stop();
+        clearInterval(this.nickRecovery);
+        this.presence.stop();
         clearTimeout(this.registrationTimer);
         clearTimeout(this.closeTimer);
         this.socket = null;
@@ -223,9 +328,11 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.members.clear();
         for (const [clientId, item] of this.pendingEcho) {
           clearTimeout(item.timer);
+          clearTimeout(item.expires);
           this.emit("delivery", {
             clientId,
             failed: true,
+            pending: false,
             text: "Conexión cerrada antes de confirmar el mensaje.",
           });
         }
@@ -302,7 +409,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       cleanText(line);
       const command = line.replace(/^@[^ ]+ /, "");
       const outgoing = /^(?:PRIVMSG|NOTICE) ([^ ]+) :/i.exec(command);
-      if(outgoing){const body=command.slice(command.indexOf(' :')+2).replace(/^\x01ACTION ([\s\S]*)\x01$/,'$1');if(!require('../formatting').plain(body).trim())return;}
+      if (outgoing) {
+        const body = command
+          .slice(command.indexOf(" :") + 2)
+          .replace(/^\x01ACTION ([\s\S]*)\x01$/, "$1");
+        if (!require("../formatting").plain(body).trim()) return;
+      }
       if (
         outgoing &&
         !this.encryptedWire &&
@@ -313,7 +425,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         );
       const b = iconv.encode(line, this.profile.encoding);
       const tagEnd = line.startsWith("@") ? line.indexOf(" ") : -1;
-      const longStatusCommand = statusCommand && /^[A-Za-z][A-Za-z0-9]* /i.test(command) && !/^(?:PRIVMSG|NOTICE|TAGMSG)\b/i.test(command);
+      const longStatusCommand =
+        statusCommand &&
+        /^[A-Za-z][A-Za-z0-9]* /i.test(command) &&
+        !/^(?:PRIVMSG|NOTICE|TAGMSG)\b/i.test(command);
       const commandLimit = longStatusCommand ? 65534 : 510;
       if (
         b.length > (longStatusCommand ? 65534 : tagEnd > 0 ? 8190 : 510) ||
@@ -323,7 +438,8 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         throw new Error("Mensaje demasiado largo para IRC.");
       if (!this.socket || this.socket.destroyed || !this.socket.writable)
         throw new Error("La red no está conectada.");
-      this.socket.write(Buffer.concat([b, Buffer.from("\r\n")]));this.presence.observe(command);
+      this.socket.write(Buffer.concat([b, Buffer.from("\r\n")]));
+      this.presence.observe(command);
       this.emit("protocol", {
         direction: "out",
         line: redactProtocol(command),
@@ -453,18 +569,67 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       }
     }
     handle(m) {
-      const { command: c, params: p } = m;const ownNickChange=c==='NICK'&&fold(m.nick)===fold(this.nick);this.presence.handle(m);this.clones.observe(m);if(c==="CHGHOST")this.clones.schedule();
-      if(c==='305'||c==='306')this.emit('away-state',{away:c==='306'});
-      if(c==='381'||c==='221'||c==='MODE'&&fold(p[0])===fold(this.nick)){
-        if(c==='381')this.userModes.add('o');else{if(c==='221')this.userModes.clear();let adding=true;for(const mode of (c==='221'?p.at(-1):p[1])||''){if(mode==='+')adding=true;else if(mode==='-')adding=false;else if(adding)this.userModes.add(mode);else this.userModes.delete(mode);}}
-        this.emit('oper-state',{oper:this.userModes.has('o')||this.userModes.has('O'),modes:[...this.userModes].join('')});
+      const { command: c, params: p } = m;
+      const ownNickChange = c === "NICK" && fold(m.nick) === fold(this.nick);
+      this.presence.handle(m);
+      this.clones.observe(m);
+      if (c === "CHGHOST") this.clones.schedule();
+      if (c === "305" || c === "306")
+        this.emit("away-state", { away: c === "306" });
+      if (
+        c === "381" ||
+        c === "221" ||
+        (c === "MODE" && fold(p[0]) === fold(this.nick))
+      ) {
+        if (c === "381") this.userModes.add("o");
+        else {
+          if (c === "221") this.userModes.clear();
+          let adding = true;
+          for (const mode of (c === "221" ? p.at(-1) : p[1]) || "") {
+            if (mode === "+") adding = true;
+            else if (mode === "-") adding = false;
+            else if (adding) this.userModes.add(mode);
+            else this.userModes.delete(mode);
+          }
+        }
+        this.emit("oper-state", {
+          oper: this.userModes.has("o") || this.userModes.has("O"),
+          modes: [...this.userModes].join(""),
+        });
       }
-      if(['311','312','313','317','318','319','330','301','401','402'].includes(c)){
-        this.emit('user-profile',{nick:p[1],code:c,params:p.slice(2),...(c==='311'?{realName:require('./avatar-policy').displayRealName(p[5])}:{}),complete:c==='318',error:c==='401'||c==='402'});
+      if (
+        [
+          "311",
+          "312",
+          "313",
+          "317",
+          "318",
+          "319",
+          "330",
+          "301",
+          "401",
+          "402",
+        ].includes(c)
+      ) {
+        this.emit("user-profile", {
+          nick: p[1],
+          code: c,
+          params: p.slice(2),
+          ...(c === "311"
+            ? { realName: require("./avatar-policy").displayRealName(p[5]) }
+            : {}),
+          complete: c === "318",
+          error: c === "401" || c === "402",
+        });
       }
-      if(c==='321')this.emit('room-list',{reset:true});
-      if(c==='322')this.emit('room-list',{name:p[1],members:Number(p[2])||0,topic:p[3]||''});
-      if(c==='323')this.emit('room-list',{complete:true});
+      if (c === "321") this.emit("room-list", { reset: true });
+      if (c === "322")
+        this.emit("room-list", {
+          name: p[1],
+          members: Number(p[2]) || 0,
+          topic: p[3] || "",
+        });
+      if (c === "323") this.emit("room-list", { complete: true });
       if (c === "005") {
         for (const item of p.slice(1, -1)) {
           const at = item.indexOf("="),
@@ -479,9 +644,11 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
                     );
           if (["SOJU.IM/FILEHOST", "DRAFT/FILEHOST", "FILEHOST"].includes(name))
             this.filehost = value;
-          if(name==="MONITOR")this.presence.setMonitor(true);if(name==="-MONITOR")this.presence.setMonitor(false);
-          if(name==="REALNAMELEN"&&/^\d+$/.test(value))this.realNameLimit=Number(value);
-          if(name==="WHOX")this.whox=true;
+          if (name === "MONITOR") this.presence.setMonitor(true);
+          if (name === "-MONITOR") this.presence.setMonitor(false);
+          if (name === "REALNAMELEN" && /^\d+$/.test(value))
+            this.realNameLimit = Number(value);
+          if (name === "WHOX") this.whox = true;
           if (["ICON", "DRAFT/ICON"].includes(name)) this.networkIcon = value;
         }
         this.emit("features", {
@@ -490,22 +657,56 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           networkIcon: this.networkIcon,
         });
       }
-      if(c==='761'&&p.length>=5){
-        const nick=String(p[1]).split('!')[0],key=p[2],value=p[4];
-        if(key==='avatar'||key==='avatar-url')this.updateAvatar(nick,{metadata:{[key]:value}});
-        else{const old=this.userStates.get(fold(nick))||{};this.userStates.set(fold(nick),{...old,metadata:{...old.metadata,[key]:value}});this.emit('user-state',{nick,key,value});}return;
+      if (c === "761" && p.length >= 5) {
+        const nick = String(p[1]).split("!")[0],
+          key = p[2],
+          value = p[4];
+        if (key === "avatar" || key === "avatar-url")
+          this.updateAvatar(nick, { metadata: { [key]: value } });
+        else {
+          const old = this.userStates.get(fold(nick)) || {};
+          this.userStates.set(fold(nick), {
+            ...old,
+            metadata: { ...old.metadata, [key]: value },
+          });
+          this.emit("user-state", { nick, key, value });
+        }
+        return;
       }
-      if(c==='METADATA'){const key=p[1];if(key==='avatar'||key==='avatar-url')this.updateAvatar(p[0],{metadata:{[key]:p[3]||''}});return;}
-      if(c==='JOIN'&&p.length>=3)this.learnPhoto(m.nick,p[2]);
-      if(c==='SETNAME')this.learnPhoto(m.nick,p[0]);
-      if(c==='311'&&p.length>=6)this.learnPhoto(p[1],p[5]);
-      if(c==='352'&&p.length>=8)this.learnPhoto(p[5],p[7].replace(/^\d+ /,''));
-      if(c==='354'&&p[1]==='152'&&p.length>=9)this.learnPhoto(p[5],p.at(-1));
-      if((c==='900'&&this.ready)||(c==='ACCOUNT'&&fold(m.nick)===fold(this.nick)&&p[0]!=='*')||(c==='MODE'&&fold(p[0])===fold(this.nick)&&/\+[^-]*r/.test(p[1]||'')))try{this.publishOwnAvatar(true);}catch(e){this.emit('problem',e.message);}
-      if(c==='QUIT')this.userStates.delete(fold(m.nick));
-      if(c==='NICK'){const old=this.userStates.get(fold(m.nick));this.userStates.delete(fold(m.nick));if(old)this.userStates.set(fold(p[0]),old);}
+      if (c === "METADATA") {
+        const key = p[1];
+        if (key === "avatar" || key === "avatar-url")
+          this.updateAvatar(p[0], { metadata: { [key]: p[3] || "" } });
+        return;
+      }
+      if (c === "JOIN" && p.length >= 3) this.learnPhoto(m.nick, p[2]);
+      if (c === "SETNAME") this.learnPhoto(m.nick, p[0]);
+      if (c === "311" && p.length >= 6) this.learnPhoto(p[1], p[5]);
+      if (c === "352" && p.length >= 8)
+        this.learnPhoto(p[5], p[7].replace(/^\d+ /, ""));
+      if (c === "354" && p[1] === "152" && p.length >= 9)
+        this.learnPhoto(p[5], p.at(-1));
+      if (
+        (c === "900" && this.ready) ||
+        (c === "ACCOUNT" && fold(m.nick) === fold(this.nick) && p[0] !== "*") ||
+        (c === "MODE" &&
+          fold(p[0]) === fold(this.nick) &&
+          /\+[^-]*r/.test(p[1] || ""))
+      )
+        try {
+          this.publishOwnAvatar(true);
+        } catch (e) {
+          this.emit("problem", e.message);
+        }
+      if (c === "QUIT") this.userStates.delete(fold(m.nick));
+      if (c === "NICK") {
+        const old = this.userStates.get(fold(m.nick));
+        this.userStates.delete(fold(m.nick));
+        if (old) this.userStates.set(fold(p[0]), old);
+      }
       if (c === "CAP") {
-        this.capabilitiesMessage(m);this.syncAvatars();
+        this.capabilitiesMessage(m);
+        this.syncAvatars();
         return;
       }
       if (c === "421" && p.includes("CAP")) {
@@ -702,24 +903,96 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.capabilities.has("soju.im/bouncer-networks")
       )
         this.sendRaw("BOUNCER BIND " + this.profile.bouncerNetwork);
-      if(c==='KILL')for(const [key,target]of this.joined)if(this.members.get(key)?.has(fold(p[0])))this.emit('room-event',{target,text:p[0]+' recibió KILL de '+m.nick+' · '+(p[1]||''),eventType:'sanction'});
-      if(c==='MODE'&&/^[#&!+]/.test(p[0]||''))this.emit('room-event',{target:p[0],text:m.nick+' cambió modos: '+p.slice(1).join(' '),eventType:'sanction'});
-      if(['474','475','471','473','477','489'].includes(c)&&/^[#&!+]/.test(p[1]||''))this.emit('room-event',{target:p[1],text:'Servidor · '+p.slice(1).join(' '),eventType:'sanction'});
-      if(c==='465'||c==='ERROR'||c==='NOTICE'&&!m.prefix.includes('!')&&/\b(?:[zgkq]-?line[ds]?|bann?ed|ban|expuls|kill)\b/i.test(p.at(-1)||''))for(const [key,target] of this.joined)if(this.members.has(key))this.emit('room-event',{target,text:'Servidor · '+(p.at(-1)||''),eventType:'sanction'});
+      if (c === "KILL")
+        for (const [key, target] of this.joined)
+          if (this.members.get(key)?.has(fold(p[0])))
+            this.emit("room-event", {
+              target,
+              text: p[0] + " recibió KILL de " + m.nick + " · " + (p[1] || ""),
+              eventType: "sanction",
+            });
+      if (c === "MODE" && /^[#&!+]/.test(p[0] || ""))
+        this.emit("room-event", {
+          target: p[0],
+          text: m.nick + " cambió modos: " + p.slice(1).join(" "),
+          eventType: "sanction",
+        });
+      if (
+        ["474", "475", "471", "473", "477", "489"].includes(c) &&
+        /^[#&!+]/.test(p[1] || "")
+      )
+        this.emit("room-event", {
+          target: p[1],
+          text: "Servidor · " + p.slice(1).join(" "),
+          eventType: "sanction",
+        });
+      if (
+        c === "465" ||
+        c === "ERROR" ||
+        (c === "NOTICE" &&
+          !m.prefix.includes("!") &&
+          /\b(?:[zgkq]-?line[ds]?|bann?ed|ban|expuls|kill)\b/i.test(
+            p.at(-1) || "",
+          ))
+      )
+        for (const [key, target] of this.joined)
+          if (this.members.has(key))
+            this.emit("room-event", {
+              target,
+              text: "Servidor · " + (p.at(-1) || ""),
+              eventType: "sanction",
+            });
       const previous = this.currentMessage;
       this.currentMessage = m;
       try {
         super.handle(m);
-        if(["JOIN","PART","QUIT","KICK","NICK","CHGHOST","352","354","353","366"].includes(c))this.clones.schedule();
-        if(c==='001'){this.syncAvatars();this.presence.start();}if(ownNickChange)try{this.publishOwnAvatar();}catch(e){this.emit('problem',e.message);}
-        if(c==='JOIN'&&fold(m.nick)===fold(this.nick)){if(this.avatarDiscovery){this.syncAvatars();if(this.capabilities.has('draft/metadata-2'))this.sendRaw('METADATA '+p[0]+' SYNC');}this.sendRaw('WHO '+p[0]+(this.whox?' %tcuhnfar,152':''));}
+        if (
+          [
+            "JOIN",
+            "PART",
+            "QUIT",
+            "KICK",
+            "NICK",
+            "CHGHOST",
+            "352",
+            "354",
+            "353",
+            "366",
+          ].includes(c)
+        )
+          this.clones.schedule();
+        if (c === "001") {
+          this.syncAvatars();
+          this.presence.start();
+        }
+        if (ownNickChange)
+          try {
+            this.publishOwnAvatar();
+          } catch (e) {
+            this.emit("problem", e.message);
+          }
+        if (c === "JOIN" && fold(m.nick) === fold(this.nick)) {
+          if (this.avatarDiscovery) {
+            this.syncAvatars();
+            if (this.capabilities.has("draft/metadata-2"))
+              this.sendRaw("METADATA " + p[0] + " SYNC");
+          }
+          this.sendRaw("WHO " + p[0] + (this.whox ? " %tcuhnfar,152" : ""));
+        }
       } finally {
         this.currentMessage = previous;
       }
     }
     emit(type, data, ...rest) {
       const m = this.currentMessage;
-      if(type==='problem'&&m&&this.pendingWhois.has(fold(m.params[1]||''))){type='server';data={text:String(data),error:true};}
+      if (
+        type === "problem" &&
+        m &&
+        this.pendingWhois.has(fold(m.params[1] || ""))
+      ) {
+        type = "server";
+        data = { text: String(data), error: true };
+      }
       if (type === "server" && m)
         data = {
           ...data,
@@ -739,24 +1012,50 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           historical: !!batch && /chathistory/.test(batch.type),
           tags: m.tags,
         };
-        if (own && !data.historical && !data.notice) {
-          const label=m.tags.label||(m.tags.batch&&this.batches.get(m.tags.batch)?.label);
-          const candidates=[...this.pendingEcho].filter(([,v])=>fold(v.target)===fold(data.target)&&!!v.action===!!data.action);
-          const plain=require('../formatting').plain;
+        if (
+          !data.historical &&
+          !data.notice &&
+          (own ||
+            [...this.pendingEcho.values()].some(
+              (item) => fold(item.message.nick) === fold(m.nick),
+            ))
+        ) {
+          const label =
+            m.tags.label ||
+            (m.tags.batch && this.batches.get(m.tags.batch)?.label);
+          const candidates = [...this.pendingEcho].filter(
+            ([, v]) =>
+              fold(v.target) === fold(data.target) &&
+              !!v.action === !!data.action &&
+              (own || fold(v.message.nick) === fold(m.nick)),
+          );
+          const plain = require("../formatting").plain;
           // Labels identify an echo even if the server strips styles. Without a
           // label, consume one pending send in FIFO order, never a past message.
-          const found=(label&&candidates.find(([id])=>id===label))||candidates.find(([,v])=>v.wire===data.text)||candidates.find(([,v])=>plain(v.wire)===plain(data.text));
+          const found =
+            (label && candidates.find(([id]) => id === label)) ||
+            candidates.find(([, v]) => v.wire === data.text) ||
+            candidates.find(([, v]) => plain(v.wire) === plain(data.text));
           if (found) {
             const [id, item] = found;
             clearTimeout(item.timer);
+            clearTimeout(item.expires);
             this.pendingEcho.delete(id);
             data = {
               ...item.message,
               ...data,
               text: item.message.text,
               clientId: id,
+              own: true,
               pending: false,
+              failed: false,
             };
+            super.emit("delivery", {
+              clientId: id,
+              pending: false,
+              failed: false,
+              messageId: data.messageId,
+            });
           }
         }
       }
@@ -771,13 +1070,19 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           target:
             context?.target ||
             this.pendingWhois.get(fold(m.params[1] || ""))?.target ||
-            (['352','354','315'].includes(m.command)&&this.pendingWho&&Date.now()-this.pendingWho.time<30000?this.pendingWho.target:null) || "*",
+            (["352", "354", "315"].includes(m.command) &&
+            this.pendingWho &&
+            Date.now() - this.pendingWho.time < 30000
+              ? this.pendingWho.target
+              : null) ||
+            "*",
           time: m.tags.time,
         };
         if (/^4|^5/.test(m.command) && context?.clientId)
           super.emit("delivery", {
             clientId: context.clientId,
             failed: true,
+            pending: false,
             text: data.text,
           });
       }
@@ -785,11 +1090,46 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.pendingWhois.delete(fold(m.params[1] || ""));
       return super.emit(type, data, ...rest);
     }
+    trackEcho(clientId, item) {
+      const expire = () => {
+        if (this.pendingEcho.get(clientId) === item) {
+          this.pendingEcho.delete(clientId);
+          clearTimeout(item.timer);
+          clearTimeout(item.expires);
+        }
+      };
+      item.timer = setTimeout(() => {
+        if (this.pendingEcho.get(clientId) !== item) return;
+        item.timedOut = true;
+        this.emit("delivery", {
+          clientId,
+          pending: false,
+          failed: true,
+          text: "Sin confirmación del servidor; no se reenvió el mensaje.",
+        });
+        item.expires = setTimeout(expire, 60000);
+        item.expires.unref();
+      }, 15000);
+      item.timer.unref();
+      this.pendingEcho.set(clientId, item);
+      if (this.pendingEcho.size > 256) {
+        const [id, old] = this.pendingEcho.entries().next().value;
+        this.pendingEcho.delete(id);
+        clearTimeout(old.timer);
+        clearTimeout(old.expires);
+        this.emit("delivery", {
+          clientId: id,
+          pending: false,
+          failed: true,
+          text: "Sin confirmación del servidor.",
+        });
+      }
+    }
     sendMessage(target, text, action = false, options = {}) {
       if (!this.ready) throw new Error("Espera a que termine la conexión.");
       token(target, "Destino");
       cleanText(text);
-      text = require("../service-targets").plain(target,text);
+      text = require("../service-targets").plain(target, text);
       if (!require("../formatting").plain(text).trim()) return;
       const clientId = options.clientId || crypto.randomUUID();
       const frames = this.cipher
@@ -797,7 +1137,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         : [text];
       const tags = {
         ...(options.replyTo ? { "+draft/reply": options.replyTo } : {}),
-        ...(this.capabilities.has("echo-message")&&this.capabilities.has("labeled-response")?{label:clientId}:{}),
+        ...(this.capabilities.has("echo-message") &&
+        this.capabilities.has("labeled-response")
+          ? { label: clientId }
+          : {}),
       };
       for (const frame of frames) {
         const wire = action ? "\x01ACTION " + frame + "\x01" : frame;
@@ -821,30 +1164,17 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         clientId,
         pending,
       };
-      if (pending && frames.length) {
-        const timer = setTimeout(() => {
-          if (this.pendingEcho.delete(clientId))
-            this.emit("delivery", {
-              clientId,
-              failed: true,
-              text: "El servidor no confirmó el mensaje.",
-            });
-        }, 15000);
-        timer.unref();
-        this.pendingEcho.set(clientId, {
-          target,
-          wire: frames[0],
-          action,
-          message,
-          timer,
-        });
-      }
+      if (pending && frames.length)
+        this.trackEcho(clientId, { target, wire: frames[0], action, message });
       if (!options.noEcho) this.emit("message", message);
     }
     sendMultiline(target, lines) {
       if (!this.ready) throw new Error("Conecta primero esta red.");
       token(target, "Destino");
-      lines=lines.filter(line=>require('../formatting').plain(line).trim());if(!lines.length)return;
+      lines = lines.filter((line) =>
+        require("../formatting").plain(line).trim(),
+      );
+      if (!lines.length) return;
       if (
         !this.capabilities.has("draft/multiline") ||
         !this.capabilities.has("batch") ||
@@ -892,28 +1222,18 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           clientId,
           pending,
         };
-      if (pending) {
-        const timer = setTimeout(() => {
-          if (this.pendingEcho.delete(clientId))
-            this.emit("delivery", {
-              clientId,
-              failed: true,
-              text: "El servidor no confirmó el mensaje multilínea.",
-            });
-        }, 15000);
-        timer.unref();
-        this.pendingEcho.set(clientId, {
+      if (pending)
+        this.trackEcho(clientId, {
           target,
           wire: text,
           action: false,
           message,
-          timer,
         });
-      }
       this.emit("message", message);
     }
     request(command, target) {
-      if(/^WHO /i.test(command))this.pendingWho={target,time:Date.now()};
+      if (/^WHO /i.test(command))
+        this.pendingWho = { target, time: Date.now() };
       if (/^WHOIS /i.test(command)) {
         const nick = command.split(" ").at(-1);
         this.pendingWhois.set(fold(nick), { target, time: Date.now() });
@@ -940,7 +1260,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       );
     }
     sendTyping(target, state) {
-      if(target==="*"||target==="*consultas*")return;
+      if (target === "*" || target === "*consultas*") return;
       if (!this.capabilities.has("message-tags")) return;
       token(target, "Destino");
       if (!["active", "paused", "done"].includes(state)) return;

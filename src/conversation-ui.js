@@ -40,9 +40,10 @@
     persist().catch((e) => notify(e.message, true));
   };
   const resize = () => {
+    if(window.sizeDreamsComposer){window.sizeDreamsComposer(input);return;}
     input.style.height = "auto";
-    if(!input.value){input.style.height=Math.max(32,parseFloat(getComputedStyle(input).lineHeight)+12)+"px";return;}
-    input.style.height = Math.min(150, Math.max(24, input.scrollHeight)) + "px";
+    if(!input.value){input.style.height=Math.max(26,parseFloat(getComputedStyle(input).lineHeight)+6)+"px";return;}
+    input.style.height = Math.min(150, Math.max(26, input.scrollHeight)) + "px";
   };
   input.addEventListener("input", resize);
   const baseChoose = choose;

@@ -371,6 +371,8 @@
       n = network(w.id),
       signature = JSON.stringify([
         c.showUsers,
+        c.searchOpen,
+        c.searchQuery,
         c.profileVisible,
         profile(w.id)?.ownNickColor,
         profile(w.id)?.mentionHighlightColor,
@@ -412,9 +414,24 @@
     w.mirror.replaceChildren();
     w.mirror.hidden = false;
     if (c.topic && s.showTopic !== false) {
-      const topic = el("div", "mdi-topic");
-      DreamsFormatting.render(topic, c.topic);
+      const topic = el("section", "topic-panel mdi-topic"),
+        text = el("p", "mdi-topic-text");
+      DreamsFormatting.render(text, c.topic);
+      if (Number.isFinite(s.topicHeight))
+        text.style.height = s.topicHeight + "px";
+      topic.append(text);
       w.mirror.append(topic);
+      const divider = el("div", "topic-height-resizer");
+      divider.tabIndex = 0;
+      divider.setAttribute("role", "separator");
+      divider.setAttribute("aria-label", "Altura del topic de " + c.name);
+      divider.setAttribute("aria-orientation", "horizontal");
+      for (const event of ["pointerdown", "keydown", "dblclick"])
+        divider["on" + event] = (e) => {
+          activate(w);
+          $("topic-height-resizer")["on" + event]?.(e);
+        };
+      w.mirror.append(divider);
     }
     const body = el("div", "mdi-body"),
       timeline = el("div", "mdi-timeline"),
@@ -500,6 +517,8 @@
       window.openDreamsComposerStyles?.();
     };
     form.append(input, styleButton, send);
+    const search = window.createDreamsConversationSearch?.(w.id, c);
+    if (search) timeline.append(search);
     timeline.append(messages);
     if (split) timeline.append(events);
     timeline.append(form);
@@ -545,7 +564,13 @@
       };
       const usersList = el("div", "user-list");
       users.append(usersList);
-      const names = c.users;
+      const rank = (user) => {
+        const i = n.prefixes.indexOf(user[0]);
+        return i < 0 ? 999 : i;
+      };
+      const names = [...c.users].sort(
+        (a, b) => rank(a) - rank(b) || a.localeCompare(b),
+      );
       for (const raw of names) {
         const name = bareNick(raw, n),
           b = el("button", "mdi-user");

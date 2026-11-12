@@ -42,6 +42,7 @@
     (e) => {
       if (e.isComposing) return;
       reconcile();
+      if(DreamsServices.isService(DreamsServices.outgoingTarget(input.value,active?.target)))return;
       if (
         input.selectionStart === input.value.length &&
         /\s$/.test(input.value)
@@ -93,8 +94,8 @@
     applySettings();
     render();
   };
-  window.renderDreamsWritingSettings = (parent) => {
-    parent.replaceChildren(el("h3", "", "Diccionario y nick completion"));
+  window.renderDreamsWritingSettings = (parent, sectionMode="all") => {
+    parent.replaceChildren(el("h3", "", sectionMode==="dictionary"?"Diccionario":sectionMode==="nick"?"Nick completion":"Diccionario y nick completion"));
     function field(label, type, value, host = parent) {
       const l = el("label", "setting-row", label),
         i = el(type === "select" ? "select" : "input");
@@ -133,6 +134,7 @@
     addButton.type = "submit";
     add.append(from, to, addButton, caseLabel);
     parent.append(add);
+    window.attachDreamsDictionaryFormat?.(add,to);
     parent.append(
       el(
         "p",
@@ -167,7 +169,7 @@
           to.value = r.to;
           matchCase.checked = r.matchCase;
           addButton.textContent = "Guardar";
-          from.focus();
+          to.dispatchEvent(new Event("input"));from.focus();
         };
         remove.onclick = () =>
           run(async () => {
@@ -178,7 +180,7 @@
             addButton.textContent = "Añadir";
             draw();
           });
-        row.append(check, name, text, edit, remove);
+        DreamsFormatting.render(text,r.to);row.append(check, name, text, edit, remove);
         list.append(row);
       });
       if (!list.children.length)
@@ -187,6 +189,7 @@
     add.onsubmit = (e) => {
       e.preventDefault();
       run(async () => {
+        if(!DreamsClassicEditor.valid(to.value))throw Error("Usa solamente colores IRC 00–15.");
         const rule = {
           from: from.value.trim(),
           to: to.value,
@@ -218,6 +221,8 @@
     draw();
     const section = el("section", "nick-completion-editor");
     parent.append(section);
+    if(sectionMode==="dictionary")section.hidden=true;
+    if(sectionMode==="nick")for(const node of [...parent.children])if(node!==section&&node.tagName!=="H3")node.hidden=true;
     section.append(el("h3", "", "Nick completion"));
     let draft = DreamsWriting.validate(config.settings).nickCompletion;
     const on = field(

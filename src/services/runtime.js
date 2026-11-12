@@ -128,13 +128,7 @@ class Runtime {
           : null,
       tlsMaterial: (host) => this.dccCertificate(host),
     });
-    this.sessions.on("event", (id, type, data) => {
-      const previous = this.queues.get(id) || Promise.resolve();
-      const next = previous
-        .then(() => this.receive(id, type, data))
-        .catch((e) => this.emit(id, "problem", { text: e.message }));
-      this.queues.set(id, next);
-    });
+    this.sessions.on("event",(id,type,data)=>this.enqueue(id,type,data));
     this.crypto.on("security", (data) =>
       this.emit(data.network, "security", data),
     );
@@ -215,6 +209,7 @@ class Runtime {
     const profile=this.getConfig().profiles.find(p=>p.id===id);if(!profile)return;
     try{this.textLogs.configure(this.getConfig().settings);this.textLogs.append(profile,message);}catch(error){if(!this.textLogErrorAt||Date.now()-this.textLogErrorAt>30000){this.textLogErrorAt=Date.now();this.emit(id,'problem',{text:'No se pudo guardar el historial TXT: '+error.message});}}
   }
+  enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
     if (type === "protocol") {

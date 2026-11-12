@@ -181,9 +181,8 @@ class Presence {
         c.profile.recoverNick &&
         fold(c.nick) !== fold(c.profile.nick) &&
         request.names.some((n) => fold(n) === fold(c.profile.nick)) &&
-        !online.some((n) => fold(n) === fold(c.profile.nick))
-      )
-        c.sendRaw("NICK " + c.profile.nick);
+        !online.some((n) => fold(n) === fold(c.profile.nick)) && Date.now()-(this.lastRecoveryAt||0)>=30000
+      ){this.lastRecoveryAt=Date.now();c.sendRaw("NICK " + c.profile.nick);}
     }
     if(m.command==='303'&&!this.pending.length&&this.needsPrivatePoll){this.needsPrivatePoll=false;this.poll();}
     if (m.command === "730" || m.command === "731")
@@ -207,7 +206,7 @@ class Presence {
   stop() {
     clearInterval(this.timer);
     this.pending = [];
-    this.states.clear();this.privateNames=[];this.needsPrivatePoll=false;
+    this.states.clear();this.lastRecoveryAt=0;this.privateNames=[];this.needsPrivatePoll=false;
     this.aliases.clear();
   }
 }
