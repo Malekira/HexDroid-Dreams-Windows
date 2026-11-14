@@ -105,12 +105,17 @@
   function nickValues() {
     const c = selected(),
       n = active && network(active.id);
-    return c && n
-      ? (c.kind === "private" ? [c.name, n.nick, ...c.users] : c.users).concat(profile(active.id)?.notifyNicks||[],[...n.conversations.values()].filter(c=>c.kind==="channel"&&c.joined!==false).map(c=>c.name)).map(
-          (u) => bareNick(u, n),
-        )
-      : [];
+    if (!c || !n) return [];
+    const sort = values => DreamsCompletion.matches(values.map(u => bareNick(u, n)), "");
+    const people = window.getDreamsNotify?.(active.id) || [];
+    const online = people.filter(p => p.online === true).map(p => p.currentNick || p.nick);
+    const onlineKeys = new Set(people.filter(p => p.online === true).map(p => fold(p.nick)));
+    const offline = (profile(active.id)?.notifyNicks || []).filter(nick => !onlineKeys.has(fold(nick)));
+    return [...sort(c.kind === "private" ? [c.name, n.nick, ...c.users] : c.users),
+      ...sort(online), ...sort(offline),
+      ...sort([...n.conversations.values()].filter(c => c.kind === "channel" && c.joined !== false).map(c => c.name))];
   }
+
   function candidates(t) {
     if (t.command) {
       const map = new Map();
@@ -119,7 +124,7 @@
         .filter((c) => fold(c.name).startsWith(fold(t.word)))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
-    return DreamsCompletion.matches(nickValues(), t.word).map((name) => ({
+    return DreamsCompletion.matches(nickValues(), t.word, true).map((name) => ({
       name,
       description: "",
       kind: "Nick",
@@ -225,7 +230,7 @@
         const t = DreamsCompletion.token(input.value, input.selectionStart),
           values =
             t.command || cycle.state?.candidates[0]?.startsWith("/")
-              ? [...baseCommands, ...commands].map((c) => c.name)
+              ? DreamsCompletion.matches([...baseCommands, ...commands].map((c) => c.name), "")
               : nickValues();
         const r = cycle.next(
           input.value,
@@ -236,6 +241,7 @@
           e.shiftKey ? -1 : 1,
           (name, start) =>
             /^[/#&]/.test(name) ? name : window.dreamsNickText(name, start),
+          true,
         );
         if (r) {
           e.preventDefault();

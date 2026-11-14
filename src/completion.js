@@ -20,16 +20,16 @@
       command: before.length === word.length && word.startsWith("/"),
     };
   }
-  function matches(values, prefix) {
+  function matches(values, prefix, ordered = false) {
     const seen = new Set();
-    return values
+    const result = values
       .filter((v) => {
         const key = fold(v);
         if (seen.has(key) || !fold(v).startsWith(fold(prefix))) return false;
         seen.add(key);
         return true;
-      })
-      .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+      });
+    return ordered ? result : result.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
   }
   class Cycle {
     reset() {
@@ -43,6 +43,7 @@
       values,
       direction = 1,
       format = (name) => name,
+      ordered = false,
     ) {
       let s = this.state;
       if (
@@ -54,7 +55,7 @@
       ) {
         const t = token(value, start);
         if (!t.word) return null;
-        const candidates = matches(values, t.word);
+        const candidates = matches(values, t.word, ordered);
         if (!candidates.length) return null;
         s = {
           key,

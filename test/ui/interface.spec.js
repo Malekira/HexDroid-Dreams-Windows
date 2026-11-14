@@ -423,7 +423,7 @@ test('Compact backups, Notify, notifications and profile buttons align without w
  await page.evaluate(()=>window.openDreamsUser(config.profiles[0].id,'Alice'));const buttons=await page.locator('#user-profile .profile-action-buttons button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return{width:r.width,height:r.height,y:r.y};}));expect(buttons.length).toBe(6);expect(Math.max(...buttons.map(b=>b.width))-Math.min(...buttons.map(b=>b.width))).toBeLessThan(1);expect(Math.max(...buttons.map(b=>b.height))-Math.min(...buttons.map(b=>b.height))).toBeLessThan(1);expect(buttons[0].y).toBe(buttons[1].y);await page.screenshot({path:'dist/HexDreams-botones-perfil.png'});
 });
 test('Script views refresh in place and notify their owner when closed',async({page})=>{
- await page.addInitScript(()=>{window.__scriptSignals=[];window.dreams.advanced=async(name,data)=>{if(name==='script.signal')window.__scriptSignals.push(data.signal);if(['history.search','notifications.list','presence.status'].includes(name))return[];return{scripts:[],debug:[]};};});await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Original'}]});window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Actualizado'}]});});await expect(page.locator('dialog.script-view')).toHaveCount(1);await expect(page.locator('dialog.script-view')).toContainText('Actualizado');await page.locator('dialog.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__scriptSignals)).toContain('view_closed');
+ await page.addInitScript(()=>{window.__scriptSignals=[];window.dreams.advanced=async(name,data)=>{if(name==='script.signal')window.__scriptSignals.push(data.signal);if(['history.search','notifications.list','presence.status'].includes(name))return[];return{scripts:[],debug:[]};};});await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Original'}]});window.__emit({id,type:'script-ui',subtype:'view',script:'fixture',fields:{network:id,buffer:'#general'},tree:[{type:'text',text:'Actualizado'}]});});await expect(page.locator('dialog.script-view')).toHaveCount(1);await expect(page.locator('dialog.script-view')).toContainText('Actualizado');await expect(page.locator('dialog.script-view').getByRole('button',{name:'Cerrar',exact:true})).toBeFocused();await page.locator('dialog.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__scriptSignals)).toContain('view_closed');
 });
 
 test('Notify opens user actions; WHO and WHOIS stay in the current conversation; disconnect closes windows',async({page})=>{
@@ -679,4 +679,29 @@ test('text colors use the sixteen IRC swatches without changing theme pickers', 
   await page.locator('[data-section=appearance]').click();
   const environment = page.locator('.environment-colors-grid input[type=color]').first();
   await expect(environment).not.toHaveAttribute('data-irc-color');
+});
+
+test('Pending changes keep avatars in narrow user panels and icons on inactive windows', async ({page}) => {
+  await page.goto('http://127.0.0.1:4173');
+  await addNetwork(page);
+  await page.evaluate(async () => {config.settings.usersWidth=48; applySettings(); render(); await persist();});
+  await expect(page.locator('#users-panel .user-name').first()).toBeHidden();
+  await expect(page.locator('#users-panel .user-avatar').first()).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => config.settings.usersWidth)).toBe(48);
+  await expect(page.locator('.v24-inactive-tools button').filter({hasText:/^Estilo$/})).toHaveCount(0);
+});
+
+test('Tab prioritizes room nicks then connected and disconnected Notify', async ({page}) => {
+  await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
+  await page.evaluate(() => {
+    selected().users=['Zoe']; profile(active.id).notifyNicks=['Zara','Zelda','Zoe'];
+    window.getDreamsNotify=()=>[{nick:'Zara',online:true},{nick:'Zelda',online:false}];
+    config.settings.nickCompletion={enabled:false};
+  });
+  const input=page.locator('#message-input'); await input.fill('z');
+  await input.press('Tab'); await expect(input).toHaveValue('Zoe ');
+  await input.press('Tab'); await expect(input).toHaveValue('Zara ');
+  await input.press('Tab'); await expect(input).toHaveValue('Zelda ');
+  await input.press('Tab'); await expect(input).toHaveValue('Zoe ');
 });

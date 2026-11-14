@@ -601,7 +601,7 @@
       resizer.setAttribute("role", "separator");
       resizer.setAttribute("aria-label", "Ancho de usuarios de " + c.name);
       resizer.setAttribute("aria-orientation", "vertical");
-      resizer.setAttribute("aria-valuemin", "140");
+      resizer.setAttribute("aria-valuemin", "48");
       resizer.setAttribute("aria-valuemax", "360");
       resizer.setAttribute("aria-valuenow", String(s.usersWidth || 192));
       resizer.onpointerdown = (e) => {

@@ -47,3 +47,12 @@
 .irc-color-picker[open] { display: flex; gap: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); max-width: calc(100vw - 24px); flex-wrap: wrap; }
 .irc-color-picker button { width: 26px; height: 28px; min-height: 28px; min-width: 0; margin: 0; padding: 0; border: 1px solid #888; border-radius: 0; }
 .irc-color-picker button:focus-visible, .irc-color-picker button[aria-pressed=true] { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 1; }
+
+/* Narrow user panels keep avatars and accessible nick labels. */
+.users-panel, .mdi-users { container-type: inline-size; }
+@container (max-width: 80px) {
+  .user-name, .mdi-user > span:not(.user-avatar), .users-title, .mdi-users-title, .user-search-toggle { display: none !important; }
+  .user-list { padding-left: 2px; padding-right: 2px; }
+  .user-button, .mdi-user { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; font-size: 0; }
+  .user-avatar { font-size: 11px; flex-shrink: 0; }
+}

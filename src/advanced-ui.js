@@ -553,7 +553,7 @@
       button("Actualizar transferencias", () => show());
     } else if (section === "scripts") {
       note(
-        "Los scripts se importan desactivados. Al activarlos reciben automáticamente todos los permisos disponibles.",
+        "Los scripts se activan automáticamente al importarlos o crearlos, con todos los permisos disponibles.",
       );
       button("Importar archivo .hex", async () => {
         await call("script.import");

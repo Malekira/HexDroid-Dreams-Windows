@@ -30,7 +30,7 @@ function validateSettings(input, allowThemes=true) {
   s.statusFilters={};for(const key of require("./status-filters").keys)if(typeof input.statusFilters?.[key]==="boolean")s.statusFilters[key]=input.statusFilters[key];
   if (Number.isFinite(input.fontSize)) s.fontSize = Math.max(11, Math.min(24, Math.round(input.fontSize)));
   if (Number.isFinite(input.sidebarWidth)) s.sidebarWidth = Math.max(160, Math.min(420, Math.round(input.sidebarWidth)));
-  if (Number.isFinite(input.usersWidth)) s.usersWidth = Math.max(140, Math.min(360, Math.round(input.usersWidth)));
+  if (Number.isFinite(input.usersWidth)) s.usersWidth = Math.max(48, Math.min(360, Math.round(input.usersWidth)));
   for(const key of ['lineHeightPt','messageSpacingPt'])if(Number.isFinite(input[key]))s[key]=Math.round(Math.max(key==='lineHeightPt'?8:0,Math.min(key==='lineHeightPt'?96:60,input[key]))*10)/10;
   for(const key of ['historyRoomRows','historyPrivateRows'])s[key]=Number.isFinite(input[key])?Math.max(0,Math.min(600,Math.floor(input[key]))):(input.historyEnabled===true?300:0);
   if (Number.isFinite(input.lineHeight)) s.lineHeight = Math.max(1.2, Math.min(2.4, input.lineHeight));

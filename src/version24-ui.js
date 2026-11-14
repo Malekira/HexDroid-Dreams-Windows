@@ -158,7 +158,7 @@
         w.querySelector(".v24-inactive-tools")?.remove();
       } else if (!w.querySelector(".v24-inactive-tools")) {
         const tools = el("span", "v24-inactive-tools"),
-          b = button(tools, "Estilo", () => {
+          b = button(tools, style?.textContent || "A✎", () => {
             choose(w.dataset.network, w.dataset.target);
             style?.click();
           });

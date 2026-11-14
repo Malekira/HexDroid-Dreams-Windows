@@ -225,6 +225,7 @@ async function run() {
     await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});dialog.showMessageBox=async()=>({response:1});},fixture);
     const scriptImport=await page.evaluate(()=>window.dreams.advanced('script.import'));
     expect(scriptImport.error).toBeUndefined();expect(typeof scriptImport.id).toBe('string');
+    expect((await page.evaluate(()=>window.dreams.advanced('script.commands'))).some(c=>c.name==='desktophello')).toBe(true);
     const scriptConfigure=await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true,permissions:['send'],domains:[]}),scriptImport.id);
     expect(scriptConfigure.error).toBeUndefined();
     const scriptHelp=await page.evaluate(id=>window.dreams.advanced('script.help',{id}),scriptImport.id);
@@ -266,8 +267,8 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.locator('#scripts-menu>summary').click();await page.getByRole('button',{name:'Editor de scripts…',exact:true}).click();
     await page.getByLabel('Nombre del script',{exact:true}).fill('Editor fixture.hex');await page.getByLabel('Código del script',{exact:true}).fill('alias editorfixture { echo -s Hola =) }');
     await page.locator('#script-editor-dialog').getByRole('button',{name:'Validar',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Sintaxis válida');
-    await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Guardado y desactivado');
-    const edited=await page.evaluate(async()=>{const scripts=await window.dreams.advanced('script.list');const script=scripts.find(s=>s.name==='Editor fixture.hex');return{...script,...await window.dreams.advanced('script.read',{id:script.id})};});expect(edited.enabled).toBe(false);expect(edited.permissions).toContain('raw');expect(edited.source).toBe('alias editorfixture { echo -s Hola =) }');
+    await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Guardado');
+    const edited=await page.evaluate(async()=>{const scripts=await window.dreams.advanced('script.list');const script=scripts.find(s=>s.name==='Editor fixture.hex');return{...script,...await window.dreams.advanced('script.read',{id:script.id})};});expect(edited.enabled).toBe(true);expect(edited.permissions).toContain('raw');expect(edited.source).toBe('alias editorfixture { echo -s Hola =) }');
     await page.getByLabel('Código del script',{exact:true}).fill('on TEXT {');await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Bloque .hex sin cerrar');
     await page.getByLabel('Código del script',{exact:true}).fill(edited.source);await page.locator('#script-editor-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: multimedia guardada y miniaturas');
@@ -393,7 +394,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect.poll(async()=>await page.evaluate(async()=>{const rows=await window.dreams.advanced('history.search',{text:'persisted SQLite desktop message'});return Array.isArray(rows)&&rows.some(m=>m.text==='persisted SQLite desktop message');})).toBe(true);
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Scripts .hex',exact:true}).click();
-    await expect(page.locator('.advanced-content')).toContainText('Los scripts se importan desactivados');
+    await expect(page.locator('.advanced-content')).toContainText('Los scripts se activan automáticamente');
     const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activar desktop.hex',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
 

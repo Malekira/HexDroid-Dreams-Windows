@@ -875,7 +875,7 @@ class Runtime {
       case 'script.save':{
         if(typeof data.name!=='string'||!data.name.trim()||data.name.length>100)throw Error('Nombre de script no válido.');
         if(data.id)return this.scripts.update(data.id,{...data,name:data.name.trim()});
-        const id=this.scripts.install(data.name.trim(),data.source);return this.scripts.read(id);
+        const id=this.scripts.install(data.name.trim(),data.source);await this.scripts.configure(id,{enabled:true});return this.scripts.read(id);
       }
       case 'script.openFile':{const file=await this.pick({filters:[{name:'Scripts .hex',extensions:['hex']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>262144)throw Error('El script supera 256 KB.');return{name:path.basename(file),source:fs.readFileSync(file,'utf8')};}
       case 'script.exportSource':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');const file=await this.destination({defaultPath:path.basename(String(data.name||'script.hex')),filters:[{name:'Scripts .hex',extensions:['hex']}]});if(file)fs.writeFileSync(file,data.source,{encoding:'utf8',mode:0o600});return{ok:!!file};}
@@ -886,12 +886,9 @@ class Runtime {
         if (!file) return { cancelled: true };
         if (fs.statSync(file).size > 262144)
           throw new Error("El script supera 256 KB.");
-        return {
-          id: this.scripts.install(
-            path.basename(file),
-            fs.readFileSync(file, "utf8"),
-          ),
-        };
+        const id = this.scripts.install(path.basename(file), fs.readFileSync(file, "utf8"));
+        await this.scripts.configure(id, {enabled: true});
+        return {id};
       }
       case "script.configure":
         this.scriptMedia.clear();

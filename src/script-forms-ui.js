@@ -9,6 +9,7 @@
         windowId,
       ]);
     let item = views.get(key);
+    const opening = !item;
     if ((event.subtype || event.type) === "view.close") {
       item?.dialog.close();
       return;
@@ -258,6 +259,11 @@
       }
     item.content.scrollTop = scroll;
     if (!item.dialog.open) item.dialog.show();
+    if (opening) {
+      document.body.append(item.dialog);
+      item.dialog.style.zIndex = "90";
+      (fields.values().next().value || item.dialog.querySelector("button"))?.focus({preventScroll:true});
+    }
     const input = fields.get(focused);
     if (input) {
       input.focus({ preventScroll: true });
