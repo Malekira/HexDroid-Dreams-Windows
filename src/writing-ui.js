@@ -100,6 +100,7 @@
       const l = el("label", "setting-row", label),
         i = el(type === "select" ? "select" : "input");
       if (type !== "select") i.type = type;
+      if (type === "color") i.dataset.ircColor = "";
       if (type === "checkbox") i.checked = !!value;
       else i.value = value ?? "";
       i.setAttribute("aria-label", label);
@@ -291,6 +292,7 @@
       const l = el("label", "compact-swatch"),
         i = el("input");
       i.type = "color";
+      i.dataset.ircColor = "";
       i.value = value;
       i.setAttribute("aria-label", "Color de letra " + (swatches.length + 1));
       l.append(el("span", "", String(swatches.length + 1)), i);

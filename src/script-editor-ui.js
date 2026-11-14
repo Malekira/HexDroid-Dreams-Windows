@@ -158,13 +158,13 @@
       positionText();
     }
   };
-  window.openDreamsScriptEditor = async () => {
+  window.openDreamsScriptEditor = async (id) => {
     try {
       if (dialog.open) {
         source.focus();
         return;
       }
-      load({});
+      load(id ? await call("script.read", { id }) : {});
       await fill();
       dialog.showModal();
       source.focus();

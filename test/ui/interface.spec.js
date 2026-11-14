@@ -662,3 +662,21 @@ test('v26 Nick completion contains no dictionary activation even after searching
 test('v26 environment Theme imports, previews and exports inline without losing existing themes',async({page})=>{
  await page.addInitScript(()=>{window.__exports=[];window.dreams.advanced=async(name,data)=>{if(name==='theme.import')return{theme:{id:'imported-inline',name:'Tema importado',settings:{theme:'violet',roomAppearance:{background:'#ffffff',text:'#221133'},fontSize:18}}};if(name==='theme.export'){window.__exports.push(data);return{ok:true};}return ['history.search','presence.status'].includes(name)?[]:{scripts:[]};};});await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{config.settings.savedThemes=[{id:'keep',name:'Conservar',settings:{theme:'dark'}}];});await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=appearance]').click();const group=page.locator('[data-panel=appearance] .theme-manager');await group.getByRole('button',{name:'Importar',exact:true}).click();await expect(group.getByLabel('Tema',{exact:true})).toHaveValue('imported-inline');await expect(group.getByLabel('Vista previa del tema',{exact:true})).toHaveCSS('background-color','rgb(255, 255, 255)');expect(await page.evaluate(()=>config.settings.savedThemes.some(t=>t.id==='keep'))).toBe(true);await group.getByRole('button',{name:'Aplicar',exact:true}).click();await group.getByRole('button',{name:'Exportar',exact:true}).click();expect(await page.evaluate(()=>window.__exports[0].settings.roomAppearance.background)).toBe('#ffffff');await page.getByRole('button',{name:'Listo',exact:true}).click();await page.reload();expect(await page.evaluate(()=>config.settings.savedThemes.map(t=>t.id))).toEqual(['keep','imported-inline']);
 });
+
+test('text colors use the sixteen IRC swatches without changing theme pickers', async ({page}) => {
+  await page.goto('http://127.0.0.1:4173');
+  await page.getByRole('button', {name:'Abrir configuración', exact:true}).click();
+  await page.locator('[data-section=chat]').click();
+  await page.getByLabel("Usar color propio de NOTICE", {exact:true}).check();
+  const notice = page.getByLabel("Color de NOTICE", {exact:true});
+  await notice.click();
+  const palette = page.getByRole('dialog', {name:'Paleta de colores IRC', exact:true});
+  await expect(palette.getByRole('button')).toHaveCount(16);
+  await palette.getByRole('button', {name:'Color IRC 04', exact:true}).click();
+  await expect(palette).toHaveCount(0);
+  await expect(notice).toHaveValue('#ff0000');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('dreams-test')).settings.noticeColor)).toBe('#ff0000');
+  await page.locator('[data-section=appearance]').click();
+  const environment = page.locator('.environment-colors-grid input[type=color]').first();
+  await expect(environment).not.toHaveAttribute('data-irc-color');
+});

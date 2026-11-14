@@ -28,3 +28,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Compact script management, with consistent action columns. */
+.scripts-heading { margin: 0 0 12px; }
+.scripts-table-scroll { margin-top: 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.scripts-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.scripts-table th, .scripts-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; }
+.scripts-table thead { background: var(--raised); }
+.scripts-table th:first-child { text-align: left; }
+.scripts-table .script-name { font-weight: 400; overflow-wrap: anywhere; }
+.scripts-table th:not(:first-child), .scripts-table td:not(:first-child) { width: 1%; white-space: nowrap; }
+.scripts-table button { min-width: 76px; margin: 0; padding: 4px 10px; min-height: 28px; }
+.scripts-table input[type="checkbox"] { display: inline-block; margin: 0; width: 18px; height: 18px; vertical-align: middle; }
+.scripts-table tbody tr:last-child > * { border-bottom: 0; }
+.scripts-table .scripts-empty { text-align: left; color: var(--muted); }
+@media (max-width: 760px) { .scripts-table th, .scripts-table td { padding: 5px 6px; } .scripts-table button { min-width: 62px; } }
+
+.irc-color-picker[open] { display: flex; gap: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); max-width: calc(100vw - 24px); flex-wrap: wrap; }
+.irc-color-picker button { width: 26px; height: 28px; min-height: 28px; min-width: 0; margin: 0; padding: 0; border: 1px solid #888; border-radius: 0; }
+.irc-color-picker button:focus-visible, .irc-color-picker button[aria-pressed=true] { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 1; }

@@ -394,7 +394,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
     await page.getByRole('button',{name:'Scripts .hex',exact:true}).click();
     await expect(page.locator('.advanced-content')).toContainText('Los scripts se importan desactivados');
-    const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activado',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
+    const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activar desktop.hex',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
 
     await scriptCard.getByRole('button',{name:'Eliminar',exact:true}).click();await expect(scriptCard).toHaveCount(0);expect((await page.evaluate(()=>window.dreams.advanced('script.commands'))).some(c=>c.name==='desktophello')).toBe(false);

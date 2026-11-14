@@ -26,6 +26,7 @@
       const l = el("label", "setting-row", label),
         i = el(type === "select" ? "select" : "input");
       if (type !== "select") i.type = type;
+      if (type === "color") i.dataset.ircColor = "";
       i.setAttribute("aria-label", label);
       if (type === "checkbox") i.checked = value !== false;
       else i.value = value ?? "";

@@ -269,6 +269,7 @@
           i.append(o);
         }
       else i.type = type;
+      if (type === "color" && label === "Color del propio nick") i.dataset.ircColor = "";
       i.value = value;
       i.oninput = () => {
         change(type === "number" ? Number(i.value) : i.value);

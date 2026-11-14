@@ -172,7 +172,8 @@
       feedback.textContent = e.message;
       return;
     }
-    note(names[section]);
+    if (section === "scripts") body.append(el("h2", "scripts-heading", names[section]));
+    else note(names[section]);
     if (section === "appearance") {
       button("Abrir ajustes de letra, colores y paneles", () => {
         dialog.close();
@@ -558,9 +559,52 @@
         await call("script.import");
         await show();
       });
-      for(const script of state.scripts){const card=el('section','advanced-card script-card');body.append(card);note(script.name,card);const enabled=input('Activado',script.enabled,'checkbox',card);enabled.onchange=()=>run(()=>call('script.configure',{id:script.id,enabled:enabled.checked}));button('Ayuda',()=>window.openDreamsScriptHelp(script.id),card);button('Eliminar',async()=>{await call('script.remove',{id:script.id});await show();},card);}
-      note("Motor: " + (state.scriptRunning ? "en ejecución" : "detenido"));
-      for (const item of state.debug) note(`${item.time} · ${item.text}`);
+      const scroll = el("div", "scripts-table-scroll"),
+        table = el("table", "scripts-table"),
+        head = el("thead"), header = el("tr"), rows = el("tbody");
+      table.setAttribute("aria-label", "Scripts instalados");
+      for (const title of ["Script", "Activar", "Editar", "Ayuda", "Eliminar"]) {
+        const cell = el("th", "", title);
+        cell.scope = "col";
+        header.append(cell);
+      }
+      head.append(header);
+      table.append(head, rows);
+      scroll.append(table);
+      body.append(scroll);
+      for (const script of state.scripts) {
+        const row = el("tr", "script-card"), name = el("th", "script-name", script.name);
+        name.scope = "row";
+        row.append(name);
+        const activation = el("td"), enabled = el("input");
+        enabled.type = "checkbox";
+        enabled.checked = !!script.enabled;
+        enabled.setAttribute("aria-label", "Activar " + script.name);
+        enabled.onchange = async () => {
+          if (busy) { enabled.checked = !enabled.checked; return; }
+          enabled.disabled = true;
+          try { await run(() => call("script.configure", {id: script.id, enabled: enabled.checked})); }
+          finally { enabled.disabled = false; await show(); }
+        };
+        activation.append(enabled);
+        row.append(activation);
+        for (const [label, action] of [
+          ["Editar", () => window.openDreamsScriptEditor(script.id)],
+          ["Ayuda", () => window.openDreamsScriptHelp(script.id)],
+          ["Eliminar", async () => { await call("script.remove", {id: script.id}); await show(); }],
+        ]) {
+          const cell = el("td");
+          button(label, action, cell);
+          row.append(cell);
+        }
+        rows.append(row);
+      }
+      if (!state.scripts.length) {
+        const row = el("tr"), cell = el("td", "scripts-empty", "No hay scripts importados.");
+        cell.colSpan = 5;
+        row.append(cell);
+        rows.append(row);
+      }
     } else if (section === "backup") {
       note('Elige qué apartados exportar o restaurar en una ventana aparte.');
       button('Exportar configuración',()=>window.openDreamsBackup('export'));

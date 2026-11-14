@@ -61,6 +61,7 @@
     ),
     colorInput = el("input");
   colorInput.type = "color";
+  colorInput.dataset.ircColor = "";
   colorInput.setAttribute("aria-label", "Color del resaltado de menciones");
   colorRow.append(colorInput);
   settingsPanel.append(colorRow);
