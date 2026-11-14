@@ -1,0 +1,416 @@
+/* The same native selector is used for networks and quick theme selection. */
+.desktop-compact .network-strip .theme-picker {
+  gap: 4px;
+  margin: 0 !important;
+}
+.desktop-compact .network-strip .theme-picker select {
+  width: 145px;
+  max-width: 165px;
+  min-width: 105px;
+}
+#settings-dialog .theme-manager {
+  box-sizing: border-box;
+  padding: 12px 14px !important;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin: 6px 0 12px;
+}
+#settings-dialog .theme-manager h3 {
+  margin: 0 0 8px;
+}
+#settings-dialog .theme-manager-controls,
+#settings-dialog .theme-manager-actions {
+  justify-content: center;
+  gap: 6px;
+}
+#settings-dialog .theme-manager-actions {
+  margin-top: 8px;
+}
+.nick-completion-editor > .nick-save-status {
+  margin-left: 8px;
+  font-size: 11px;
+}
+.nick-letter-palette {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+.compact-swatch {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+#settings-dialog .compact-swatch input[type="color"] {
+  width: 34px;
+  height: 25px;
+  flex-basis: 34px;
+}
+.rooms-quick-popup {
+  min-width: 225px;
+}
+.rooms-quick-popup button {
+  justify-content: flex-start;
+}
+.menu-section-label {
+  padding: 4px 9px;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+#network-dialog {
+  width: 1000px;
+  max-width: calc(100vw - 30px);
+  max-height: calc(100vh - 30px);
+  border-radius: 11px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+#network-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+}
+#network-form > .dialog-header {
+  padding: 16px 24px;
+  background:
+    radial-gradient(
+      ellipse at 15% 0,
+      color-mix(in srgb, var(--accent) 40%, transparent),
+      transparent 65%
+    ),
+    linear-gradient(125deg, var(--surface), var(--bg));
+  flex: none;
+  border-bottom: 1px solid var(--border);
+}
+#network-form > .dialog-header h2 {
+  font-size: 25px;
+  font-weight: 650;
+  margin: 6px 0 0;
+}
+#network-form > .dialog-header .eyebrow {
+  font-size: 10px;
+  letter-spacing: 3px;
+}
+#network-form .network-editor-body {
+  padding: 14px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+#network-form .network-card {
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, var(--border));
+  border-radius: 10px;
+  padding: 11px 15px;
+  background: linear-gradient(130deg, var(--surface), var(--bg));
+}
+#network-form .network-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font:
+    600 17px/1.3 "Segoe UI",
+    sans-serif;
+  color: var(--text);
+  margin: 0 0 9px;
+}
+#network-form .network-card h3 svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+#network-form .network-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  font-size: 12px;
+  margin: 0 0 7px;
+}
+#network-form .network-card label.checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  margin: 5px 0 0;
+}
+#network-form .network-card input:not([type="checkbox"]):not([type="color"]),
+#network-form .network-card select,
+#network-form .network-card textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 6px 9px;
+  font:
+    13px/1.35 "Segoe UI",
+    "Segoe UI Emoji",
+    sans-serif;
+}
+#network-form .network-card input:focus,
+#network-form .network-card select:focus,
+#network-form .network-card textarea:focus,
+#network-form .realname-editor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#network-form .form-grid {
+  grid-template-columns: minmax(0, 1fr) 135px;
+  gap: 14px;
+}
+#network-form .network-name-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+#network-form .realname-field {
+  margin: 4px 0 6px;
+  min-width: 0;
+}
+#network-form .realname-field > label {
+  margin-bottom: 4px;
+}
+#network-form .realname-editor {
+  min-height: 31px;
+  padding: 6px 9px;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 6px;
+}
+#network-form #realname-tools {
+  padding: 6px 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#network-form #realname-tools button {
+  width: auto;
+  height: 25px;
+  padding: 3px 10px;
+  font-size: 11px;
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+#network-form #realname-tools select {
+  width: auto;
+  max-width: 210px;
+  padding: 3px 7px;
+  font-size: 11px;
+  height: 26px;
+}
+#network-form #realname-preview {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 9px;
+  margin: 3px 0;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  max-height: 72px;
+  overflow: auto;
+}
+#network-form #identity-length {
+  font-size: 10px;
+  line-height: 1.35;
+  margin: 4px 0;
+  color: var(--muted);
+}
+#network-form #identity-length.form-error {
+  color: #ef8799;
+}
+#network-form .network-style-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 7px;
+  padding-top: 8px;
+}
+#network-form .network-style-row label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 11px;
+}
+#network-form .network-style-row input[type="color"] {
+  width: 34px;
+  height: 26px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 5px;
+  flex: none;
+}
+#network-form .network-style-row select {
+  max-width: 155px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+#network-form .network-photo-grid {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+#network-form .network-photo-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+  min-height: 150px;
+}
+#network-form #profile-photo-preview {
+  width: 145px;
+  height: 145px;
+  max-width: 100%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  cursor: zoom-in;
+}
+#network-form .network-photo-placeholder {
+  width: 145px;
+  height: 145px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  font-size: 45px;
+  color: var(--accent);
+  background: var(--raised);
+}
+#network-form
+  .network-photo-visual:has(img:not([hidden]))
+  .network-photo-placeholder {
+  display: none;
+}
+#network-form .network-photo-options .note {
+  font-size: 10px;
+  line-height: 1.45;
+  margin: 6px 0;
+  color: var(--muted);
+}
+#network-form .network-photo-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+#network-form .network-photo-buttons button {
+  padding: 5px 8px;
+  font-size: 11px;
+  min-height: 27px;
+}
+#network-form .network-connection-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+#network-form .network-connection-fields {
+  padding-left: 18px;
+  border-left: 1px solid var(--border);
+}
+#network-form .network-commands textarea {
+  min-height: 115px;
+  resize: vertical;
+}
+#network-form .network-card small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+#network-form > .dialog-footer {
+  padding: 10px 18px;
+  flex: none;
+}
+#network-form .network-extra-fields:empty {
+  display: none;
+}
+@media (max-width: 720px) {
+  #network-dialog {
+    max-width: calc(100vw - 16px);
+  }
+  #network-form .network-editor-body {
+    padding: 10px;
+  }
+  #network-form .network-card {
+    padding: 10px;
+  }
+  #network-form .network-name-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #network-form .network-name-grid > label:first-child {
+    grid-column: 1/-1;
+  }
+  #network-form .network-photo-grid {
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+  }
+  #network-form #profile-photo-preview,
+  #network-form .network-photo-placeholder {
+    width: 95px;
+    height: 95px;
+  }
+  #network-form .network-photo-visual {
+    min-height: 95px;
+    padding-right: 9px;
+  }
+  #network-form .network-style-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  #network-form .network-connection-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  #network-form .network-connection-fields {
+    padding: 8px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+#network-dialog[open] {
+  height: auto;
+}
+#network-form > .dialog-header {
+  position: relative;
+  overflow: hidden;
+}
+#network-form > .dialog-header::after {
+  content: "";
+  position: absolute;
+  width: 65%;
+  height: 90px;
+  right: -8%;
+  bottom: -66px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  border-radius: 50%;
+  transform: rotate(-9deg);
+  box-shadow: 0 -8px 24px color-mix(in srgb, var(--accent) 18%, transparent);
+  pointer-events: none;
+}
+
+.notify-profile-name{min-width:0;overflow-wrap:anywhere;border:0;background:transparent;color:var(--text);font:inherit;font-weight:600;text-align:left;padding:2px 0;cursor:pointer;min-height:0;}
+.notify-profile-name:hover{text-decoration:underline;color:var(--accent);}
+.notify-profile-name:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}

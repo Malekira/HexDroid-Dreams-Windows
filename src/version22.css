@@ -1,0 +1,79 @@
+/* The textarea owns its border/background; both actions stay outside it. */
+#composer {
+  padding: 6px 8px;
+}
+#composer .composer-input,
+.mdi-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  gap: 5px;
+  align-items: end;
+}
+#composer .composer-input {
+  padding: 0;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+#composer .composer-input:focus-within {
+  border: 0;
+  box-shadow: none;
+}
+#composer .composer-input textarea,
+.mdi-composer textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  max-height: 150px;
+  resize: none;
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  line-height: 1.4;
+}
+#composer .composer-input textarea:focus,
+.mdi-composer textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+#composer .composer-input #send-button,
+.mdi-composer > button,
+#composer .composer-styles > summary {
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+}
+#composer .composer-styles {
+  align-self: end;
+}
+#composer .composer-styles > summary,
+.mdi-composer > .mdi-style-button {
+  background: var(--raised);
+  color: var(--text);
+}
+#composer .composer-input #send-button,
+.mdi-composer > button[type="submit"] {
+  background: var(--accent);
+  color: var(--bg);
+}
+.mdi-composer {
+  padding: 6px 8px;
+}
+
+#composer textarea:placeholder-shown,.mdi-composer textarea:placeholder-shown{overflow-y:hidden;}

@@ -1,0 +1,8 @@
+{
+  "switchMedianMs": 494.70000000298023,
+  "switchMaxMs": 749.7999999970198,
+  "formatCalls": 8414,
+  "newMessageMs": 338.5,
+  "preservesFirstRow": false,
+  "domNodes": 34627
+}

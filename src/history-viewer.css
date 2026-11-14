@@ -1,0 +1,107 @@
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #eeeafb;
+  background: #11152e;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+header {
+  padding: 12px 18px;
+  border-bottom: 1px solid #46416f;
+}
+h1 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+input,
+button {
+  font: inherit;
+  padding: 7px;
+  border: 1px solid #46416f;
+  border-radius: 5px;
+  background: #1c2141;
+  color: inherit;
+}
+#word {
+  flex: 1;
+}
+main {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+nav {
+  width: 260px;
+  min-width: 170px;
+  max-width: 45vw;
+  resize: horizontal;
+  overflow: auto;
+  padding: 10px;
+  border-right: 1px solid #46416f;
+}
+nav button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  overflow-wrap: anywhere;
+}
+nav button[aria-current="true"] {
+  background: #473775;
+}
+details {
+  margin: 5px 0 5px 9px;
+}
+summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+section {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 16px;
+  background: #fff;
+  color: #171529;
+}
+h2 {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+pre {
+  font:
+    14px/1.6 Consolas,
+    "Segoe UI Emoji",
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#results button {
+  display: block;
+  text-align: left;
+  margin: 5px 0;
+  background: #eee9fa;
+  color: #271b45;
+  width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#feedback {
+  font-size: 13px;
+  color: #5d4a7b;
+}

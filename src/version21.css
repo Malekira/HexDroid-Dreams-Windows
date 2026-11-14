@@ -1,0 +1,27 @@
+/* Shared timelines keep the selected presentation at every window width. */
+.messages {
+  container-type: inline-size;
+}
+.mdi-messages .message-content,
+.mdi-messages .message-text {
+  min-width: 0;
+}
+@container (max-width:360px) {
+  .compact .message-content {
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .message-header {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .message-text {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+.mdi-window-content,
+.mdi-mirror {
+  background: var(--bg);
+}

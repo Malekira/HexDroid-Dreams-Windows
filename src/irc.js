@@ -35,14 +35,7 @@ function cleanText(text) {
   if (typeof text !== 'string' || /[\0\r\n]/.test(text)) throw new Error('El mensaje debe ocupar una sola línea.');
   return text;
 }
-function validateProfile(p) {
-  if (!p || typeof p !== 'object') throw new Error('Red no válida.');
-  token(p.host, 'Servidor'); token(p.nick, 'Apodo');
-  if (!Number.isInteger(p.port) || p.port < 1 || p.port > 65535) throw new Error('Puerto no válido.');
-  if (!Array.isArray(p.channels) || p.channels.length > 30) throw new Error('Lista de salas no válida.');
-  for (const c of p.channels) { token(c, 'Sala'); if (!/^[#&+!]/.test(c)) throw new Error('Las salas deben empezar por #, &, + o !.'); }
-  return { host: p.host, port: p.port, nick: p.nick, tls: p.tls !== false, channels: [...new Set(p.channels)] };
-}
+const { validateProfile } = require('./services/profiles');
 
 class IrcClient extends EventEmitter {
   constructor(profile, password = '') {
@@ -58,7 +51,7 @@ class IrcClient extends EventEmitter {
       this.socket.setTimeout(0);
       if (this.password) this.sendRaw(`PASS ${this.password}`);
       this.password = '';
-      this.sendRaw(`NICK ${this.nick}`); this.sendRaw(`USER ${this.nick} 0 * :HexDroid Dreams`);
+      this.sendRaw(`NICK ${this.nick}`); this.sendRaw(`USER ${this.nick} 0 * :HexDreams IRC`);
       this.registrationTimer = setTimeout(() => this.fail('El servidor no completó el registro IRC en 30 segundos.'), 30000);
       this.registrationTimer.unref();
     };
@@ -101,10 +94,10 @@ class IrcClient extends EventEmitter {
   join(channel) { token(channel, 'Sala'); if (!/^[#&+!]/.test(channel)) throw new Error('La sala debe empezar por #.'); this.sendRaw(`JOIN ${channel}`); }
   userList(channel) {
     const group = this.members.get(fold(channel));
-    this.emit('users', { target: channel, users: group ? [...group.values()].sort((a,b) => a.localeCompare(b)) : [] });
+    this.emit('users', { target: channel, users: group ? [...group.values()].sort((a,b) => a.localeCompare(b)) : [], prefixes:this.prefixes, prefixModes:this.prefixModes });
   }
   handle(m) {
-    const { command: c, params: p, nick } = m;
+    const { command: c, params: p, nick } = m;const mask=/^[^!]+!([^@]*)@(.+)$/.exec(m.prefix||''),identity=mask?{ident:mask[1],host:mask[2]}:{};
     if (c === 'PING') { this.sendRaw(`PONG :${p.at(-1) || ''}`); return; }
     if (c === '001') {
       this.nick = p[0]; this.ready = true; clearTimeout(this.registrationTimer);
@@ -130,35 +123,39 @@ class IrcClient extends EventEmitter {
       if (own) this.members.set(key, new Map());
       if (!this.members.has(key)) this.members.set(key, new Map());
       this.members.get(key).set(fold(nick), nick); this.userList(channel);
-      this.emit('channel', { target: channel, nick, action: 'join', own });
+      this.emit('channel', { target: channel, nick, action: 'join', own,...identity });
+      if (own) this.sendRaw(`MODE ${channel}`);
     } else if (c === '353') {
       const channel = p[2]; if (!channel) return;
       const key = fold(channel); if (!this.members.has(key)) this.members.set(key, new Map());
       for (const user of (p[3] || '').split(' ').filter(Boolean)) {
-        const bare = this.bareNick(user); this.members.get(key).set(fold(bare), user);
+        const bare = this.bareNick(user); let i=0;while(i<user.length&&this.prefixes.includes(user[i]))i++;this.members.get(key).set(fold(bare), user.slice(0,i)+bare);
       }
       this.userList(channel);
     } else if (c === 'PART' || c === 'KICK') {
       const channel = p[0], who = c === 'KICK' ? p[1] : nick; if (!channel || !who) return;
       const own = fold(who) === fold(this.nick);
       this.members.get(fold(channel))?.delete(fold(who)); if (!own) this.userList(channel);
-      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own });
+      this.emit('channel', { target: channel, nick: who, action: c === 'KICK' ? 'kick' : 'part', own,by:c==='KICK'?nick:undefined,...(c==='PART'?identity:{}),reason:p[c==='KICK'?2:1]||'' });
       if (own) this.members.delete(fold(channel));
     } else if (c === 'QUIT') {
       for (const [channel, members] of this.members) if (members.delete(fold(nick))) {
-        this.userList(channel); this.emit('channel', { target: channel, nick, action: 'quit', own: false });
+        this.userList(channel); this.emit('channel', { target: channel, nick, action: 'quit', own: false,...identity,reason:p[0]||'' });
       }
     } else if (c === 'NICK') {
       const next = p[0]; if (!next) return;
-      const own = fold(nick) === fold(this.nick); if (own) this.nick = next;
+      const own = fold(nick) === fold(this.nick),targets=[]; if (own) this.nick = next;
       for (const [channel, members] of this.members) if (members.has(fold(nick))) {
-        const old = members.get(fold(nick)); members.delete(fold(nick));
-        members.set(fold(next), old.slice(0, old.length - this.bareNick(old).length) + next); this.userList(channel);
+        targets.push(channel);const old = members.get(fold(nick)); members.delete(fold(nick));
+        members.set(fold(next), old.match(/^[~&@%+]*/)[0] + next); this.userList(channel);
       }
-      this.emit('nick', { old: nick, nick: next, own });
+      this.emit('nick', { old: nick, nick: next, own,targets });
     } else if (c === 'MODE' && this.members.has(fold(p[0]))) {
       // Refresh NAMES after privilege changes instead of guessing multi-mode arguments.
       this.sendRaw(`NAMES ${p[0]}`);
+      this.sendRaw(`MODE ${p[0]}`);
+    } else if (c === '324') {
+      this.emit('modes', { target:p[1], text:p.slice(2).join(' ') });
     } else if (c === 'TOPIC' || c === '332') {
       this.emit('topic', { target: c === '332' ? p[1] : p[0], text: p.at(-1) || '' });
     } else if (c === 'ERROR') {
@@ -177,4 +174,4 @@ class IrcClient extends EventEmitter {
     this.closeTimer = setTimeout(() => this.socket?.destroy(), 1500); this.closeTimer.unref();
   }
 }
-module.exports = { IrcClient, parseLine, fold, validateProfile, cleanText, token };
+module.exports = { IrcClient:require('./services/advanced-irc')(IrcClient,{parseLine,fold,token,cleanText}), parseLine, fold, validateProfile, cleanText, token };
