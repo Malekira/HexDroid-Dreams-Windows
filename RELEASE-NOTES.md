@@ -1,11 +1,9 @@
-# HexDreams IRC 0.31.0 — Windows portable
+# HexDreams IRC 0.32.0 — Windows portable
 
-Integra en la versión actual los cambios del PR #4 necesarios para el Seguidor de Nicks, sin revertir las correcciones anteriores de conexión y Notify.
+- Aviso visible y registro en la campanita cuando el servidor rechaza o corta la conexión, con el motivo real: G/Z/K-line, contraseña, TLS, DNS, tiempo agotado u otros errores. Si no indica motivo, se informa sin inventarlo.
+- Status conserva el diagnóstico después de una desconexión inesperada, incluso si los errores están filtrados. Cerrar voluntariamente sigue cerrando las conversaciones.
+- Las respuestas rutinarias ISON/MONITOR de Notify no llenan Status ni el historial TXT. Se conservan los cambios de presencia, las respuestas ISON manuales y los errores importantes.
 
-- El motor .hex recibe JOIN con red, sala, nick, host, ident y estado propio.
-- NICK conserva host/ident del prefijo IRC y transmite nick anterior/nuevo y la primera sala afectada (o Status si no hay sala).
-- Extras/Seguidor-de-Nicks.hex incluye el script del PR adaptado para no avisar en el primer ingreso ni mostrar comas vacías. Aprende nicks por red y host y muestra un aviso local cuando hay anteriores. No envía mensajes al canal.
-
-El script se importa manualmente desde Scripts. No se reemplazan automáticamente los scripts instalados. La coincidencia de host es orientativa y no demuestra identidad personal.
+Se mantienen la secuencia de inicio, redes, preferencias y scripts. Los pendientes de autenticación /login no se modifican en esta entrega.
 
 Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación.

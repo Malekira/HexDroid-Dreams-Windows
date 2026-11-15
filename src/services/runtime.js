@@ -222,7 +222,17 @@ class Runtime {
       return;
     }
     if(type==='certificate'&&!data.trusted){this.pendingCertificates.set(id,data);const s=this.sessions.sessions.get(id);if(s){s.stopped=true;clearTimeout(s.retry);}}
+    if(type==="connection-error") {
+      const name=this.getConfig().profiles?.find(p=>p.id===id)?.name||id;
+      const text=name+" · "+(data.stage==="connect"?"No se pudo completar la conexión: ":"Problema de conexión: ")+data.reason;
+      this.writeTextLog(id,{target:'*',event:true,error:true,text});
+      const entry={key:require('node:crypto').randomUUID(),network:id,target:'*',kind:'connection',nick:'Servidor',text,time:new Date().toISOString(),read:false};
+      this.notificationLog||=[];this.notificationLog.push(entry);if(this.notificationLog.length>500)this.notificationLog.shift();this.emit(id,'notification-entry',{entry});
+      try{if(this.getConfig().settings.notifications!==false&&!this.getWindow?.()?.isFocused?.()&&this.electron?.Notification?.isSupported?.()){const popup=new this.electron.Notification({title:'HexDreams · Conexión · '+name,body:data.reason,silent:true});popup.show();}}catch{}
+      this.emit(id,type,{...data,text});return;
+    }
     if (type === "problem") {
+      if(this.sessions?.get?.(id)?.lastConnectionError===String(data))return;
       this.writeTextLog(id,{target:"*",event:true,text:String(data)});
       this.emit(id, type, { text: String(data) });
       return;
@@ -290,7 +300,7 @@ class Runtime {
         code: data.code || "",
         whois: String(data.whois === true),
       });
-      if (r.halted) return;
+      if (r.halted || data.routinePresence) return;
       data = { ...data, text: r.text };
       this.writeTextLog(id,{...data,target:data.target||"*",nick:"Servidor",event:true});
       if(data.target==='*consultas*'&&this.getConfig().settings.queryHistoryEnabled!==false){this.history.append(id,{...data,target:'*consultas*',nick:'Servidor'});this.history.prune(this.getConfig().settings.historyDays);}

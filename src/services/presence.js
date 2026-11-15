@@ -102,14 +102,15 @@ class Presence {
       names.push(c.profile.nick);
     if (this.pending.some((q) => Date.now() - q.time < 20000)) return;
     this.pending = [];
-    for (let i = 0; i < names.length; i += 5)
-      c.sendRaw("ISON " + names.slice(i, i + 5).join(" "));
+    this.polling=true;
+    try {for (let i = 0; i < names.length; i += 5)c.sendRaw("ISON " + names.slice(i, i + 5).join(" "));}
+    finally {this.polling=false;}
   }
   observe(line) {
     const m = /^ISON\s+(.+)$/i.exec(line.replace(/^@[^ ]+ /, ""));
     if (m) {
       if (this.pending.length >= 200) this.pending.shift();
-      this.pending.push({ names: m[1].split(/ +/), time: Date.now() });
+      this.pending.push({ names: m[1].split(/ +/), time: Date.now(), background:this.polling===true });
     }
   }
   update(nick, online, options = {}) {
@@ -142,6 +143,7 @@ class Presence {
   }
   handle(m) {
     if(this.suspended)return;
+    let routine=["730","731","732","733"].includes(m.command);
     const p = m.params,
       c = this.client;
     if (m.command === "JOIN") this.update(m.nick, true,{observed:true});
@@ -169,7 +171,8 @@ class Presence {
     }
     if (m.command === "303") {
       const request = this.pending.shift();
-      if (!request) return;
+      if (!request) return true;
+      routine=request.background===true;
       const online = (p.at(-1) || "").split(/ +/).filter(Boolean);
       for (const nick of request.names)
           this.update(
@@ -195,6 +198,7 @@ class Presence {
       this.needsPrivatePoll = true;
       this.poll();
     }
+    return routine;
   }
   snapshot() {
     return this.names.map((nick) => ({

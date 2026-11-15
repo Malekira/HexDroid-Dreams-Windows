@@ -489,7 +489,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect.poll(()=>page.evaluate(async()=>(await window.dreams.advanced('notifications.list')).length)).toBe(2);
     await page.locator('#notification-bell').click();await expect(page.locator('#notification-dialog')).toContainText('campanita de prueba');await expect(page.locator('#notification-dialog')).toContainText('NOTICE registrado');
     await expect.poll(()=>page.evaluate(async()=>(await window.dreams.advanced('notifications.list')).every(n=>n.read))).toBe(true);
-    await page.getByRole('button',{name:'Vaciar registro',exact:true}).click();await expect(page.locator('#notification-dialog')).toContainText('Sin menciones ni NOTICE');await page.locator('#notification-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('button',{name:'Vaciar registro',exact:true}).click();await expect(page.locator('#notification-dialog')).toContainText('Sin notificaciones');await page.locator('#notification-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
     console.log('Prueba Electron: destinos de NOTICE sin cambiar la sala activa');
     await page.evaluate(async()=>{config.settings.noticeDestinations=['status'];await persist();});
     for(const socket of sockets)socket.write(':Alice!u@local NOTICE #dreams :NOTICE redirigido al status\r\n');
@@ -546,6 +546,16 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     const trust=JSON.parse(fs.readFileSync(path.join(dataPath,'server-certificates.json'),'utf8'));expect(Object.values(trust).some(c=>c.port===tlsServer.address().port)).toBe(true);
     await page.locator('#connection-button').click();await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Conectar');await page.locator('#connection-button').click();
     await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Desconectar');await expect(page.locator('#certificate-dialog')).not.toBeVisible();
+
+    console.log('Prueba Electron: rechazo G-line conserva motivo en Status sin depender de filtros');
+    const denyServer=net.createServer(socket=>{socket.on('error',()=>{});socket.end(':denied 465 * :G-lined: motivo de prueba\r\n');});
+    await new Promise(resolve=>denyServer.listen(0,'127.0.0.1',resolve));
+    try{
+      await page.getByRole('button',{name:'Añadir red',exact:true}).click();await page.locator('#profile-name').fill('Red rechazada');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(denyServer.address().port));await page.locator('#profile-nick').fill('DeniedNick');await page.locator('#profile-channels').fill('');await page.locator('#profile-tls').uncheck();
+      await page.getByRole('button',{name:'Guardar y conectar',exact:true}).click();
+      await expect(page.locator('#messages')).toContainText('G-lined: motivo de prueba');await expect(page.locator('#toast')).toContainText('G-lined: motivo de prueba');expect(await page.evaluate(()=>network(active.id).state)).toBe('disconnected');
+      expect((await page.evaluate(()=>window.dreams.advanced('notifications.list'))).some(e=>e.kind==='connection'&&e.text.includes('G-lined'))).toBe(true);
+    }finally{denyServer.close();}
 
     await closeApplication(app); app = null;
 

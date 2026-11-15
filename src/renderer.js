@@ -856,8 +856,9 @@ api.onEvent(event => {
       addMessage(id, '*', { event: true,statusCategory:'connection', text: event.text });
       if(event.state==='disconnected'){n.ircOper=false;n.privatePresence={};n.deliveryStates=new Map();}
       if(event.state==='connected'&&!active&&id===(selectedNetworkId||config.profiles[0]?.id))choose(id,'*',false);
-      if (event.state === 'disconnected') {n.conversations.clear();n.lastTarget='*';if(active?.id===id){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);persist().catch(()=>{});}
+      if (event.state === 'disconnected') {const status=event.reason?n.conversations.get(fold('*')):null,wasActive=active?.id===id;n.conversations.clear();if(status)n.conversations.set(fold('*'),status);n.lastTarget='*';if(wasActive){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);if(status&&(wasActive||!active))choose(id,'*',false);persist().catch(()=>{});}
       break;
+    case 'connection-error': addMessage(id,'*',{event:true,error:true,critical:true,statusCategory:'errors',code:event.code,text:event.text});notify(event.text,true);break;
     case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
     case 'server': addMessage(id,event.target||'*',{event:true,statusCategory:event.error?'errors':event.code?'commands':'server',code:event.code,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
     case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;

@@ -45,6 +45,7 @@ class SessionManager extends EventEmitter {
     client.on("startup-room-failed",({target})=>{if(s.client===client&&s.startup){s.startup.waiting.delete(fold(target));s.startup.check();}});
     const events = [
       "status",
+      "connection-error",
       "message",
       "users",
       "channel",

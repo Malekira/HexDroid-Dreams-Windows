@@ -63,6 +63,7 @@
     return "server";
   }
   function visible(m, filters = {}) {
+    if(m.critical===true)return true;
     const key = category(m),
       group = Object.keys(groups).find((g) =>
         Object.hasOwn(groups[g].items, key),

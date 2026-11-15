@@ -137,6 +137,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         throw new Error("La red ya está conectada.");
       this.lastPublishedAvatar = undefined;
       this.closed = false;
+      this.lastConnectionError=null;this.lastConnectionAlert=null;this.lastRegistrationError=null;
       this.avatarSubscribed = false;
       this.userStates.clear();
       this.open().catch((e) => this.fail(e.message));
@@ -297,6 +298,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         if (!p.tls || this.tlsAccepted) this.receive(data);
       });
       this.socket.on("error", (e) => {
+        if(this.closed)return;
         if (p.tls && p.tofu) {
           let cert;
           try {
@@ -315,9 +317,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
               reason: e.message,
             });
         }
+        this.reportConnectionError(e.message,{code:e.code||""});
         this.emit("problem", e.message);
       });
       this.socket.on("close", () => {
+        const reason=this.closed?undefined:this.lastConnectionError||"El servidor cerró la conexión sin indicar el motivo.";
+        if(reason&&!this.lastConnectionError)this.reportConnectionError(reason);
         clearTimeout(this.capTimer);
         clearInterval(this.nickRecovery);
         this.presence.stop();
@@ -338,14 +343,24 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         }
         this.pendingEcho.clear();
         this.clones.stop();
-        this.emit("status", { state: "disconnected", text: "Desconectado" });
+        this.emit("status", { state: "disconnected", text: reason?"Desconectado · "+reason:"Desconectado", ...(reason?{reason}: {}) });
       });
     }
-    fail(message) {
+    reportConnectionError(reason,{code="",fatal=true}={}) {
+      if(this.closed)return;
+      reason=String(reason||"El servidor no indicó el motivo.");
+      if(fatal)this.lastConnectionError=reason;else if(!this.ready)this.lastRegistrationError=reason;
+      const key=code+"|"+reason;if(this.lastConnectionAlert===key)return;this.lastConnectionAlert=key;
+      this.emit("connection-error",{reason,text:reason,code,fatal,stage:this.ready?"disconnect":"connect"});
+    }
+    fail(message, code) {
+      if(this.closed)return;
       clearTimeout(this.capTimer);
+      if(/no completó el registro/i.test(message)&&this.lastRegistrationError)message+=" Última respuesta: "+this.lastRegistrationError;
+      this.reportConnectionError(message,{code:code||this.currentMessage?.command||""});
       this.emit("problem", message);
       if (this.socket) this.socket.destroy();
-      else this.emit("status", { state: "disconnected", text: "Desconectado" });
+      else this.emit("status", { state: "disconnected", text: "Desconectado · "+message,reason:message });
     }
     registerIdentity() {
       if (this.identitySent || this.closed) return;
@@ -572,7 +587,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       const { command: c, params: p } = m;
       if(this.startupPending&&["403","405","471","473","474","475","476","477","489"].includes(c))this.emit("startup-room-failed",{target:p[1]});
       const ownNickChange = c === "NICK" && fold(m.nick) === fold(this.nick);
-      this.presence.handle(m);
+      const routinePresence=this.presence.handle(m);
+      if(["463","464","465","466"].includes(c)){this.fail(p.slice(1).join(" ")||"El servidor rechazó la conexión ("+c+").",c);return;}
+      if(c==="NOTICE"&&!(m.prefix||"").includes("!")&&/\b(?:[zgk]-?line[ds]?|bann?ed|closing link|connection (?:denied|refused))\b/i.test(p.at(-1)||""))this.reportConnectionError(p.at(-1),{code:c,fatal:false});
+      if(!this.ready&&/^[45]\d\d$/.test(c)&&c!=="422")this.reportConnectionError(p.slice(1).join(" "),{code:c,fatal:false});
       this.clones.observe(m);
       if (c === "CHGHOST") this.clones.schedule();
       if (c === "305" || c === "306")
@@ -931,7 +949,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         c === "465" ||
         c === "ERROR" ||
         (c === "NOTICE" &&
-          !m.prefix.includes("!") &&
+          !(m.prefix||"").includes("!") &&
           /\b(?:[zgkq]-?line[ds]?|bann?ed|ban|expuls|kill)\b/i.test(
             p.at(-1) || "",
           ))
@@ -943,8 +961,8 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
               text: "Servidor · " + (p.at(-1) || ""),
               eventType: "sanction",
             });
-      const previous = this.currentMessage;
-      this.currentMessage = m;
+      const previous = this.currentMessage, previousRoutine=this.currentPresenceRoutine;
+      this.currentMessage = m;this.currentPresenceRoutine=!!routinePresence;
       try {
         super.handle(m);
         if (
@@ -981,7 +999,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           this.sendRaw("WHO " + p[0] + (this.whox ? " %tcuhnfar,152" : ""));
         }
       } finally {
-        this.currentMessage = previous;
+        this.currentMessage = previous;this.currentPresenceRoutine=previousRoutine;
       }
     }
     emit(type, data, ...rest) {
@@ -996,6 +1014,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       }
       if (type === "server" && m)
         data = {
+          ...(this.currentPresenceRoutine?{routinePresence:true}:{}),
           ...data,
           code: /^\d{3}$/.test(m.command) ? m.command : "",
           target: this.labels.get(m.tags.label)?.target,

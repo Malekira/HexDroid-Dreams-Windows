@@ -105,7 +105,7 @@
   bellIcon.append(bellPath);
   bell.replaceChildren(bellIcon);
   bell.setAttribute("aria-label", "Notificaciones");
-  bell.title = "Menciones y NOTICE";
+  bell.title = "Menciones, NOTICE y problemas de conexión";
   document.querySelector(".network-picker").after(bell);
   const dialog = el("dialog", "feature-dialog notification-dialog");
   dialog.id = "notification-dialog";
@@ -125,7 +125,7 @@
     el(
       "p",
       "note",
-      "Menciones y NOTICE recibidos durante esta sesión, también en la conversación activa.",
+      "Menciones, NOTICE y problemas de conexión de esta sesión.",
     ),
     actions,
     log,
@@ -161,13 +161,13 @@
   function draw() {
     log.replaceChildren();
     if (!entries.length)
-      log.append(el("p", "muted", "Sin menciones ni NOTICE."));
+      log.append(el("p", "muted", "Sin notificaciones."));
     for (const entry of [...entries].reverse()) {
       const row = el("article", "notification-entry"),
         head = el(
           "strong",
           "",
-          (entry.kind === "notice" ? "NOTICE" : "Mención") + " · " + entry.nick,
+          (entry.kind === "connection" ? "Conexión" : entry.kind === "notice" ? "NOTICE" : "Mención") + " · " + entry.nick,
         );
       const time = el(
         "time",
