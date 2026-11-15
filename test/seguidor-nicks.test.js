@@ -17,6 +17,13 @@ test('Seguidor alerts only on previous nicks for the same host and network and s
  const first=vm.dispatch('JOIN',fields);assert.ok(first.actions.some(a=>a.type==='state.set'));assert.ok(!first.actions.some(a=>a.type==='echo'));
  assert.ok(!vm.dispatch('JOIN',fields).actions.some(a=>a.type==='echo'));
  const changed=vm.dispatch('NICK',{...fields,newnick:'New'});assert.ok(!changed.actions.some(a=>a.type==='echo'));const saved=changed.actions.findLast(a=>a.type==='state.set').args.slice(1).join(' ');
- const restored=tracker({sn_db:saved}),joined=restored.dispatch('JOIN',{...fields,nick:'New'}),echo=joined.actions.filter(a=>a.type==='echo');assert.equal(echo.length,1);assert.ok(echo[0].text.includes('New → Old (mismo host)'));assert.ok(!echo[0].text.includes('→ ,'));assert.ok(!joined.actions.some(a=>['msg','raw','send.direct'].includes(a.type)));
+ const restored=tracker({sn_db:saved}),joined=restored.dispatch('JOIN',{...fields,nick:'New'}),echo=joined.actions.filter(a=>a.type==='echo');assert.equal(echo.length,1);assert.ok(echo[0].text.includes('New comparte host con estos nicks anteriores: Old.'));assert.ok(!echo[0].text.includes('→ ,'));assert.ok(!joined.actions.some(a=>['msg','raw','send.direct'].includes(a.type)));
  assert.ok(!restored.dispatch('JOIN',{...fields,nick:'Other',network:'b'}).actions.some(a=>a.type==='echo'));assert.ok(!restored.dispatch('JOIN',{...fields,nick:'Other',host:'different.example'}).actions.some(a=>a.type==='echo'));assert.equal(restored.dispatch('JOIN',{...fields,host:''}).actions.length,0);assert.equal(restored.dispatch('JOIN',{...fields,own:true}).actions.length,0);
+});
+test('Seguidor suppresses empty legacy lists and shows only distinct named predecessors',()=>{
+ const fields={network:'a',host:'cloak.example',nick:'SOMMERS',chan:'#room',own:false};
+ for(const nicks of [['','','SOMMERS'],[' ', ',', ', ', 'sommers'],['\x0304','\x0f','SOMMERS']]){
+  const vm=tracker({sn_db:JSON.stringify({'a|cloak.example':nicks})});const result=vm.dispatch('JOIN',fields);assert.ok(!result.actions.some(a=>a.type==='echo'));assert.ok(!result.actions.some(a=>a.type==='error'));
+ }
+ const vm=tracker({sn_db:JSON.stringify({'a|cloak.example':['',' ','Nick1','nick1',' Nick2 ', ',', 'SOMMERS']})});const r=vm.dispatch('JOIN',fields),echo=r.actions.filter(a=>a.type==='echo');assert.equal(echo.length,1);assert.ok(echo[0].text.includes('SOMMERS comparte host con estos nicks anteriores: nick1, Nick2.'));const saved=r.actions.find(a=>a.type==='state.set');assert.deepEqual(JSON.parse(saved.args[1])['a|cloak.example'],['nick1','Nick2','SOMMERS']);assert.ok(!r.actions.some(a=>['msg','raw','send.direct'].includes(a.type)));
 });

@@ -525,12 +525,12 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     for(const socket of sockets)socket.write(':TrackOld!ident@tracker.example JOIN :#dreams\r\n:TrackOld!ident@tracker.example NICK :TrackNew\r\n:TrackNew!ident@tracker.example QUIT :bye\r\n:TrackNew!ident@tracker.example JOIN :#dreams\r\n');
     await expect.poll(()=>page.evaluate(()=>selected().messages.filter(m=>m.text.includes('SEGUIDOR DE NICKS:')).length)).toBe(1);
     await expect(page.locator('#messages')).toContainText('SEGUIDOR DE NICKS:');
-    await expect(page.locator('#messages')).toContainText('TrackNew → TrackOld (mismo host)');
+    await expect(page.locator('#messages')).toContainText('TrackNew comparte host con estos nicks anteriores: TrackOld.');
     expect(received.slice(trackerWireStart).some(line=>/^PRIVMSG #dreams :.*SEGUIDOR/.test(line))).toBe(false);
     if(scriptStateSecure){
       await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:false}),tracker.id);await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true}),tracker.id);
       for(const socket of sockets)socket.write(':TrackThird!ident@tracker.example JOIN :#dreams\r\n');
-      await expect(page.locator('#messages')).toContainText('TrackThird → TrackOld, TrackNew (mismo host)');
+      await expect(page.locator('#messages')).toContainText('TrackThird comparte host con estos nicks anteriores: TrackOld, TrackNew.');
     }
     await page.evaluate(id=>window.dreams.advanced('script.remove',{id}),tracker.id);
 
