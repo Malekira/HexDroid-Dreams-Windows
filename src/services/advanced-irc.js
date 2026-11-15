@@ -570,6 +570,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     handle(m) {
       const { command: c, params: p } = m;
+      if(this.startupPending&&["403","405","471","473","474","475","476","477","489"].includes(c))this.emit("startup-room-failed",{target:p[1]});
       const ownNickChange = c === "NICK" && fold(m.nick) === fold(this.nick);
       this.presence.handle(m);
       this.clones.observe(m);
@@ -644,7 +645,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
                     );
           if (["SOJU.IM/FILEHOST", "DRAFT/FILEHOST", "FILEHOST"].includes(name))
             this.filehost = value;
-          if (name === "MONITOR") this.presence.setMonitor(true);
+          if (name === "MONITOR") this.presence.setMonitor(true, /^\d+$/.test(value) ? Number(value) : Infinity);
           if (name === "-MONITOR") this.presence.setMonitor(false);
           if (name === "REALNAMELEN" && /^\d+$/.test(value))
             this.realNameLimit = Number(value);
@@ -961,7 +962,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           ].includes(c)
         )
           this.clones.schedule();
-        if (c === "001") {
+        if (c === "001" && !this.startupPending) {
           this.syncAvatars();
           this.presence.start();
         }

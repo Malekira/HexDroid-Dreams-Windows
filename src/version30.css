@@ -1,0 +1,15 @@
+/* Keep Notify title, network picker and add button within the sidebar. */
+.notify-sidebar-title:has(#notify-network-filter) { display: grid; grid-template-columns: auto minmax(0, 1fr) 22px; gap: 6px; height: 32px; padding: 4px 8px; align-items: center; }
+.notify-sidebar-title #notify-button { width: auto; min-width: 0; height: 22px; padding: 0; font-size: 11px; white-space: nowrap; border: 0; }
+.notify-sidebar-title #notify-network-filter { width: 100%; min-width: 0; max-width: none; height: 22px; min-height: 22px; padding: 0 3px; font-size: 11px; }
+.notify-sidebar-title #notify-add-user { width: 22px; min-width: 22px; height: 22px; }
+@container (max-width: 180px) {
+ .notify-sidebar-title:has(#notify-network-filter) { grid-template-columns: minmax(0, 1fr) 22px; height: auto; }
+ #notify-network-filter { grid-column: 1 / -1; grid-row: 2; }
+ #notify-add-user { grid-column: 2; grid-row: 1; }
+}
+@container (max-width: 85px) {
+ .notify-sidebar-title:has(#notify-network-filter) { grid-template-columns: 1fr; padding: 3px; gap: 2px; }
+ .notify-sidebar-title #notify-button { display: none; }
+ #notify-add-user { grid-column: 1; }
+}

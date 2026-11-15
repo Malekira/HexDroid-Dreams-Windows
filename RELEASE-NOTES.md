@@ -1,15 +1,9 @@
-# HexDreams IRC 0.29.0 — Windows portable
+# HexDreams IRC 0.30.0 — Windows portable
 
-Implementa los diez puntos del documento de ampliaciones y los cambios de barra y panel lateral solicitados.
+- Encabezado de Notify alineado: título, selector de red y botón + sin superposición. En paneles estrechos el selector baja a una segunda línea; a 50 px se conserva el acceso +.
+- Inicio de red: primero se ejecutan los comandos configurados, después se solicitan las salas y Notify espera la confirmación de sus entradas. Los errores de entrada no dejan bloqueado Notify.
+- Se respeta la capacidad MONITOR anunciada por el servidor y se consulta el resto de contactos mediante ISON, sin descartar nicks de la lista.
 
-- Anti-PV: retención antes del chat/historial/notificación, envío directo sin PV, acciones para abrir/cerrar privados y entradas laterales por script y red.
-- Las ventanas de scripts se reutilizan, recuperan el primer plano y conservan sus campos.
-- Notify compartido opcional, listas individuales conservadas, estados por red y filtro lateral por red o Todas.
-- Menú Apariencia con temas, presentación, Diccionario y Nick Completion; activación directa y editores existentes.
-- Ctrl+Enter envía una vez sin formato; Enter y Shift+Enter conservan su funcionamiento.
-- Encabezados compactos con cierre ×; panel izquierdo desde 50 px, orden y separaciones solicitados.
-- Barra: Red, conexión, Topic, Salas, Status, configuración y campanita. Tema y Notify salen de esa barra.
-
-El script opcional Extras/AntiPV_HexDreams_0.29.hex se importa manualmente; no sustituye scripts instalados. Incluye /pv y /pvconfig. Detalle del alcance y validaciones en docs/CAMBIOS-0.29.0.md del repositorio.
+Se mantienen las redes, listas Notify y scripts. El Anti-PV de Extras corresponde a la versión anterior y sigue siendo compatible.
 
 Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación.

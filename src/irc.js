@@ -103,7 +103,7 @@ class IrcClient extends EventEmitter {
       this.nick = p[0]; this.ready = true; clearTimeout(this.registrationTimer);
       this.emit('status', { state: 'connected', text: `Conectado como ${this.nick}`, nick: this.nick });
       this.emit('nick', { old: this.profile.nick, nick: this.nick, own: true });
-      for (const channel of this.profile.channels) this.join(channel);
+      if (!this.startupPending) for (const channel of this.profile.channels) this.join(channel);
     }
     if (c === '005') {
       for (const item of p) {

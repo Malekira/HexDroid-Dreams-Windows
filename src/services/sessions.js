@@ -40,6 +40,9 @@ class SessionManager extends EventEmitter {
     }
     const client = this.factory(profile, s.secrets);
     s.client = client;
+    client.startupPending = true;
+    if(client.presence)client.presence.suspended = true;
+    client.on("startup-room-failed",({target})=>{if(s.client===client&&s.startup){s.startup.waiting.delete(fold(target));s.startup.check();}});
     const events = [
       "status",
       "message",
@@ -69,36 +72,20 @@ class SessionManager extends EventEmitter {
         if (s.client !== client || this.sessions.get(s.profile.id)!==s) return;
         if (type === "status" && data.state === "connected") {
           s.attempt = 0;
-          const commands = [
-            ...s.profile.commands,
-            ...(s.secrets.commands || []),
-          ];
-          commands.forEach((command, i) => {
-            const timer = setTimeout(
-              () => {
-                s.timers.delete(timer);
-                if (!s.stopped && client.ready)
-                  try {
-                    if (command.startsWith("/"))
-                      executeInput(client, "*", command, (type, data) =>
-                        this.emit("event", s.profile.id, type, data),
-                      );
-                    else client.sendRaw(command);
-                  } catch (e) {
-                    this.emit("event", s.profile.id, "problem", e.message);
-                  }
-              },
-              s.profile.commandDelay * i,
-            );
-            timer.unref();
-            s.timers.add(timer);
-          });
+          this.beginStartup(s, client);
         }
+
         if (type === "channel" && data.own) {
           if (data.action === "join")
             s.channels.set(fold(data.target), data.target);
           else if (data.action === "part" || data.action === "kick")
             s.channels.delete(fold(data.target));
+        }
+        if(type === "channel" && data.own && data.action === "join" && s.startup) {
+          s.startup.joined.add(fold(data.target));s.startup.waiting.delete(fold(data.target));s.startup.check();
+        }
+        if(type === "server" && s.startup && ["403","405","471","473","474","475","476","477","489"].includes(String(data.code))) {
+          for(const name of s.startup.waiting)if((data.text||"").split(/\s+/).some(word=>fold(word)===name))s.startup.waiting.delete(name);s.startup.check();
         }
         this.emit(
           "event",
@@ -156,6 +143,30 @@ class SessionManager extends EventEmitter {
       s.stopped = true;
       throw e;
     }
+  }
+  beginStartup(s, client) {
+    const commands=[...(s.profile.commands||[]),...(s.secrets.commands||[])];
+    const targets=[...s.channels.values()];
+    for(const line of commands){const m=/^\/?join\s+([^\s]+)/i.exec(line);if(m)targets.push(...m[1].split(','));}
+    const phase={waiting:new Set(targets.map(fold)),joined:new Set(),done:false};s.startup=phase;
+    phase.check=()=>{
+      if(s.stopped||s.client!==client||s.startup!==phase||!phase.done||phase.waiting.size)return;
+      s.startup=null;client.startupPending=false;
+      client.syncAvatars?.();
+      if(client.presence){client.presence.suspended=false;client.presence.start();}
+    };
+    const complete=()=>{
+      if(s.stopped||s.client!==client||s.startup!==phase)return;
+      phase.done=true;
+      for(const channel of s.channels.values())if(!phase.joined.has(fold(channel)))try{client.join(channel);}catch(e){phase.waiting.delete(fold(channel));this.emit("event",s.profile.id,"problem",e.message);}
+      phase.check();
+    };
+    (commands.length?commands:[null]).forEach((command,i)=>{
+      const timer=setTimeout(()=>{s.timers.delete(timer);if(s.stopped||s.client!==client||!client.ready)return;
+        try{if(command){if(command.startsWith('/'))executeInput(client,'*',command,(type,data)=>this.emit('event',s.profile.id,type,data));else client.sendRaw(command);}}catch(e){this.emit('event',s.profile.id,'problem',e.message);}
+        if(i===(commands.length||1)-1)complete();
+      },(s.profile.commandDelay||1000)*i);timer.unref();s.timers.add(timer);
+    });
   }
   get(id) {
     return this.sessions.get(id)?.client;

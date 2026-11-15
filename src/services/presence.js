@@ -38,6 +38,8 @@ class Presence {
     this.aliases = new Map();
     this.pending = [];
     this.monitor = false;
+    this.monitorLimit = Infinity;
+    this.monitored = new Set();
   }
   trackedNames(){return [...new Map([...this.names,...this.privateNames].map(name=>[fold(name),name])).values()];}
   watchPrivates(names){
@@ -47,6 +49,7 @@ class Presence {
     this.privateNames=next;this.needsPrivatePoll=true;this.start();
   }
   start() {
+    if(this.suspended)return;
     clearInterval(this.timer);
     this.configure(this.names);
     if (this.trackedNames().length || this.client.profile.recoverNick) {
@@ -61,7 +64,7 @@ class Presence {
       if (!tracked.has(key)) this.aliases.delete(key);
     for (const key of this.states.keys())
       if (!tracked.has(key)) this.states.delete(key);
-    if (!this.client.ready) return;
+    if (!this.client.ready || this.suspended) return;
     if (this.monitor) {
       this.client.sendRaw("MONITOR C");
       const names = [
@@ -72,29 +75,25 @@ class Presence {
           }),
         ).values(),
       ];
-      for (let i = 0; i < names.length; i += 5)
-        this.client.sendRaw("MONITOR + " + names.slice(i, i + 5).join(","));
+      const selected = names.slice(0, this.monitorLimit);
+      this.monitored = new Set(selected.map(fold));
+      for (let i = 0; i < selected.length; i += 5)
+        this.client.sendRaw("MONITOR + " + selected.slice(i, i + 5).join(","));
     }
     this.poll();
   }
-  setMonitor(enabled) {
-    if (this.monitor === enabled) return;
+  setMonitor(enabled, limit = Infinity) {
+    if(enabled&&this.monitorFailed)return;
+    if(this.monitor===enabled&&this.monitorLimit===limit)return;
     this.monitor = enabled;
-    if (this.client.ready) this.configure(this.names);
+    this.monitorLimit = limit;
+    if(!enabled)this.monitored.clear();
+    if (this.client.ready && !this.suspended) this.configure(this.names);
   }
   poll() {
     const c = this.client;
-    if (!c.ready || c.closed) return;
-    const names = this.monitor
-      ? []
-      : [
-          ...new Map(
-            this.trackedNames().map((n) => {
-              const current = this.aliases.get(fold(n)) || n;
-              return [fold(current), current];
-            }),
-          ).values(),
-        ];
+    if (!c.ready || c.closed || this.suspended) return;
+    const names = [...new Map(this.trackedNames().map(n => {const current=this.aliases.get(fold(n))||n;return [fold(current),current];})).values()].filter(n=>!this.monitor||!this.monitored.has(fold(n)));
     if (
       c.profile.recoverNick &&
       fold(c.nick) !== fold(c.profile.nick) &&
@@ -142,6 +141,7 @@ class Presence {
     if (reset && this.monitor && this.client.ready) this.configure(this.names);
   }
   handle(m) {
+    if(this.suspended)return;
     const p = m.params,
       c = this.client;
     if (m.command === "JOIN") this.update(m.nick, true,{observed:true});
@@ -171,8 +171,7 @@ class Presence {
       const request = this.pending.shift();
       if (!request) return;
       const online = (p.at(-1) || "").split(/ +/).filter(Boolean);
-      if (!this.monitor)
-        for (const nick of request.names)
+      for (const nick of request.names)
           this.update(
             nick,
             online.some((n) => fold(n) === fold(nick)),
@@ -191,6 +190,9 @@ class Presence {
     if (m.command === "734") {
       this.client.sendRaw("MONITOR C");
       this.monitor = false;
+      this.monitorFailed = true;
+      this.monitored.clear();
+      this.needsPrivatePoll = true;
       this.poll();
     }
   }
