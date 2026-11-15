@@ -410,9 +410,9 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect(page.locator('html')).toHaveCSS('--bg','#123456');
     await page.locator('.advanced-dialog .dialog-header button').click();
     await expect(page.getByRole('button',{name:'Herramientas',exact:true})).toHaveCount(0);
-    await page.getByRole('combobox',{name:'Tema rápido',exact:true}).selectOption('dark');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();await page.getByLabel('Tema',{exact:true}).selectOption('dark');await page.getByRole('button',{name:'Aplicar',exact:true}).click();await page.locator('#settings-dialog .dialog-header button').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-    await page.getByRole('combobox',{name:'Tema rápido',exact:true}).selectOption('light');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();await page.getByLabel('Tema',{exact:true}).selectOption('light');await page.getByRole('button',{name:'Aplicar',exact:true}).click();await page.locator('#settings-dialog .dialog-header button').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme','light');
     await expect(page.locator('html')).toHaveCSS('--bg','#f5f6fa');
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Colores del entorno',exact:true}).click();await page.getByLabel('Fondo de conversación',{exact:true}).fill('#123456');await page.getByRole('button',{name:'Guardar colores del entorno',exact:true}).click();await page.locator('#settings-dialog .dialog-header button').click();
@@ -473,7 +473,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect(page.locator('.script-view').getByLabel('Greeting',{exact:true})).toHaveValue('  Unicode 💜 <tag> con espacios  ');
     await page.locator('.script-view').getByRole('button',{name:'Cerrar',exact:true}).click();}
     expect(fs.existsSync(path.join(dataPath,'window-state.json'))).toBe(true);
-    await expect(page.locator('#connection-button')).toHaveText('Conectar');
+    await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Conectar');
     await expect(page.getByRole('button',{name:'Consulta *consultas*',exact:true})).toHaveCount(0);
     await page.locator('#connection-button').click();
     await expect(page.locator('#messages .message-text').last()).toHaveText('Desktop IPC works');
@@ -495,6 +495,28 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     for(const socket of sockets)socket.write(':Alice!u@local NOTICE #dreams :NOTICE redirigido al status\r\n');
     await expect.poll(()=>page.evaluate(()=>network(config.profiles[0].id).conversations.get('*')?.messages.some(m=>m.notice&&m.text==='NOTICE redirigido al status'))).toBe(true);
     await expect(page.locator('#messages')).not.toContainText('NOTICE redirigido al status');await page.evaluate(async()=>{config.settings.noticeDestinations=['original'];await persist();});
+    console.log('Prueba Electron: Anti-PV con IRC real, retención, foco, aceptación y limpieza lateral');
+    const antiSource=fs.readFileSync(path.join(__dirname,'../extras/AntiPV_HexDreams_0.29.hex'),'utf8');
+    const anti=await page.evaluate(source=>window.dreams.advanced('script.save',{name:'AntiPV native.hex',source}),antiSource);expect(anti.error).toBeUndefined();
+    const antiNetwork=await page.evaluate(()=>active.id);
+    await expect.poll(async()=>{const entries=await page.evaluate(()=>window.dreams.advanced('script.tree.list'));return entries.some(e=>e.script===anti.id&&e.network===antiNetwork);}).toBe(true);
+    for(const socket of sockets)socket.write(':PendingNative!u@host PRIVMSG Dreamer :Primer mensaje retenido AntiPV\r\n');
+    await expect.poll(()=>received.some(line=>line.startsWith('PRIVMSG PendingNative :Solicitud recibida.'))).toBe(true);
+    expect(await page.evaluate(()=>network(active.id).conversations.has(fold('PendingNative')))).toBe(false);
+    expect((await page.evaluate(()=>window.dreams.advanced('history.search',{text:'Primer mensaje retenido AntiPV'}))).length).toBe(0);
+    await page.evaluate(({script,network})=>window.dreams.advanced('script.signal',{script,network,signal:'pv'}),{script:anti.id,network:antiNetwork});
+    const pendingView=page.locator('.script-view').filter({has:page.getByRole('heading',{name:'Anti-PV',exact:true})});await expect(pendingView).toContainText('PendingNative');
+    await page.evaluate(({script,network})=>window.dreams.advanced('script.signal',{script,network,signal:'pv'}),{script:anti.id,network:antiNetwork});await expect(pendingView).toHaveCount(1);expect(await pendingView.evaluate(n=>n.contains(document.activeElement))).toBe(true);
+    await pendingView.getByRole('button',{name:'Aceptar',exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>network(active.id).conversations.get(fold('PendingNative'))?.messages.some(m=>m.text==='Primer mensaje retenido AntiPV'))).toBe(true);
+    await expect.poll(async()=>{const rows=await page.evaluate(()=>window.dreams.advanced('history.search',{text:'Primer mensaje retenido AntiPV'}));return rows.length;}).toBe(1);
+    await page.evaluate(({script,network})=>window.dreams.advanced('script.signal',{script,network,signal:'apv_reject',args:['PendingNative']}),{script:anti.id,network:antiNetwork});
+    await expect.poll(()=>page.evaluate(()=>network(active.id).conversations.has(fold('PendingNative')))).toBe(false);
+    for(const view of await page.locator('.script-view').all())await view.getByRole('button',{name:'Cerrar',exact:true}).click();
+    expect((await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:false}),anti.id)).error).toBeUndefined();
+    await expect.poll(async()=>{const rows=await page.evaluate(()=>window.dreams.advanced('script.tree.list'));return rows.some(e=>e.script===anti.id);}).toBe(false);
+    await page.evaluate(id=>window.dreams.advanced('script.remove',{id}),anti.id);
+
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');
@@ -502,11 +524,11 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect(page.locator('#certificate-dialog')).toBeVisible();
     await expect(page.locator('#certificate-dialog')).toContainText('Huella SHA-256');expect(tlsLines).toHaveLength(0);
     await page.getByRole('button',{name:'Aceptar y guardar para esta red',exact:true}).click();
-    await expect(page.locator('#connection-button')).toHaveText('Desconectar');
+    await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Desconectar');
     expect(tlsLines.some(line=>line==='NICK TLSNick')).toBe(true);
     const trust=JSON.parse(fs.readFileSync(path.join(dataPath,'server-certificates.json'),'utf8'));expect(Object.values(trust).some(c=>c.port===tlsServer.address().port)).toBe(true);
-    await page.locator('#connection-button').click();await expect(page.locator('#connection-button')).toHaveText('Conectar');await page.locator('#connection-button').click();
-    await expect(page.locator('#connection-button')).toHaveText('Desconectar');await expect(page.locator('#certificate-dialog')).not.toBeVisible();
+    await page.locator('#connection-button').click();await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Conectar');await page.locator('#connection-button').click();
+    await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Desconectar');await expect(page.locator('#certificate-dialog')).not.toBeVisible();
 
     await closeApplication(app); app = null;
 

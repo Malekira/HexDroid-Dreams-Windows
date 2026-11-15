@@ -127,8 +127,9 @@
   const states = new Map(),
     currentNicks = new Map(),
     nickHistory = new Map();
+  window.dreamsNotifyNames = id => config.settings.sharedNotify ? config.settings.sharedNotifyNicks || [] : profile(id)?.notifyNicks || [];
   window.getDreamsNotify = (id) =>
-    (profile(id)?.notifyNicks || []).map((nick) => ({
+    window.dreamsNotifyNames(id).map((nick) => ({
       nick,
       currentNick: (currentNicks.get(id) || {})[fold(nick)] || nick,
       online: (states.get(id) || {})[fold(nick)] ?? null,
@@ -143,20 +144,18 @@
   async function saveNames(id, names) {
     const p = profile(id);
     if (!p) throw new Error("Seleccioná una red.");
-    const previous = p.notifyNicks;
-    p.notifyNicks = [...new Map(names.map((n) => [fold(n), n])).values()];
-    try {
-      await persist();
-    } catch (e) {
-      p.notifyNicks = previous;
-      throw e;
-    }
+    const namesTarget = config.settings.sharedNotify ? config.settings : p;
+    const key = config.settings.sharedNotify ? "sharedNotifyNicks" : "notifyNicks";
+    const previous = namesTarget[key];
+    namesTarget[key] = [...new Map(names.map(n => [fold(n), n])).values()];
+    try { await persist(); } catch(e) {namesTarget[key]=previous;throw e;}
+
     if (api.advanced) await call("presence.sync", { network: id });
   }
   window.followDreamsUser = async (id, nick) => {
     const p = profile(id);
     if (!p) return;
-    const names = p.notifyNicks || [],
+    const names = window.dreamsNotifyNames(id),
       followed = names.some((n) => fold(n) === fold(nick));
     await saveNames(
       id,
@@ -171,7 +170,7 @@
     const list = $("notify-list");
     if (!list) return;
     list.replaceChildren();
-    const names = [...(profile(notifyNetwork)?.notifyNicks || [])].sort(
+    const names = [...window.dreamsNotifyNames(notifyNetwork)].sort(
         (a, b) => a.localeCompare(b, "es", { sensitivity: "base" }),
       ),
       current = states.get(notifyNetwork) || {};
@@ -271,7 +270,7 @@
         if (!nick || /^[#&+!~@%]|[\s\x00-\x1f:,]/.test(nick))
           throw new Error("Escribí un nick sin espacios.");
         await saveNames(notifyNetwork, [
-          ...(profile(notifyNetwork).notifyNicks || []),
+          ...window.dreamsNotifyNames(notifyNetwork),
           nick,
         ]);
         input.value = "";

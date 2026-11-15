@@ -259,9 +259,14 @@
       }
     item.content.scrollTop = scroll;
     if (!item.dialog.open) item.dialog.show();
-    if (opening) {
+    if (opening || !item.dialog.contains(document.activeElement)) {
       document.body.append(item.dialog);
-      item.dialog.style.zIndex = "90";
+      const topInset=(document.querySelector(".menubar")?.getBoundingClientRect().bottom||0)+4;
+      item.dialog.style.maxHeight=Math.max(120,innerHeight-topInset-8)+"px";
+      const bounds=item.dialog.getBoundingClientRect();
+      item.dialog.style.left=Math.max(0,Math.min(innerWidth-bounds.width,bounds.left))+"px";
+      item.dialog.style.top=Math.max(topInset,Math.min(innerHeight-bounds.height,bounds.top))+"px";
+      item.dialog.style.zIndex = String(1+Math.max(90,...[...document.querySelectorAll(".mdi-window, .script-view")].map(n=>Number(n.style.zIndex)||0)));
       (fields.values().next().value || item.dialog.querySelector("button"))?.focus({preventScroll:true});
     }
     const input = fields.get(focused);

@@ -110,7 +110,7 @@
     const people = window.getDreamsNotify?.(active.id) || [];
     const online = people.filter(p => p.online === true).map(p => p.currentNick || p.nick);
     const onlineKeys = new Set(people.filter(p => p.online === true).map(p => fold(p.nick)));
-    const offline = (profile(active.id)?.notifyNicks || []).filter(nick => !onlineKeys.has(fold(nick)));
+    const offline = (window.dreamsNotifyNames?.(active.id) || profile(active.id)?.notifyNicks || []).filter(nick => !onlineKeys.has(fold(nick)));
     return [...sort(c.kind === "private" ? [c.name, n.nick, ...c.users] : c.users),
       ...sort(online), ...sort(offline),
       ...sort([...n.conversations.values()].filter(c => c.kind === "channel" && c.joined !== false).map(c => c.name))];

@@ -243,6 +243,7 @@ class ScriptManager extends EventEmitter {
     const result = await this.request({ type: "install", scripts });
     this.aliasNames = result.aliases;
     await this.event("LOAD", {});
+    this.emit("ready");
   }
   request(message) {
     if (!this.worker)
@@ -449,6 +450,7 @@ class ScriptManager extends EventEmitter {
           this.allowed(owner, "raw", action.callers);
         else if (
           [
+            "send.direct",
             "msg",
             "me",
             "join",
@@ -484,7 +486,7 @@ class ScriptManager extends EventEmitter {
           this.allowed(owner, "crypto", action.callers);
         else if (action.type.startsWith("state."))
           this.allowed(owner, "persist", action.callers);
-        else if (["echo", "view", "view.close", "tip", "toast", "sidebar"].includes(action.type))
+        else if (["conversation.open", "conversation.close", "tree.add", "tree.remove", "echo", "view", "view.close", "tip", "toast", "sidebar"].includes(action.type))
           this.allowed(owner, "ui", action.callers);
         else throw new Error("Comando .hex no soportado: " + action.type);
         await this.host(action, {

@@ -130,32 +130,28 @@
   }
   let notifyView = "";
   window.renderDreamsNotify = () => {
-    const id = active?.id||selectedNetworkId,
-      allOnline = (id ? window.getDreamsNotify?.(id) || [] : [])
-        .filter((p) => p.online === true)
-        .sort((a, b) =>
-          (a.currentNick || a.nick).localeCompare(
-            b.currentNick || b.nick,
-            "es",
-            { sensitivity: "base" },
-          ),
-        );
+    const filter=config.settings.notifyFilter||"active";
+    const id = filter==='active' ? active?.id||selectedNetworkId : filter;
+    const allOnline = (filter==='all' ? config.profiles : config.profiles.filter(p=>p.id===id))
+      .flatMap(p=>(window.getDreamsNotify?.(p.id)||[]).filter(person=>person.online===true).map(person=>({...person,network:p.id,networkName:p.name})))
+      .sort((a,b)=>(a.currentNick||a.nick).localeCompare(b.currentNick||b.nick,"es",{sensitivity:"base"}));
     const people = new Map();
     for (const person of allOnline) {
-      const key = fold(person.currentNick || person.nick);
-      if (!people.has(key) || fold(person.nick) === key)
+      const key = person.network+":"+fold(person.currentNick || person.nick);
+      if (!people.has(key) || person.network+":"+fold(person.nick) === key)
         people.set(key, person);
     }
     const online = [...people.values()];
     const signature = JSON.stringify([
       id,
-      online.map((p) => [p.nick, p.currentNick]),
+      online.map((p) => [p.network,p.nick, p.currentNick]),
     ]);
     if (signature === notifyView) return;
     notifyView = signature;
     onlineList.replaceChildren();
     for (const person of online) {
       const nick = person.currentNick || person.nick;
+      const id=person.network;
       const b = el("button", "notify-online-row");
       b.type = "button";
       b.title =
@@ -163,7 +159,7 @@
           ? "Seguimiento de " + person.nick + " → " + nick
           : nick;
       b.setAttribute("aria-label", "Notify " + nick + " en línea");
-      b.append(el("span", "online-dot", "●"), el("span", "", nick));
+      b.append(el("span", "online-dot", "●"), el("span", "", nick+(filter==='all'?" · "+person.networkName:"")));
       b.onclick = () => window.openDreamsUser?.(id, nick);
       b.oncontextmenu = (e) =>
         contextMenu.show(e, person.nick, [

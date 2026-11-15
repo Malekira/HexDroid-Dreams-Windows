@@ -84,6 +84,9 @@ class Runtime {
         ...f,
       }),
     });
+    this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled){this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,data);this.emit(id,"message",data);}});
+    this.scripts.on("changed",()=>this.scriptConversations.clean());
+    this.scripts.on("ready",()=>{for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
     this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions()}));
     this.scriptMedia = new ScriptMedia({
       web: this.web,
@@ -151,7 +154,8 @@ class Runtime {
     const pin=this.trustedCertificates?.[id];return pin?{...secrets,tlsPin:pin}:secrets;
   }
   connect({ id, password, credentials, remember = false } = {}) {
-    const profile = this.getConfig().profiles.find((p) => p.id === id);
+    const originalProfile = this.getConfig().profiles.find((p) => p.id === id);
+    const profile = originalProfile && {...originalProfile,notifyNicks:require("./notify-policy").names(this.getConfig(),originalProfile)};
     if (!profile) throw new Error("Guarda la red antes de conectar.");
     let secrets = { ...this.credentials(id) };
     if (password !== undefined) secrets.serverPassword = String(password);
@@ -235,11 +239,11 @@ class Runtime {
       if(s.notifications!==false&&s.notifyPresence!==false&&s.notifyNickChanges!==false&&!(s.mutedUsers?.[id]||[]).some(n=>[data.nick,data.old,data.newNick].some(name=>require('../irc').fold(n)===require('../irc').fold(name)))){
         const text=data.old+' → '+data.newNick;
         if(s.notifyPresenceSound!==false)this.electron.shell.beep();
-        this.emit(id,'presence-alert',{text:'Notify · '+text,nick:data.nick,old:data.old,newNick:data.newNick});
+        this.emit(id,'presence-alert',{text:'Notify · '+(this.getConfig().profiles?.find(p=>p.id===id)?.name||id)+' · '+text,nick:data.nick,old:data.old,newNick:data.newNick});
         if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const notification=new this.electron.Notification({title:'Notify · Cambio de nick',body:text,silent:true});notification.show();}
       }
     }
-    if(type==='presence'&&!data.privateOnly&&!data.initial&&!data.renamed&&!data.duplicate){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
+    if(type==='presence'&&!data.privateOnly&&!data.initial&&!data.renamed&&!data.duplicate){const s=this.getConfig().settings;if(s.notifications!==false&&s.notifyPresence!==false&&(data.online||s.notifyPresenceOffline!==false)&&!(s.mutedUsers?.[id]||[]).some(n=>require('../irc').fold(n)===require('../irc').fold(data.nick))){if(s.notifyPresenceSound!==false)this.electron.shell.beep();const text=data.nick+(data.online?' se conectó':' se desconectó');this.emit(id,'presence-alert',{text:'Notify · '+(this.getConfig().profiles?.find(p=>p.id===id)?.name||id)+' · '+text,nick:data.nick,online:data.online});if(!this.getWindow()?.isFocused()&&this.electron.Notification.isSupported()){const n=new this.electron.Notification({title:'Notify · '+(this.getConfig().profiles?.find(p=>p.id===id)?.name||''),body:text,silent:true});n.show();}}}
     if (type === "message") {
       if (
         !data.own &&
@@ -269,8 +273,8 @@ class Runtime {
         text: data.text,
       };
       const result=await this.scripts.event(data.action?"ACTION":"TEXT",eventFields);
-      if(data.notice){const notice=await this.scripts.event("NOTICE",{...eventFields,text:result.text});result.halted ||= notice.halted;result.text=notice.text;}
-      if (result.halted && privateMessage && !data.own && !data.historical) return;
+      if(data.notice){const notice=await this.scripts.event("NOTICE",{...eventFields,text:result.text});result.halted ||= notice.halted;result.haltedBy ||= notice.haltedBy;result.text=notice.text;}
+      if (result.halted && privateMessage && !data.own && !data.historical) { this.scriptConversations?.hold(result.haltedBy,id,data); return; }
       data = { ...data, text: result.text };
       const outputs=data.notice?require('./notice-policy').destinations(data,this.getConfig().settings,this.activeConversation?.id===id?this.activeConversation:null).map(target=>({...data,target,sourceTarget:data.target})):[data];
       for(const output of outputs){if(this.getConfig().settings.historyEnabled){this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,output);}
@@ -491,6 +495,7 @@ class Runtime {
   async scriptAction(action, fields) {
     const id = fields.network,
       target = fields.buffer;
+    if (["send.direct","conversation.open","conversation.close","tree.add","tree.remove"].includes(action.type)) return this.scriptConversations.action(action,fields);
     if (["media.pick", "media.upload"].includes(action.type)) {
       this.scriptMedia
         .run(action, fields)
@@ -606,9 +611,13 @@ class Runtime {
       case 'notifications.read':{const keys=new Set(Array.isArray(data.keys)?data.keys:[]);for(const item of this.notificationLog||[])if(keys.has(item.key))item.read=true;return{ok:true};}
       case 'notifications.clear':this.notificationLog=[];return{ok:true};
       case 'identity.publish':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Guarda la red antes de publicar.');const session=this.sessions.sessions.get(id);if(session){session.profile.publishPhoto=p.publishPhoto;session.profile.photoUrl=p.photoUrl;}if(!client?.ready)return{pending:true};client.profile.publishPhoto=p.publishPhoto;client.ownAvatarTemplate=p.photoUrl||this.getConfig().settings.avatarUrlTemplate||'https://chat-avatars.chateagratis.net/avatar/Chat/{Nick}.png';return client.publishOwnAvatar(true);}
-      case 'presence.sync':{const p=this.getConfig().profiles.find(p=>p.id===id);if(!p)throw new Error('Red no válida.');const session=this.sessions.sessions.get(id);if(session)session.profile.notifyNicks=[...p.notifyNicks];if(client){client.profile.notifyNicks=[...p.notifyNicks];client.presence.names=[...p.notifyNicks];if(client.ready)client.presence.start();}return{ok:true};}
+      case 'presence.sync': {
+        const cfg=this.getConfig();if(!cfg.profiles.some(p=>p.id===id))throw Error('Red no válida.');
+        for(const p of cfg.profiles){const names=require('./notify-policy').names(cfg,p);const session=this.sessions.sessions.get(p.id);if(session)session.profile.notifyNicks=[...names];const c=this.sessions.get(p.id);if(c){c.profile.notifyNicks=[...names];c.presence.names=[...names];if(c.ready)c.presence.start();}}
+        return {ok:true};
+      }
       case 'presence.privates':if(client?.ready)client.presence.watchPrivates(data.nicks);return{ok:true};
-      case 'presence.status':return client?.ready?client.presence.snapshot():(this.getConfig().profiles.find(p=>p.id===id)?.notifyNicks||[]).map(nick=>({nick,online:null}));
+      case 'presence.status':return client?.ready?client.presence.snapshot():require("./notify-policy").names(this.getConfig(),this.getConfig().profiles.find(p=>p.id===id)||{}).map(nick=>({nick,online:null}));
 
       case 'tls.accept':{
         const cert=this.pendingCertificates.get(id),p=this.getConfig().profiles.find(p=>p.id===id);
@@ -898,6 +907,11 @@ class Runtime {
         this.scriptMedia.clear();
         await this.scripts.remove(data.id);
         return { ok: true };
+      case "script.tree.list": return [...this.scriptConversations.entries.values()];
+      case "script.tree.open": {
+        const entry=this.scriptConversations.entries.get(data.id);if(!entry||!this.scripts.scripts.some(s=>s.id===entry.script&&s.enabled))throw Error('Entrada de script no disponible.');
+        return this.scripts.alias(entry.command,{network:entry.network,buffer:'*',__onlyScript:entry.script},[]);
+      }
       case "script.launcher": {
         const launcher = this.launchers.get(data.id);
         if (!launcher) throw new Error("Lanzador no disponible.");

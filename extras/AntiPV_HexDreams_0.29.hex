@@ -1,0 +1,111 @@
+; Anti-PV para HexDreams IRC Windows 0.29 o posterior.
+; /pv: solicitudes de la red actual. /pvconfig: configuración.
+; Importar este archivo es opcional. No sustituye scripts existentes.
+on LOAD {
+ set %apv_status $map()
+ set %apv_names $map()
+ set %apv_messages $map()
+ set %apv_networks $map()
+ set %apv_mode $state(mode)
+ if ($len(%apv_mode) == 0) { set %apv_mode notice }
+ sidebar add antip pv Solicitudes Anti-PV
+}
+alias apv_key { return $join($list($network,$lower($1)),::) }
+alias apv_tree {
+ set -l %count 0
+ foreach %key %apv_status {
+  if ($get(%apv_networks,%key) == $network && $get(%apv_status,%key) == pending) { inc %count }
+ }
+ tree.add antip pv %count Anti-PV
+}
+on CONNECT { apv_tree }
+on SIGNAL:NETWORK_READY { apv_tree }
+on TEXT { apv_receive }
+on ACTION { apv_receive }
+alias apv_receive {
+ if ($isprivate == true && $isme == false && $historical != true) {
+  set -l %key $apv_key($nick)
+  if ($get(%apv_status,%key) == accepted) { return }
+  if ($get(%apv_status,%key) == rejected) { halt }
+  if ($get(%apv_status,%key) != pending) {
+   setat %apv_status %key pending
+   setat %apv_names %key $nick
+   setat %apv_networks %key $network
+   setat %apv_messages %key $text
+   send.direct $nick Solicitud recibida. Espera a que autorice tu privado.
+   apv_tree
+   if (%apv_mode == notice || %apv_mode == both) { toast Solicitud Anti-PV de $nick }
+   if (%apv_mode == window || %apv_mode == both) { pv }
+  }
+  halt
+ }
+}
+alias pv {
+ apv_tree
+ view pending "Anti-PV" width 650 height 460 {
+  column gap 6 {
+   text "Solicitudes de esta red"
+   foreach %key %apv_status {
+    if ($get(%apv_networks,%key) == $network && $get(%apv_status,%key) == pending) {
+     column {
+      text $get(%apv_names,%key) bold
+      text $get(%apv_messages,%key)
+      row {
+       button "Aceptar" apv_accept $get(%apv_names,%key)
+       button "Rechazar" apv_reject $get(%apv_names,%key)
+       button "Ignorar" apv_ignore $get(%apv_names,%key)
+      }
+     }
+    }
+   }
+   button "Actualizar" pv
+   button "Configurar" pvconfig
+  }
+ }
+}
+alias apv_accept {
+ set -l %key $apv_key($1)
+ if ($get(%apv_status,%key) != pending) { return }
+ setat %apv_status %key accepted
+ conversation.open $1
+ send.direct $1 Tu privado ha sido aceptado.
+ apv_tree
+ pv
+}
+alias apv_reject {
+ set -l %key $apv_key($1)
+ setat %apv_status %key rejected
+ send.direct $1 No puedo aceptar tu privado en este momento.
+ conversation.close $1
+ apv_tree
+ pv
+}
+alias apv_ignore {
+ set -l %key $apv_key($1)
+ delat %apv_status %key
+ delat %apv_names %key
+ delat %apv_messages %key
+ delat %apv_networks %key
+ conversation.close $1
+ apv_tree
+ pv
+}
+alias pvconfig {
+ view config "Configuración Anti-PV" width 540 height 300 {
+  column gap 6 {
+   text "Cómo mostrar las solicitudes"
+   select mode %apv_mode {
+    option manual "Solo entrada lateral"
+    option notice "Notificación"
+    option window "Abrir ventana"
+    option both "Ventana y notificación"
+   }
+   button "Guardar" apv_save
+  }
+ }
+}
+alias apv_save {
+ set %apv_mode $form(mode)
+ state.set mode %apv_mode
+ view.close config
+}

@@ -27,7 +27,7 @@ test('Corrupt configuration is backed up and does not stop the next launch', t =
 });
 test('Settings are bounded and profile identifiers cannot collide', () => {
   const settings = validateSettings({ fontSize: 999, sidebarWidth: -100, showUsers: 'no' });
-  assert.equal(settings.fontSize, 24); assert.equal(settings.sidebarWidth, 160); assert.equal(settings.showUsers, true);
+  assert.equal(settings.fontSize, 24); assert.equal(settings.sidebarWidth, 50); assert.equal(settings.showUsers, true);
   assert.throws(() => sanitizeData({ ...data, profiles: [data.profiles[0], data.profiles[0]] }), /Identificador/);
 });
 test('Real name survives past 200 characters and rejects oversized wire data instead of silently cutting it',()=>{

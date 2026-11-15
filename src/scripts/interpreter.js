@@ -764,6 +764,7 @@ class HexVM {
           )
             throw new Error("El script no tiene permiso: intercept");
           ctx.halted = true;
+          ctx.haltedBy = ctx.owner;
         }
         return { type: word, value: raw ? this.value(raw, ctx) : "" };
       }
@@ -857,6 +858,7 @@ class HexVM {
         const result = this.run(alias.body, child);
         if (result?.type === "halt") {
           ctx.halted = true;
+          ctx.haltedBy = child.haltedBy || child.owner;
           return result;
         }
         continue;
@@ -1184,6 +1186,7 @@ class HexVM {
     return {
       text: ctx.fields.text ?? "",
       halted: ctx.halted,
+      haltedBy: ctx.haltedBy,
       actions: ctx.actions,
     };
   }

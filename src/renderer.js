@@ -10,7 +10,7 @@ let framePending = false, lastMessageView = '', draggedItem = null, settingsSect
 const contextMenu = new DreamsDesktop.ContextMenu($('context-menu'), error => notify(error.message, true));
 const passwords = new Map();
 function fold(s) { return String(s).toLowerCase().replace(/[\[\]\\^]/g, c => ({ '[': '{', ']': '}', '\\': '|', '^': '~' })[c]); }
-function el(tag, className, text) { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined) n.textContent = text; return n; }
+function el(tag, className, text) { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined) n.textContent = text; if(tag==='button'&&['Cerrar','Cancelar'].includes(text))n.setAttribute('aria-label',text); return n; }
 function network(id) { return workspace.network(id); }
 function conversation(id, name = '*') { return workspace.conversation(id,name); }
 function selected() { return active ? conversation(active.id, active.target) : null; }
@@ -795,12 +795,14 @@ $('join-form').addEventListener('submit', async event => {
   if (result?.error) { $('join-error').textContent = result.error; return; }
   $('join-dialog').close(); // Wait for the server's JOIN before showing a joined room.
 });
+let sendPlainOnce=false;
 $('composer').addEventListener('submit', async event => {
+  const plain=sendPlainOnce;sendPlainOnce=false;
   event.preventDefault(); if (!active) return;
   const id = active.id, target = active.target, c = selected(), text = $('message-input').value;
   if (!text.trim()) return;
   if (text.trim() === '/markread') { c.unread = 0; c.mentions = 0; c.firstUnreadId = null; c.draft = ''; $('message-input').value = ''; render(); return; }
-  const result = await api.send({ id,target,text:composeText(text) });
+  const result = await api.send({ id,target,text:plain?DreamsFormatting.plain(text):composeText(text) });
   if (result?.error) notify(result.error,true);
   else {
     c.history.push(text); if (c.history.length > 100) c.history.shift(); c.historyIndex = -1;
@@ -811,7 +813,7 @@ $('composer').addEventListener('submit', async event => {
 $('message-input').addEventListener('input',() => { if (selected()) selected().draft = $('message-input').value; previewFormat(); });
 $('message-input').addEventListener('keydown', e => {
   const c = selected(); if (!c || e.isComposing) return;
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit(); }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPlainOnce=e.ctrlKey; $('composer').requestSubmit(); }
   else if (['ArrowUp','ArrowDown'].includes(e.key) && (e.ctrlKey || !e.target.value || c.historyIndex >= 0) && c.history.length) {
     e.preventDefault(); if (c.historyIndex < 0) c.historyDraft = e.target.value;
     c.historyIndex = e.key === 'ArrowUp' ? Math.min(c.history.length-1,c.historyIndex + 1) : Math.max(-1,c.historyIndex - 1);
@@ -834,7 +836,7 @@ for (const [id,key,numeric] of [['font','fontSize',true],['fontFamily','fontFami
   const node = $('setting-' + id); node.oninput = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); };
   node.onchange = () => { config.settings[key] = numeric ? Number(node.value) : node.value; applySettings(); persist().catch(() => {}); };
 }
-for (const [id,key,min,max,pointer] of [['sidebar-resizer','sidebarWidth',160,420,e => e.clientX],['users-resizer','usersWidth',48,360,e => ($('users-resizer').closest('.mdi-window')?.getBoundingClientRect().right||innerWidth)-e.clientX]]) DreamsDesktop.bindResizer($(id),{ min,max,read:() => config.settings[key],write:v => { config.settings[key] = v; },apply:applySettings,save:() => persist().catch(() => {}),fromPointer:pointer });
+for (const [id,key,min,max,pointer] of [['sidebar-resizer','sidebarWidth',50,420,e => e.clientX],['users-resizer','usersWidth',48,360,e => ($('users-resizer').closest('.mdi-window')?.getBoundingClientRect().right||innerWidth)-e.clientX]]) DreamsDesktop.bindResizer($(id),{ min,max,read:() => config.settings[key],write:v => { config.settings[key] = v; },apply:applySettings,save:() => persist().catch(() => {}),fromPointer:pointer });
 let resizeFrame;window.addEventListener('resize',()=>{if(resizeFrame)return;resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;applySettings();});});
 document.addEventListener('keydown',e => {
   if (e.ctrlKey && e.key.toLowerCase() === 'c' && selectedMessages.size && !document.getSelection()?.toString() && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); copyMessages(); return; }
