@@ -1,0 +1,64 @@
+; Seguidor de Nicks - HexDreams IRC
+; Guarda el historial por red y host (identidad orientativa).
+; JOIN y NICK requieren los campos host, network, nick y chan.
+
+on LOAD {
+  set %sn.db $json($state(sn_db),"")
+  if $len(%sn.db) == 0 {
+    set %sn.db $map()
+  }
+  delat %sn.db ""
+}
+
+alias sn.agregar {
+  ; $1 red, $2 host, $3 nick, $4 sala, $5 aviso
+  if $1 == "" { return }
+  if $2 == "" { return }
+  if $3 == "" { return }
+  set -l %clave "$1|$lower($2)"
+  set -l %nicks $get(%sn.db,%clave)
+  if $len(%nicks) == 0 {
+    set %nicks $list($3)
+    setat %sn.db %clave %nicks
+    state.set sn_db $tojson(%sn.db)
+  }
+  set -l %existe false
+  foreach %anterior %nicks {
+    if $lower(%anterior) == $lower($3) {
+      set %existe true
+    }
+  }
+  if %existe == false {
+    push %nicks $3
+    setat %sn.db %clave %nicks
+    state.set sn_db $tojson(%sn.db)
+  }
+  if $5 == "avisar" {
+    if $len(%nicks) > 1 {
+      set -l %otros ""
+      foreach %anterior %nicks {
+        if $len(%anterior) > 0 && $lower(%anterior) != $lower($3) {
+          if $len(%otros) > 0 {
+            set %otros "%otros, %anterior"
+          } else {
+            set %otros %anterior
+          }
+        }
+      }
+      if $len(%otros) > 0 {
+        echo $4 ff5959⚠ SEGUIDOR DE NICKS: $3 → %otros (mismo host)
+      }
+    }
+  }
+}
+
+on JOIN {
+  if $own == true { return }
+  sn.agregar $network $host $nick $chan avisar
+}
+
+on NICK {
+  if $own == true { return }
+  sn.agregar $network $host $nick * registrar
+  sn.agregar $network $host $newnick * registrar
+}

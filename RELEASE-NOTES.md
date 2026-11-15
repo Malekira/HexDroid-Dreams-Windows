@@ -1,9 +1,11 @@
-# HexDreams IRC 0.30.0 — Windows portable
+# HexDreams IRC 0.31.0 — Windows portable
 
-- Encabezado de Notify alineado: título, selector de red y botón + sin superposición. En paneles estrechos el selector baja a una segunda línea; a 50 px se conserva el acceso +.
-- Inicio de red: primero se ejecutan los comandos configurados, después se solicitan las salas y Notify espera la confirmación de sus entradas. Los errores de entrada no dejan bloqueado Notify.
-- Se respeta la capacidad MONITOR anunciada por el servidor y se consulta el resto de contactos mediante ISON, sin descartar nicks de la lista.
+Integra en la versión actual los cambios del PR #4 necesarios para el Seguidor de Nicks, sin revertir las correcciones anteriores de conexión y Notify.
 
-Se mantienen las redes, listas Notify y scripts. El Anti-PV de Extras corresponde a la versión anterior y sigue siendo compatible.
+- El motor .hex recibe JOIN con red, sala, nick, host, ident y estado propio.
+- NICK conserva host/ident del prefijo IRC y transmite nick anterior/nuevo y la primera sala afectada (o Status si no hay sala).
+- Extras/Seguidor-de-Nicks.hex incluye el script del PR adaptado para no avisar en el primer ingreso ni mostrar comas vacías. Aprende nicks por red y host y muestra un aviso local cuando hay anteriores. No envía mensajes al canal.
+
+El script se importa manualmente desde Scripts. No se reemplazan automáticamente los scripts instalados. La coincidencia de host es orientativa y no demuestra identidad personal.
 
 Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación.

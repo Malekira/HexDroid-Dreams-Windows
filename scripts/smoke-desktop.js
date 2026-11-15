@@ -517,6 +517,23 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect.poll(async()=>{const rows=await page.evaluate(()=>window.dreams.advanced('script.tree.list'));return rows.some(e=>e.script===anti.id);}).toBe(false);
     await page.evaluate(id=>window.dreams.advanced('script.remove',{id}),anti.id);
 
+    console.log('Prueba Electron: Seguidor de Nicks con JOIN/NICK, host y aviso solo local');
+    const trackerSource=fs.readFileSync(path.join(__dirname,'../addons/Seguidor-de-Nicks.hex'),'utf8');
+    const tracker=await page.evaluate(source=>window.dreams.advanced('script.save',{name:'Seguidor native.hex',source}),trackerSource);expect(tracker.error).toBeUndefined();
+    await page.evaluate(()=>{config.settings.roomView='unified';config.settings.showEvents=true;applySettings();choose(config.profiles[0].id,'#dreams');});
+    const trackerWireStart=received.length;
+    for(const socket of sockets)socket.write(':TrackOld!ident@tracker.example JOIN :#dreams\r\n:TrackOld!ident@tracker.example NICK :TrackNew\r\n:TrackNew!ident@tracker.example QUIT :bye\r\n:TrackNew!ident@tracker.example JOIN :#dreams\r\n');
+    await expect.poll(()=>page.evaluate(()=>selected().messages.filter(m=>m.text.includes('SEGUIDOR DE NICKS:')).length)).toBe(1);
+    await expect(page.locator('#messages')).toContainText('SEGUIDOR DE NICKS:');
+    await expect(page.locator('#messages')).toContainText('TrackNew → TrackOld (mismo host)');
+    expect(received.slice(trackerWireStart).some(line=>/^PRIVMSG #dreams :.*SEGUIDOR/.test(line))).toBe(false);
+    if(scriptStateSecure){
+      await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:false}),tracker.id);await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:true}),tracker.id);
+      for(const socket of sockets)socket.write(':TrackThird!ident@tracker.example JOIN :#dreams\r\n');
+      await expect(page.locator('#messages')).toContainText('TrackThird → TrackOld, TrackNew (mismo host)');
+    }
+    await page.evaluate(id=>window.dreams.advanced('script.remove',{id}),tracker.id);
+
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');

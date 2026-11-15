@@ -27,6 +27,7 @@ fs.copyFileSync(path.join(root, 'README.md'), path.join(appDir, 'LEEME.md'));
 fs.copyFileSync(path.join(root, 'scripts', 'sign-personal.ps1'), path.join(appDir, 'sign-personal.ps1'));
 fs.copyFileSync(path.join(root, 'docs', 'FIRMA-PERSONAL.md'), path.join(appDir, 'FIRMA-PERSONAL.md'));
 fs.cpSync(path.join(root, 'extras'), path.join(appDir, 'Extras'), {recursive:true});
+if(fs.existsSync(path.join(root,'addons')))fs.cpSync(path.join(root,'addons'),path.join(appDir,'Extras'),{recursive:true});
 const zipPath = path.join(dist, `HexDreams-IRC-${version}-Windows-x64.zip`);
 fs.rmSync(zipPath, { force: true });
 if (process.platform === 'win32') {

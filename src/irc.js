@@ -149,7 +149,7 @@ class IrcClient extends EventEmitter {
         targets.push(channel);const old = members.get(fold(nick)); members.delete(fold(nick));
         members.set(fold(next), old.match(/^[~&@%+]*/)[0] + next); this.userList(channel);
       }
-      this.emit('nick', { old: nick, nick: next, own,targets });
+      this.emit('nick', { old: nick, nick: next, own, targets, ...identity });
     } else if (c === 'MODE' && this.members.has(fold(p[0]))) {
       // Refresh NAMES after privilege changes instead of guessing multi-mode arguments.
       this.sendRaw(`NAMES ${p[0]}`);

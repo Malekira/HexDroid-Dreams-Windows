@@ -321,7 +321,8 @@ class Runtime {
         data.state === "connected" ? "CONNECT" : "DISCONNECT",
         { network: id },
       );
-    if(type==='nick')await this.scripts.event('NICK',{network:id,buffer:data.nick,chan:data.nick,nick:data.old,newnick:data.nick,own:data.own});
+    if(type==='channel'&&data.action==='join')await this.scripts.event('JOIN',{network:id,buffer:data.target,chan:data.target,nick:data.nick,host:data.host||'',ident:data.ident||'',own:!!data.own});
+    if(type==='nick')await this.scripts.event('NICK',{network:id,buffer:(data.targets||[])[0]||'*',chan:(data.targets||[])[0]||'*',nick:data.old,newnick:data.nick,host:data.host||'',ident:data.ident||'',own:!!data.own});
     if(type==='away-state')this.autoAway?.observe(id,data.away);
     if(type==='status'&&data.state==='disconnected')this.autoAway?.forget(id);
     if(type==='status')this.writeTextLog(id,{target:'*',event:true,text:data.text||data.state});
