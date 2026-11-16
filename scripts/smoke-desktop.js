@@ -547,6 +547,19 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.locator('#connection-button').click();await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Conectar');await page.locator('#connection-button').click();
     await expect(page.locator('#connection-button')).toHaveAttribute('aria-label','Desconectar');await expect(page.locator('#certificate-dialog')).not.toBeVisible();
 
+    console.log('Prueba Electron: error FTS simulado no bloquea JOIN ni el cuadro de escritura');
+    const historyNetwork=await page.evaluate(()=>config.profiles[0].id);
+    await page.evaluate(async id=>{config.settings.historyEnabled=true;config.settings.historyRoomRows=0;await persist();choose(id,'#dreams');await window.dreams.send({id,target:'#dreams',text:'/part #dreams'});},historyNetwork);
+    await expect(page.locator('#message-input')).toBeDisabled();
+    await app.evaluate(({app})=>{const path=process.mainModule.require('node:path');const {HistoryStore}=process.mainModule.require(path.join(app.getAppPath(),'src/services/history.js'));global.__historyAppendBeforeTest=HistoryStore.prototype.append;global.__failedHistoryAttempts=0;HistoryStore.prototype.append=function(){global.__failedHistoryAttempts++;throw Error('fts5: corruption found reading blob (simulado) from table search');};});
+    try{
+      await page.evaluate(id=>window.dreams.send({id,target:'*',text:'/join #dreams'}),historyNetwork);
+      await expect(page.locator('#message-input')).toBeEnabled();await expect(page.locator('#toast')).toContainText('historial SQLite');
+      await page.locator('#message-input').fill('Chat disponible con historial en pausa');await page.locator('#message-input').press('Enter');await expect.poll(()=>received.some(l=>l.includes('Chat disponible con historial en pausa'))).toBe(true);
+      expect(await app.evaluate(()=>global.__failedHistoryAttempts)).toBe(1);
+      await page.evaluate(id=>choose(id,'*'),historyNetwork);await expect(page.locator('#messages')).toContainText('historial SQLite');
+    }finally{await app.evaluate(({app})=>{const path=process.mainModule.require('node:path');process.mainModule.require(path.join(app.getAppPath(),'src/services/history.js')).HistoryStore.prototype.append=global.__historyAppendBeforeTest;delete global.__historyAppendBeforeTest;});}
+
     console.log('Prueba Electron: rechazo G-line conserva motivo en Status sin depender de filtros');
     const denyServer=net.createServer(socket=>{socket.on('error',()=>{});socket.end(':denied 465 * :G-lined: motivo de prueba\r\n');});
     await new Promise(resolve=>denyServer.listen(0,'127.0.0.1',resolve));

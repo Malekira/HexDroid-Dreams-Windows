@@ -859,7 +859,7 @@ api.onEvent(event => {
       if (event.state === 'disconnected') {const status=event.reason?n.conversations.get(fold('*')):null,wasActive=active?.id===id;n.conversations.clear();if(status)n.conversations.set(fold('*'),status);n.lastTarget='*';if(wasActive){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);if(status&&(wasActive||!active))choose(id,'*',false);persist().catch(()=>{});}
       break;
     case 'connection-error': addMessage(id,'*',{event:true,error:true,critical:true,statusCategory:'errors',code:event.code,text:event.text});notify(event.text,true);break;
-    case 'problem': addMessage(id, '*', { event: true, error: true, text: event.text }); notify(event.text, true); break;
+    case 'problem': addMessage(id, '*', { event: true, error: true, critical:event.historyFailure===true, text: event.text }); notify(event.text, true); break;
     case 'server': addMessage(id,event.target||'*',{event:true,statusCategory:event.error?'errors':event.code?'commands':'server',code:event.code,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
     case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;
     case 'modes': conversation(id,event.target).modes = event.text; break;

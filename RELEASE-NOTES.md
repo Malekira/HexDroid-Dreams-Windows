@@ -1,9 +1,9 @@
-# HexDreams IRC 0.32.0 — Windows portable
+# HexDreams IRC 0.33.0 — Windows portable
 
-- Aviso visible y registro en la campanita cuando el servidor rechaza o corta la conexión, con el motivo real: G/Z/K-line, contraseña, TLS, DNS, tiempo agotado u otros errores. Si no indica motivo, se informa sin inventarlo.
-- Status conserva el diagnóstico después de una desconexión inesperada, incluso si los errores están filtrados. Cerrar voluntariamente sigue cerrando las conversaciones.
-- Las respuestas rutinarias ISON/MONITOR de Notify no llenan Status ni el historial TXT. Se conservan los cambios de presencia, las respuestas ISON manuales y los errores importantes.
+- Los errores del historial SQLite ya no interrumpen los eventos JOIN/PART ni la recepción de mensajes: las salas conservan su estado correcto y el cuadro de escritura se habilita al ingresar.
+- También se aíslan los errores de historial en WHOIS, redacciones y recuperación de privados retenidos.
+- Al primer fallo se muestra un aviso crítico en Status y se pausan las escrituras automáticas SQLite hasta reiniciar, sin cambiar las preferencias ni repetir el error con cada mensaje. El chat y el historial TXT pueden continuar.
 
-Se mantienen la secuencia de inicio, redes, preferencias y scripts. Los pendientes de autenticación /login no se modifican en esta entrega.
+Esta versión corrige el bloqueo del chat; no repara la corrupción FTS5. No borra datos, no reconstruye índices y no cambia el Bot Espía. Las lecturas del historial dañado pueden seguir mostrando errores y requieren un diagnóstico separado.
 
 Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación.

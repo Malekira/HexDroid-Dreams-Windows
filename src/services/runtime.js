@@ -13,6 +13,7 @@ const { ScriptMedia } = require("./script-media");
 const { WebClient, imageMime, titleOf } = require("./web");
 const { createBackup, readBackup } = require("./backups");
 const { executeInput } = require("../commands");
+const { guardHistoryWrite } = require("./history-guard");
 class Runtime {
   constructor({ directory, electron, getWindow, getConfig, saveConfig, emit }) {
     Object.assign(this, {
@@ -84,7 +85,7 @@ class Runtime {
         ...f,
       }),
     });
-    this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled){this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,data);this.emit(id,"message",data);}});
+    this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,data);this.emit(id,"message",data);}});
     this.scripts.on("changed",()=>this.scriptConversations.clean());
     this.scripts.on("ready",()=>{for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
     this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions()}));
@@ -287,7 +288,7 @@ class Runtime {
       if (result.halted && privateMessage && !data.own && !data.historical) { this.scriptConversations?.hold(result.haltedBy,id,data); return; }
       data = { ...data, text: result.text };
       const outputs=data.notice?require('./notice-policy').destinations(data,this.getConfig().settings,this.activeConversation?.id===id?this.activeConversation:null).map(target=>({...data,target,sourceTarget:data.target})):[data];
-      for(const output of outputs){if(this.getConfig().settings.historyEnabled){this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);}this.writeTextLog(id,output);}
+      for(const output of outputs){if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,output);}
       if(!data.own&&!data.historical)this.notify(id,{...data,notificationTarget:outputs[0]?.target});
       if(data.notice){for(const output of outputs)this.emit(id,type,output);return;}
 
@@ -303,7 +304,7 @@ class Runtime {
       if (r.halted || data.routinePresence) return;
       data = { ...data, text: r.text };
       this.writeTextLog(id,{...data,target:data.target||"*",nick:"Servidor",event:true});
-      if(data.target==='*consultas*'&&this.getConfig().settings.queryHistoryEnabled!==false){this.history.append(id,{...data,target:'*consultas*',nick:'Servidor'});this.history.prune(this.getConfig().settings.historyDays);}
+      if(data.target==='*consultas*'&&this.getConfig().settings.queryHistoryEnabled!==false)guardHistoryWrite(this,id,()=>{this.history.append(id,{...data,target:'*consultas*',nick:'Servidor'});this.history.prune(this.getConfig().settings.historyDays);});
     }
     if (
       type === "certificate" &&
@@ -318,7 +319,7 @@ class Runtime {
       }
     }
     if (type === "redact" && this.getConfig().settings.historyEnabled)
-      this.history.redact(id, data.messageId);
+      guardHistoryWrite(this,id,()=>this.history.redact(id, data.messageId));
     if (type === "ctcp" && data.command === "DCC") {
       try {
         this.dcc.offer(id, data.nick, data.args);
@@ -346,7 +347,7 @@ class Runtime {
     if(type==='modes')event(data.target,'Modos de la sala: '+data.text);
     for(const message of roomEvents){
       this.writeTextLog(id,message);
-      if(this.getConfig().settings.historyEnabled){this.history.append(id,message);this.history.prune(this.getConfig().settings.historyDays);}
+      if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,message);this.history.prune(this.getConfig().settings.historyDays);});
     }
     this.emit(id, type, data);
   }
