@@ -7,8 +7,8 @@ const fold = (s) =>
       (c) => ({ "[": "{", "]": "}", "\\": "|", "^": "~" })[c],
     );
 function normalizeNotify(input = []) {
-  if (!Array.isArray(input) || input.length > 100)
-    throw new Error("La lista Notify admite hasta 100 apodos.");
+  if (!Array.isArray(input) || input.length > 2000)
+    throw new Error("La lista Notify admite hasta 2000 apodos combinados.");
   const seen = new Set();
   return input
     .map((n) => {

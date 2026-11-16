@@ -127,13 +127,17 @@
   const states = new Map(),
     currentNicks = new Map(),
     nickHistory = new Map();
-  window.dreamsNotifyNames = id => config.settings.sharedNotify ? config.settings.sharedNotifyNicks || [] : profile(id)?.notifyNicks || [];
-  window.getDreamsNotify = (id) =>
-    window.dreamsNotifyNames(id).map((nick) => ({
-      nick,
-      currentNick: (currentNicks.get(id) || {})[fold(nick)] || nick,
-      online: (states.get(id) || {})[fold(nick)] ?? null,
-    }));
+  window.dreamsNotifyNames = id => NotifyPolicy.names(config,profile(id)||{});
+  window.getDreamsNotifyRows = list => NotifyPolicy.entries(config).filter(r=>list==='all'||r.list===list||r.list==='all').flatMap(row=>{
+    const observers=config.profiles.filter(p=>NotifyPolicy.applies(config,row,p)&&network(p.id).state==='connected');
+    const online=observers.filter(p=>(states.get(p.id)||{})[fold(row.nick)]===true);
+    const byServer=new Map();for(const p of online){const key=p.host.toLowerCase().replace(/\.$/,'');if(!byServer.has(key)||p.id===active?.id)byServer.set(key,p);}
+    const matches=online.length?[...byServer.values()]:[observers[0]||profile(row.list)||profile(active?.id)||config.profiles[0]];
+    return matches.filter(Boolean).map(p=>({...row,network:p.id,networkName:p.name,host:p.host,currentNick:(currentNicks.get(p.id)||{})[fold(row.nick)]||row.nick,online:online.length?true:observers.length&&observers.every(p=>(states.get(p.id)||{})[fold(row.nick)]===false)?false:null}));
+  });
+  window.getDreamsNotify = id => window.getDreamsNotifyRows('all').filter(r=>NotifyPolicy.applies(config,r,profile(id)||{}));
+  async function saveEntries(rows){if(rows.length>2000)throw Error('Notify admite hasta 2000 entradas.');const previous=config.settings.notifyEntries;config.settings.notifyEntries=NotifyPolicy.sanitize(rows);try{await persist();}catch(e){config.settings.notifyEntries=previous;throw e;}if(api.advanced&&config.profiles[0])await call('presence.sync',{network:config.profiles[0].id});renderList();}
+  window.removeDreamsNotifyEntry=(list,nick)=>saveEntries(NotifyPolicy.entries(config).filter(r=>!(r.list===list&&fold(r.nick)===fold(nick))));
   function action(parent, text, fn) {
     const b = el("button", "secondary", text);
     b.type = "button";
@@ -141,87 +145,48 @@
     parent.append(b);
     return b;
   }
-  async function saveNames(id, names) {
-    const p = profile(id);
-    if (!p) throw new Error("Seleccioná una red.");
-    const namesTarget = config.settings.sharedNotify ? config.settings : p;
-    const key = config.settings.sharedNotify ? "sharedNotifyNicks" : "notifyNicks";
-    const previous = namesTarget[key];
-    namesTarget[key] = [...new Map(names.map(n => [fold(n), n])).values()];
-    try { await persist(); } catch(e) {namesTarget[key]=previous;throw e;}
-
-    if (api.advanced) await call("presence.sync", { network: id });
-  }
-  window.followDreamsUser = async (id, nick) => {
-    const p = profile(id);
-    if (!p) return;
-    const names = window.dreamsNotifyNames(id),
-      followed = names.some((n) => fold(n) === fold(nick));
-    await saveNames(
-      id,
-      followed ? names.filter((n) => fold(n) !== fold(nick)) : [...names, nick],
-    );
-    notify(
-      followed ? nick + " se quitó de Notify." : nick + " se agregó a Notify.",
-    );
+  window.followDreamsUser = async (id,nick) => {
+    const rows=NotifyPolicy.entries(config),exists=rows.some(r=>r.list===id&&fold(r.nick)===fold(nick));
+    await saveEntries(exists?rows.filter(r=>!(r.list===id&&fold(r.nick)===fold(nick))):[...rows,{nick,list:id,scope:'connection'}]);
+    notify(nick+(exists?' se quitó de Notify.':' se agregó a Notify.'));
   };
+
   function renderList() {
     window.renderDreamsNotify?.();
     const list = $("notify-list");
     if (!list) return;
     list.replaceChildren();
-    const names = [...window.dreamsNotifyNames(notifyNetwork)].sort(
-        (a, b) => a.localeCompare(b, "es", { sensitivity: "base" }),
-      ),
-      current = states.get(notifyNetwork) || {};
-    if (!names.length)
-      list.append(
-        el(
-          "p",
-          "muted",
-          "Agregá apodos para recibir avisos cuando se conecten o desconecten.",
-        ),
-      );
-    for (const nick of names) {
-      const row = el("div", "notify-row"),
-        online = current[fold(nick)],
-        status =
-          online === true
-            ? "En línea"
-            : online === false
-              ? "Desconectado"
-              : network(notifyNetwork).state === "connected"
-                ? "Consultando…"
-                : "Red desconectada";
-      const target =
-        (currentNicks.get(notifyNetwork) || {})[fold(nick)] || nick;
+    const people=window.getDreamsNotifyRows(notifyNetwork).sort((a,b)=>a.nick.localeCompare(b.nick,'es'));
+    if(!people.length)list.append(el('p','muted','Agregá apodos a esta lista.'));
+    for(const person of people){
+      const {nick,online}=person,target=person.currentNick;
+      const row=el('div','notify-row');
+      const status=(online===true?'En línea':online===false?'Desconectado':'Sin confirmar')+' · '+(profile(person.list)?.name||'Todas')+(online?' · '+person.networkName+' ('+person.host+')':'');
       const name = el(
           "button",
           "notify-profile-name",
           target === nick ? nick : nick + " → " + target,
         ),
         label = el("span", "notify-status" + (online ? " online" : ""), status);
+      label.title=status;
       name.type="button";
       name.title="Abrir perfil de "+target;
-      name.onclick=()=>{dialog.close();window.openDreamsUser?.(notifyNetwork,target);};
+      name.onclick=()=>{dialog.close();window.openDreamsUser?.(person.network,target);};
       row.append(name, label);
       const actions = el("div", "notify-row-actions");
       row.append(actions);
       action(actions, "Abrir privado", () => {
         dialog.close();
-        choose(notifyNetwork, target);
+        choose(person.network, target);
       });
       action(actions, "WHOIS", () => {
         dialog.close();
-        window.openDreamsWhois(notifyNetwork, target);
+        window.openDreamsWhois(person.network, target);
       });
       action(actions, "Quitar", async () => {
-        await saveNames(
-          notifyNetwork,
-          names.filter((n) => fold(n) !== fold(nick)),
-        );
-        renderList();
+        await saveEntries(NotifyPolicy.entries(config).filter(r=>!(r.list===person.list&&fold(r.nick)===fold(nick))));
       });
+      const scope=scopeSelect(person.scope);scope.disabled=person.list==='all';scope.onchange=()=>run(()=>saveEntries(NotifyPolicy.entries(config).map(r=>r.list===person.list&&fold(r.nick)===fold(nick)?{...r,scope:scope.value}:r)));actions.prepend(scope);
       list.append(row);
     }
     const changes = nickHistory.get(notifyNetwork) || [];
@@ -246,13 +211,15 @@
     label.append(input, document.createTextNode(text));
     body.append(label);
   }
+  function scopeSelect(value='connection'){const select=el('select');select.setAttribute('aria-label','Compartir Notify');for(const [v,text]of [['connection','Solo esta conexión'],['server','Mismo servidor'],['all','Todos los servidores']]){const o=el('option','',text);o.value=v;select.append(o);}select.value=value;return select;}
+  function listSelect(value){const select=el('select');select.setAttribute('aria-label','Lista de Notify');for(const p of [...config.profiles,{id:'all',name:'Todas'}]){const o=el('option','',p.name);o.value=p.id;select.append(o);}select.value=value;return select;}
   async function openNotify() {
     if (!active) {
       notify("Añadí una red primero.", true);
       return;
     }
-    notifyNetwork = active.id;
-    title.textContent = "Notify · " + profile(notifyNetwork).name;
+    notifyNetwork = config.settings.notifyFilter==='active'?active.id:config.settings.notifyFilter||active.id;
+    title.textContent = "Notify";
     body.replaceChildren();
     const form = el("form", "notify-add"),
       input = el("input");
@@ -262,17 +229,18 @@
     input.required = true;
     const add = el("button", "primary", "Añadir");
     add.type = "submit";
-    form.append(input, add);
+    const listChoice=listSelect(notifyNetwork),scope=scopeSelect();
+    listChoice.onchange=()=>{notifyNetwork=listChoice.value;scope.disabled=notifyNetwork==='all';renderList();};
+    scope.disabled=notifyNetwork==='all';
+    form.append(input,listChoice,scope,add);
     form.onsubmit = (event) => {
       event.preventDefault();
       run(async () => {
         const nick = input.value.trim();
-        if (!nick || /^[#&+!~@%]|[\s\x00-\x1f:,]/.test(nick))
+        if (!nick || new TextEncoder().encode(nick).length>80 || /^[#&+!~@%]|[\s\x00-\x1f:,]/.test(nick))
           throw new Error("Escribí un nick sin espacios.");
-        await saveNames(notifyNetwork, [
-          ...window.dreamsNotifyNames(notifyNetwork),
-          nick,
-        ]);
+        const rows=NotifyPolicy.entries(config).filter(r=>!(r.list===listChoice.value&&fold(r.nick)===fold(nick)));
+        await saveEntries([...rows,{nick,list:listChoice.value,scope:listChoice.value==='all'?'all':scope.value}]);
         input.value = "";
         renderList();
       });
@@ -289,13 +257,14 @@
       el(
         "p",
         "note",
-        "La lista es independiente por red. Si la red no ofrece avisos inmediatos, el estado se consulta cada 30 segundos.",
+        "Elegí la lista y dónde comprobarla. Mismo servidor compara la dirección configurada. Sin una conexión disponible, el estado queda sin confirmar.",
       ),
     );
     if (!dialog.open) dialog.showModal();
     renderList();
     if (api.advanced) {
-      const id = notifyNetwork,
+      for(const observer of config.profiles){
+      const id = observer.id,
         rows = await call("presence.status", { network: id });
       currentNicks.set(
         id,
@@ -307,7 +276,8 @@
         id,
         Object.fromEntries(rows.map((row) => [fold(row.nick), row.online])),
       );
-      if (id === notifyNetwork) renderList();
+      renderList();
+      }
     }
   }
   trigger.onclick = () => run(openNotify);
@@ -332,7 +302,7 @@
         history.push({ old: event.old, newNick: event.newNick });
         nickHistory.set(event.id, history.slice(-50));
         window.renderDreamsNotify?.();
-        if (event.id === notifyNetwork && dialog.open) renderList();
+        if (dialog.open) renderList();
       }
       if (event.type === "presence") {
         const names = currentNicks.get(event.id) || {};
@@ -344,14 +314,14 @@
         current[fold(event.nick)] = event.online;
         states.set(event.id, current);
         window.renderDreamsNotify?.();
-        if (event.id === notifyNetwork && dialog.open) renderList();
+        if (dialog.open) renderList();
       }
       if (event.type === "presence-alert") notify(event.text);
       if (event.type === "status" && event.state === "disconnected") {
         currentNicks.delete(event.id);
         states.delete(event.id);
         window.renderDreamsNotify?.();
-        if (event.id === notifyNetwork && dialog.open) renderList();
+        if (dialog.open) renderList();
       }
     });
   topicSettings();

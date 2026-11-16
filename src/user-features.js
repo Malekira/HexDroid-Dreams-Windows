@@ -230,7 +230,7 @@
     );
     button("Abrir privado", () => choose(id, nick), userPanel);
     button(
-      (profile(id)?.notifyNicks || []).some((n) => fold(n) === fold(nick))
+      NotifyPolicy.entries(config).some(r=>r.list===id&&fold(r.nick)===fold(nick))
         ? "Dejar de seguir conexión"
         : "Seguir conexión",
       async () => {

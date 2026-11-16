@@ -20,8 +20,7 @@
     toggles.push(()=>{const enabled=key==='nickCompletion'?config.settings.nickCompletion?.enabled===true:config.settings.dictionaryEnabled!==false;toggle.textContent=(enabled?'✓ Desactivar':'Activar');toggle.setAttribute('aria-checked',String(enabled));});
   }
   menu.addEventListener('toggle',()=>{if(menu.open){for(const m of document.querySelectorAll('.menubar .menu'))if(m!==menu)m.open=false;update();}else for(const b of popup.querySelectorAll('.appearance-branch'))b.open=false;});
-  const sharedRow=el('label','setting-row','Compartir Notify entre todas las redes'),shared=el('input');shared.type='checkbox';shared.id='shared-notify';sharedRow.append(shared);document.querySelector('[data-panel=layout]').append(sharedRow);
-  shared.onchange=async()=>{if(shared.checked&&!config.settings.sharedNotifyNicks?.length)config.settings.sharedNotifyNicks=[...new Map(config.profiles.flatMap(p=>p.notifyNicks||[]).map(n=>[fold(n),n])).values()];config.settings.sharedNotify=shared.checked;await persist();if(config.profiles[0]&&api.advanced)await api.advanced('presence.sync',{network:config.profiles[0].id});renderSidebar();};
+  action(document.querySelector('[data-panel=layout]'),'Administrar listas de Notify…',()=>window.addDreamsNotifyUser?.());
   const filter=el('select');filter.id='notify-network-filter';filter.setAttribute('aria-label','Red de Notify');document.querySelector('.notify-sidebar-title').insertBefore(filter,$('notify-add-user'));
   filter.onchange=()=>{config.settings.notifyFilter=filter.value;persist().catch(e=>notify(e.message,true));window.renderDreamsNotify?.();};
   const sidebar=$('private-panel'),connections=$('sidebar-connections'),connectionTitle=document.querySelector('.connections-sidebar-title'),notifyTitle=$('notify-add-user').parentElement;
@@ -44,7 +43,7 @@
     const connection=$('connection-button');if(connection){connection.textContent='⏻';connection.title=(active&&network(active.id).state)==='connected'?'Desconectar':'Conectar';connection.setAttribute('aria-label',connection.title);}
     if($('server-button')){$('server-button').textContent='▣';$('server-button').setAttribute('aria-label','Status');$('server-button').title='Status';}
   }
-  function update(){for(const fn of toggles)fn();shared.checked=config.settings.sharedNotify===true;const options=[['active','Red activa'],...config.profiles.map(p=>[p.id,p.name]),['all','Todas']];const signature=JSON.stringify(options);if(filter.dataset.signature!==signature){filter.replaceChildren(...options.map(([value,label])=>{const o=el('option','',label);o.value=value;return o;}));filter.dataset.signature=signature;}filter.value=config.settings.notifyFilter||'active';strip();}
+  function update(){for(const fn of toggles)fn();const options=[['active','Red activa'],...config.profiles.map(p=>[p.id,p.name]),['all','Todas']];const signature=JSON.stringify(options);if(filter.dataset.signature!==signature){filter.replaceChildren(...options.map(([value,label])=>{const o=el('option','',label);o.value=value;return o;}));filter.dataset.signature=signature;}filter.value=config.settings.notifyFilter||'active';strip();}
   const apply=applySettings;applySettings=function(...args){const r=apply(...args);update();return r;};
   const header=renderHeader;renderHeader=function(...args){const r=header(...args);strip();return r;};
   const side=renderSidebar;renderSidebar=function(...args){const r=side(...args);update();drawEntries();return r;};

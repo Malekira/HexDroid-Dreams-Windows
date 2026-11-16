@@ -57,7 +57,7 @@ test("Notify lists are bounded, deduplicated and cannot inject IRC commands", ()
   ]);
   assert.throws(() => normalizeNotify(["Alice\r\nOPER x y"]));
   assert.throws(() => normalizeNotify(["#room"]));
-  assert.throws(() => normalizeNotify(Array(101).fill("Alice")));
+  assert.throws(() => normalizeNotify(Array(2001).fill("Alice")));
 });
 test("Room activity speeds up presence changes without treating PART as a disconnection", () => {
   const f = fixture();

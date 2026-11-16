@@ -395,7 +395,7 @@ test('Notify is alphabetical, has its own add button, and the internal logo stay
  const bar=await page.locator('.menubar').boundingBox(),logo=await page.locator('.brand-logo').boundingBox();expect(logo.y).toBeGreaterThanOrEqual(bar.y);expect(logo.y+logo.height).toBeLessThanOrEqual(bar.y+bar.height);expect(logo.height).toBeLessThanOrEqual(22);
 });
 test('One connected nickname is displayed once when two saved Notify entries follow it',async({page})=>{
- await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{window.getDreamsNotify=()=>[{nick:'Alice',currentNick:'Bob',online:true},{nick:'Bob',online:true}];window.renderDreamsNotify();});await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(1);await expect(page.locator('#sidebar-notify-list')).toHaveText('●Bob');
+ await page.addInitScript(()=>{window.dreams.advanced=async()=>[];});await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{const id=config.profiles[0].id;config.profiles[0].notifyNicks=['Alice','Bob'];window.__emit({id,type:'presence',nick:'Alice',currentNick:'Bob',online:true});window.__emit({id,type:'presence',nick:'Bob',online:true});});await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(1);await expect(page.locator('#sidebar-notify-list')).toContainText('Bob');
 });
 test('Message thumbnails remain visible in compact mode, independent of user-list photos, and can be disabled',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);
@@ -427,8 +427,9 @@ test('Script views refresh in place and notify their owner when closed',async({p
 });
 
 test('Notify opens user actions; WHO and WHOIS stay in the current conversation; disconnect closes windows',async({page})=>{
+ await page.addInitScript(()=>{window.dreams.advanced=async()=>[];});
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);
- await page.evaluate(()=>{window.getDreamsNotify=()=>[{nick:'Alice',online:true}];window.renderDreamsNotify();});
+ await page.evaluate(()=>{const id=config.profiles[0].id;config.profiles[0].notifyNicks=['Alice'];window.__emit({id,type:'presence',nick:'Alice',online:true});});
  await page.getByRole('button',{name:'Notify Alice en línea',exact:true}).click();
  await expect(page.locator('#user-profile')).toContainText('Alice');await expect(page.getByRole('button',{name:'Privado Alice',exact:true})).toHaveCount(0);
  await page.evaluate(()=>{const id=config.profiles[0].id;window.__emit({id,type:'query',target:'*consultas*',kind:'who'});window.__emit({id,type:'message',target:'*consultas*',event:true,text:'Resultado WHO'});});
@@ -721,17 +722,23 @@ test('v29 Ctrl Enter sends once without IRC formatting and keeps permanent style
  await input.fill('Normal');await input.press('Enter');expect(await page.evaluate(()=>window.__sent.at(-1).text)).toContain('\x02');expect(await page.evaluate(()=>config.settings.composerColor)).toBe(4);
  await input.fill('A');await input.press('Shift+Enter');await expect(input).toHaveValue('A\n');
 });
-test('v29 shared Notify retains per-network lists and filters active contacts by network',async({page})=>{
+test('Notify lists keep an offline owner visible through another connection and persist per-nick scope',async({page})=>{
  await page.addInitScript(()=>{window.dreams.advanced=async name=>['presence.status','script.tree.list','notifications.list'].includes(name)?[]:name==='status'?{scripts:[],debug:[]}:{};});
- await page.goto('http://127.0.0.1:4173');await addNetwork(page,'A');await addNetwork(page,'B');
- await page.evaluate(()=>{config.profiles[0].notifyNicks=['Alice'];config.profiles[1].notifyNicks=['Bob'];});
- await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=layout]').click();await page.locator('#shared-notify').check();await page.getByRole('button',{name:'Listo',exact:true}).click();
- expect(await page.evaluate(()=>config.settings.sharedNotifyNicks)).toEqual(['Alice','Bob']);
- await page.locator('#notify-button').click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Carol');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
- expect(await page.evaluate(()=>window.dreamsNotifyNames(config.profiles[0].id))).toContain('Carol');
- await page.evaluate(()=>{window.__emit({id:config.profiles[0].id,type:'presence',nick:'Alice',online:true});window.__emit({id:config.profiles[1].id,type:'presence',nick:'Alice',online:true});});
- await page.locator('#notify-network-filter').selectOption('all');await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(2);
- await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.locator('[data-section=layout]').click();await page.locator('#shared-notify').uncheck();expect(await page.evaluate(()=>config.profiles.map(p=>p.notifyNicks))).toEqual([['Alice'],['Bob']]);
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Hannii');await addNetwork(page,'Dramatiik');
+ const ids=await page.evaluate(()=>config.profiles.map(p=>p.id));
+ await page.locator('#notify-button').click();await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');
+ await page.getByRole('combobox',{name:'Lista de Notify',exact:true}).selectOption(ids[0]);await page.locator('.notify-add').getByRole('combobox',{name:'Compartir Notify',exact:true}).selectOption('server');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
+ expect(await page.evaluate(()=>window.dreamsNotifyNames(config.profiles[1].id))).toContain('Alice');
+ await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+ await page.evaluate(ids=>{window.__emit({id:ids[0],type:'status',state:'disconnected',text:'Desconectado'});window.__emit({id:ids[1],type:'presence',nick:'Alice',online:true});},ids);
+ await page.locator('#notify-network-filter').selectOption(ids[0]);await expect(page.locator('#sidebar-notify-list')).toContainText('Alice');await expect(page.locator('#sidebar-notify-list')).toContainText('Dramatiik');
+ await page.getByRole('button',{name:'Notify Alice en línea',exact:true}).click();expect(await page.evaluate(()=>active.id)).toBe(ids[1]);
+ await page.locator('#notify-button').click();await page.locator('#notify-list').getByRole('combobox',{name:'Compartir Notify',exact:true}).selectOption('connection');
+ expect(await page.evaluate(()=>window.dreamsNotifyNames(config.profiles[1].id))).not.toContain('Alice');await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(0);
+ await page.locator('#notify-list').getByRole('combobox',{name:'Compartir Notify',exact:true}).selectOption('all');
+ await page.getByRole('combobox',{name:'Lista de Notify',exact:true}).selectOption('all');await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Global');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
+ await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();await page.reload();
+ expect(await page.evaluate(()=>config.settings.notifyEntries.map(r=>[r.nick,r.scope]))).toEqual([['Alice','all'],['Global','all']]);
 });
 test('v29 Appearance toggles existing editors and script nodes stay separate from conversations',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.locator('.appearance-menu>summary').click();await page.locator('.appearance-branch>summary').filter({hasText:'Diccionario'}).click();const toggle=page.locator('.appearance-branch').filter({has:page.locator('summary',{hasText:/^Diccionario$/})}).getByRole('menuitemcheckbox');await toggle.click();expect(await page.evaluate(()=>config.settings.dictionaryEnabled)).toBe(false);
@@ -745,4 +752,13 @@ test('v30 Notify header never overlaps its title, network selector or add button
 
 test('connection rejection stays visible in offline Status even with errors filtered out',async({page})=>{
  await page.goto('http://127.0.0.1:4173');await addNetwork(page);await page.evaluate(()=>{config.settings.statusFilters={errors:false,connection:false};const id=active.id;window.__emit({id,type:'connection-error',reason:'G-lined: motivo de prueba',text:'Red · No se pudo conectar: G-lined: motivo de prueba',code:'465',stage:'connect',fatal:true});window.__emit({id,type:'status',state:'disconnected',text:'Desconectado · G-lined: motivo de prueba',reason:'G-lined: motivo de prueba'});});await expect(page.locator('#messages')).toContainText('G-lined: motivo de prueba');await expect(page.locator('#toast')).toContainText('G-lined: motivo de prueba');expect(await page.evaluate(()=>[selected().kind,network(active.id).state])).toEqual(['server','disconnected']);await expect(page.getByRole('button',{name:'Sala #general',exact:true})).toHaveCount(0);
+});
+
+test('Notify shared across different servers identifies each source and clears stale online states',async({page})=>{
+ await page.addInitScript(()=>{window.dreams.advanced=async name=>['presence.status','script.tree.list','notifications.list'].includes(name)?[]:name==='status'?{scripts:[],debug:[]}:{};});
+ await page.goto('http://127.0.0.1:4173');await addNetwork(page,'Uno','one.example');await addNetwork(page,'Dos','two.example');
+ const ids=await page.evaluate(async()=>{const ids=config.profiles.map(p=>p.id);config.settings.notifyEntries=[{nick:'Alice',list:ids[0],scope:'all'}];config.settings.notifyFilter=ids[0];await persist();for(const id of ids)window.__emit({id,type:'presence',nick:'Alice',online:true});return ids;});
+ await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(2);await expect(page.locator('#sidebar-notify-list')).toContainText('Uno');await expect(page.locator('#sidebar-notify-list')).toContainText('Dos');
+ await page.evaluate(id=>window.__emit({id,type:'status',state:'disconnected',text:'Desconectado'}),ids[0]);await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(1);await expect(page.locator('#sidebar-notify-list')).toContainText('Dos');
+ await page.evaluate(id=>window.__emit({id,type:'status',state:'disconnected',text:'Desconectado'}),ids[1]);await expect(page.locator('#sidebar-notify-list .notify-online-row')).toHaveCount(0);
 });

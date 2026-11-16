@@ -132,9 +132,7 @@
   window.renderDreamsNotify = () => {
     const filter=config.settings.notifyFilter||"active";
     const id = filter==='active' ? active?.id||selectedNetworkId : filter;
-    const allOnline = (filter==='all' ? config.profiles : config.profiles.filter(p=>p.id===id))
-      .flatMap(p=>(window.getDreamsNotify?.(p.id)||[]).filter(person=>person.online===true).map(person=>({...person,network:p.id,networkName:p.name})))
-      .sort((a,b)=>(a.currentNick||a.nick).localeCompare(b.currentNick||b.nick,"es",{sensitivity:"base"}));
+    const allOnline=(window.getDreamsNotifyRows?.(id)||[]).filter(person=>person.online===true).sort((a,b)=>(a.currentNick||a.nick).localeCompare(b.currentNick||b.nick,'es',{sensitivity:'base'}));
     const people = new Map();
     for (const person of allOnline) {
       const key = person.network+":"+fold(person.currentNick || person.nick);
@@ -144,7 +142,7 @@
     const online = [...people.values()];
     const signature = JSON.stringify([
       id,
-      online.map((p) => [p.network,p.nick, p.currentNick]),
+      online.map((p) => [p.network,p.networkName,p.host,p.list,p.nick, p.currentNick]),
     ]);
     if (signature === notifyView) return;
     notifyView = signature;
@@ -159,7 +157,7 @@
           ? "Seguimiento de " + person.nick + " → " + nick
           : nick;
       b.setAttribute("aria-label", "Notify " + nick + " en línea");
-      b.append(el("span", "online-dot", "●"), el("span", "", nick+(filter==='all'?" · "+person.networkName:"")));
+      b.append(el("span", "online-dot", "●"), el("span", "", nick+" · "+person.networkName));
       b.onclick = () => window.openDreamsUser?.(id, nick);
       b.oncontextmenu = (e) =>
         contextMenu.show(e, person.nick, [
@@ -167,7 +165,7 @@
           {
             label: "Dejar de seguir conexión",
             action: async () => {
-              await window.followDreamsUser(id, person.nick);
+              await window.removeDreamsNotifyEntry?.(person.list,person.nick);
               window.renderDreamsNotify();
             },
           },
