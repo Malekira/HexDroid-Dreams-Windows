@@ -1,9 +1,10 @@
-# HexDreams IRC 0.33.0 — Windows portable
+# HexDreams IRC 0.34.0 — Windows portable
 
-- Los errores del historial SQLite ya no interrumpen los eventos JOIN/PART ni la recepción de mensajes: las salas conservan su estado correcto y el cuadro de escritura se habilita al ingresar.
-- También se aíslan los errores de historial en WHOIS, redacciones y recuperación de privados retenidos.
-- Al primer fallo se muestra un aviso crítico en Status y se pausan las escrituras automáticas SQLite hasta reiniciar, sin cambiar las preferencias ni repetir el error con cada mensaje. El chat y el historial TXT pueden continuar.
+- El historial usa una carpeta y un archivo exclusivos: `HexDreams-IRC-history/hexdreams-history.sqlite`, dentro de la carpeta de historial seleccionada. Se identifica la base como propia de HexDreams y se rechazan archivos ajenos.
+- Al abrir por primera vez se copian los mensajes de la antigua `history.sqlite`, sin modificarla ni usar su índice FTS5. El nuevo historial genera su propio índice de búsqueda. La copia es transaccional y se realiza una sola vez.
+- Los scripts .hex siguen usando su almacenamiento separado y las funciones controladas del motor, sin acceso directo a SQLite. Los historiales TXT no cambian.
+- Se mantiene la protección de 0.33.0: un fallo de historial no bloquea los eventos de sala ni la escritura del chat.
 
-Esta versión corrige el bloqueo del chat; no repara la corrupción FTS5. No borra datos, no reconstruye índices y no cambia el Bot Espía. Las lecturas del historial dañado pueden seguir mostrando errores y requieren un diagnóstico separado.
+La base anterior se conserva. Si también están dañadas las tablas de mensajes, la copia se cancela sin importar datos parcialmente y se informa del fallo; esos datos requieren recuperación aparte. Esto no es una protección contra otros programas que tengan permisos de acceso a los mismos archivos de Windows.
 
-Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación.
+Extrae todo el ZIP y ejecuta HexDreamsIRC.exe desde su carpeta. No requiere instalación. No cambies la carpeta de historial al actualizar: así se conservan la configuración y el origen de la migración.

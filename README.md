@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.33.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.34.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.33.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.34.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.33.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.34.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -125,3 +125,5 @@ Puedes crear un certificado local y firmar cada copia en tu Windows con [sign-pe
 ## Cambios 0.4.0
 
 Identidad y foto independientes en Editar red; comandos de conexión con `/login`, `/nick` y `/identify` sin raw; árbol de configuración lateral y diálogos uniformes; correcciones de fotos y colores IRC/ANSI extendidos. La foto elegida es local a esa identidad; compartirla en IRC requiere una URL pública y soporte de metadatos. Consulta [las notas](RELEASE-NOTES.md).
+
+El historial SQLite exclusivo se guarda en `HexDreams-IRC-history/hexdreams-history.sqlite`, dentro de la carpeta de historial seleccionada (por defecto, el perfil de HexDreams). Los scripts conservan sus datos aparte. La primera apertura copia los mensajes de `history.sqlite` sin usar su índice de búsqueda ni modificar el archivo anterior; los TXT no cambian. No debe compartirse esta nueva base con otras aplicaciones.
