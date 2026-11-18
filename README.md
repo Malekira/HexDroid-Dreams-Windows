@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.35.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.36.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.35.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.36.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.35.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.36.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -129,3 +129,5 @@ Identidad y foto independientes en Editar red; comandos de conexión con `/login
 El historial SQLite exclusivo se guarda en `HexDreams-IRC-history/hexdreams-history.sqlite`, dentro de la carpeta de historial seleccionada (por defecto, el perfil de HexDreams). Los scripts conservan sus datos aparte. La primera apertura copia los mensajes de `history.sqlite` sin usar su índice de búsqueda ni modificar el archivo anterior; los TXT no cambian. No debe compartirse esta nueva base con otras aplicaciones.
 
 Notify permite guardar cada nick en una lista de conexión o en Todas, y elegir si se comprueba solo en la conexión propietaria, en otras con la misma dirección de servidor o en todos los servidores. Se puede consultar una lista cuyo perfil esté desconectado usando las conexiones autorizadas que sigan activas. El panel identifica la conexión observadora; sin observadores disponibles el estado queda sin confirmar.
+
+Salas → Ver bans consulta bans, excepciones, invitaciones, silencios y AKICK del servicio indicado. El listado de salas permite agregar/quitar favoritos. Los scripts pueden declarar opciones de menú con `; @menu Salas | Etiqueta | alias argumentos` y ocultar helpers con `alias -l nombre` o `; @internal`. Ver [guía de menús y moderación](docs/CAMBIOS-0.36.0.md).

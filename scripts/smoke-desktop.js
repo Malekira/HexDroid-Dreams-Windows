@@ -22,7 +22,7 @@ async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dreams-desktop-'));
   const sockets = new Set(), received = [];
   const server = net.createServer(socket => {
-    let avatar='';sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.setEncoding('utf8'); let buffer = '';
+    let avatar='',roomBan=true;sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.setEncoding('utf8'); let buffer = '';
     socket.on('data', data => {
       buffer += data; let i;
       while ((i = buffer.indexOf('\r\n')) >= 0) {
@@ -36,6 +36,9 @@ async function run() {
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 332 Dreamer #dreams :Topic de prueba\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
+        if(line==='MODE #dreams +b')socket.write((roomBan?':local 367 Dreamer #dreams *!*@bad.host Oper!ident@staff.host 1700000000\r\n':'')+':local 368 Dreamer #dreams :End of ban list\r\n');
+        if(line==='MODE #dreams -b *!*@bad.host'){roomBan=false;socket.write(':Dreamer!u@local MODE #dreams -b *!*@bad.host\r\n');}
+
         if (line === 'WHOIS Absent Absent') socket.write(':local 401 Dreamer Absent :No such nick\r\n');
         if (line.startsWith('AWAY :'))socket.write(':local 306 Dreamer :You have been marked away\r\n');
         if (line==='AWAY')socket.write(':local 305 Dreamer :You are no longer away\r\n');
@@ -349,6 +352,10 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect(page.locator('.room-result>button').first()).toHaveText('#alpha · 3');
     await page.locator('#join-channel').fill('lph');
     await expect(page.locator('.room-result')).toHaveCount(1);
+    await page.locator('.room-result').getByRole('button',{name:'Agregar a favoritos',exact:true}).click();
+    expect((await page.evaluate(()=>window.dreams.load())).settings.favoriteRooms.some(r=>r.name==='#alpha')).toBe(true);
+    await page.locator('.room-result').getByRole('button',{name:'Quitar de favoritos',exact:true}).click();
+
     await page.locator('#join-dialog .dialog-header [data-close]').click();
     await page.getByRole('button',{name:'Apariencia de sala',exact:true}).click();
     await page.getByLabel('Fondo de sala',{exact:true}).fill('#ffffff');
@@ -533,6 +540,29 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
       await expect(page.locator('#messages')).toContainText('TrackThird comparte host con estos nicks anteriores: TrackOld, TrackNew.');
     }
     await page.evaluate(id=>window.dreams.advanced('script.remove',{id}),tracker.id);
+
+    console.log('Prueba Electron: bans completos, retirada autorizada y menú de script con alias interno');
+    await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
+    for(const socket of sockets)socket.write(':local 353 Dreamer = #dreams :@Dreamer!u@local @Alice!ident@host\r\n');
+    await page.evaluate(()=>window.openDreamsBans(config.profiles[0].id,'#dreams'));
+    await expect(page.locator('#bans-dialog .ban-row')).toContainText('Oper!ident@staff.host');
+    await page.locator('#bans-dialog').getByRole('button',{name:'Quitar',exact:true}).click();
+    await expect.poll(()=>received.includes('MODE #dreams -b *!*@bad.host')).toBe(true);
+    await expect(page.locator('#bans-dialog .ban-row')).toHaveCount(0);
+    await page.locator('#bans-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+    const menuScript=await page.evaluate(()=>window.dreams.advanced('script.save',{name:'Menu-native.hex',source:'; @menu Salas | Menú nativo de prueba | helper\n; @internal\nalias helper { echo $chan Menú nativo ejecutado }\nalias visible { echo Comando público }'}));
+    expect(menuScript.error).toBeUndefined();
+    expect((await page.evaluate(()=>window.dreams.advanced('script.commands'))).some(c=>c.name==='helper')).toBe(false);
+    await page.locator('.menubar nav>.menu>summary').filter({hasText:/^Salas$/}).click();await page.getByRole('button',{name:'Menú nativo de prueba',exact:true}).click();
+    await expect(page.locator('#messages')).toContainText('Menú nativo ejecutado');
+    await page.evaluate(id=>window.dreams.advanced('script.configure',{id,enabled:false}),menuScript.id);
+    await expect(page.locator('.script-menu-item').filter({hasText:'Menú nativo de prueba'})).toHaveCount(0);
+    console.log('Prueba Electron: recuperar Status desde los eventos reales de la sesión');
+    await page.evaluate(()=>{const id=config.profiles[0].id,c=conversation(id,'*');c.messages=[];c.revision=(c.revision||0)+1;choose(id,'*');});
+    await expect(page.locator('#messages')).toContainText('Conectado como Dreamer');
+    await expect(page.locator('#messages')).not.toContainText('Conecta esta red');
+    await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
+
 
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();

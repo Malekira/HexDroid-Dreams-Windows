@@ -73,6 +73,7 @@ class ScriptManager extends EventEmitter {
     )
       throw new Error("Script o permisos no válidos.");
     new HexVM().install([s]);
+    require("./menu-catalog").menuCatalog(s.source);
   }
   save() {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
@@ -157,8 +158,15 @@ class ScriptManager extends EventEmitter {
       id: s.id,
       name: s.name,
       enabled: s.enabled,
-      commands: cached.commands,
+      commands: cached.commands.filter(c=>!c.internal),
     };
+  }
+  menus(){return this.scripts.filter(s=>s.enabled).flatMap(s=>require('./menu-catalog').menuCatalog(s.source).map(m=>({...m,script:s.id,scriptName:s.name})));}
+  async menuRun(id,key,fields){
+    const item=this.menus().find(m=>m.script===id&&m.key===key);
+    if(!item)throw Error('La opción ya no está disponible o el script está desactivado.');
+    const args=item.args.map(a=>a.replace(/\{(nick|sala|red)\}/g,(_,k)=>({nick:fields.nick||'',sala:fields.target||'',red:fields.network||''})[k]));
+    return this.alias(item.alias,{...fields,__onlyScript:id},args);
   }
   completions() {
     const byName = new Map();

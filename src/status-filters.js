@@ -52,6 +52,7 @@
     if (m.eventType === "nick") return "nicks";
     if (["join", "part", "quit", "kick", "mode"].includes(m.eventType))
       return "channels";
+    if(m.statusCategory==='queries')return 'queries';
     const code = Number(m.code);
     if (code >= 400) return "errors";
     if ([372, 375, 376, 422].includes(code)) return "motd";
@@ -68,9 +69,16 @@
       group = Object.keys(groups).find((g) =>
         Object.hasOwn(groups[g].items, key),
       );
+    if(key==='queries'&&Object.hasOwn(filters,key))return filters[key]!==false;
     return filters[group] !== false && filters[key] !== false;
   }
+  function emptyText(state,count,nick=''){
+    if(state==='connected')return (nick?'Conectado como '+nick+'. ':'Conectado. ')+(count?'Los mensajes de Status están ocultos por los filtros.':'Aquí aparecerán los próximos eventos del servidor.');
+    if(state==='connecting')return 'Conexión en curso. Aquí aparecerá la actividad del servidor.';
+    return count?'No hay mensajes visibles. Revisá los filtros de Status.':'Conecta esta red para ver su actividad.';
+  }
   return {
+    emptyText,
     groups,
     keys: [...new Set([...Object.keys(groups), ...keys])],
     category,

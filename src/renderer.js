@@ -366,6 +366,8 @@ function renderMessages(preserveScroll = false) {
     config.settings.highlightMentions,
     config.settings.timestamps,
     config.settings.showEvents,
+    config.settings.statusFilters,
+    network(active.id).state,
     c.muted,
   ]);
   if (signature === lastMessageView) return;
@@ -378,6 +380,7 @@ function renderMessages(preserveScroll = false) {
   const anchorId = anchor?.dataset.messageId,
     anchorOffset = anchor ? anchor.offsetTop - list.scrollTop : 0;
   lastMessageView = signature;
+  if(c.kind==='server'&&!c.messages.length&&network(active.id).state==='connected')window.recoverDreamsStatus?.(active.id,c);
   const context = messageRenderContext(active.id, c),
     messageNodes = [],
     eventNodes = [];
@@ -400,10 +403,11 @@ function renderMessages(preserveScroll = false) {
         query
           ? "No hay mensajes que coincidan."
           : c.kind === "server"
-            ? "Conecta esta red para ver su actividad."
+            ? DreamsStatus.emptyText(network(active.id).state,c.messages.length,network(active.id).nick)
             : "Este es el comienzo de la conversación.",
       ),
     );
+  if(c.kind==='server'&&!visible.length&&c.messages.length){const review=el('button','secondary status-review-filters','Revisar filtros de Status');review.onclick=()=>window.openDreamsStatusSettings?.();messageNodes.push(review);}
   let day = "";
   for (const m of visible) {
     const date = new Date(m.time),
@@ -853,14 +857,14 @@ api.onEvent(event => {
   switch (event.type) {
     case 'status':
       n.state = event.state; if (event.nick) n.nick = event.nick; if (event.connection) n.connection = event.connection;
-      addMessage(id, '*', { event: true,statusCategory:'connection', text: event.text });
+      addMessage(id, '*', { event: true,statusCategory:'connection', text: event.text,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId });
       if(event.state==='disconnected'){n.ircOper=false;n.privatePresence={};n.deliveryStates=new Map();}
       if(event.state==='connected'&&!active&&id===(selectedNetworkId||config.profiles[0]?.id))choose(id,'*',false);
       if (event.state === 'disconnected') {const status=event.reason?n.conversations.get(fold('*')):null,wasActive=active?.id===id;n.conversations.clear();if(status)n.conversations.set(fold('*'),status);n.lastTarget='*';if(wasActive){active=null;workspace.active=null;$('message-input').value='';selectedMessages.clear();}window.closeDreamsNetworkWindows?.(id);if(status&&(wasActive||!active))choose(id,'*',false);persist().catch(()=>{});}
       break;
-    case 'connection-error': addMessage(id,'*',{event:true,error:true,critical:true,statusCategory:'errors',code:event.code,text:event.text});notify(event.text,true);break;
-    case 'problem': addMessage(id, '*', { event: true, error: true, critical:event.historyFailure===true, text: event.text }); notify(event.text, true); break;
-    case 'server': addMessage(id,event.target||'*',{event:true,statusCategory:event.error?'errors':event.code?'commands':'server',code:event.code,text:event.text,error:event.error,time:event.time||new Date().toISOString()}); break;
+    case 'connection-error': addMessage(id,'*',{event:true,error:true,critical:true,statusCategory:'errors',code:event.code,text:event.text,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId});notify(event.text,true);break;
+    case 'problem': addMessage(id, '*', { event: true, error: true, critical:event.historyFailure===true, text: event.text,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId }); notify(event.text, true); break;
+    case 'server': addMessage(id,event.target||'*',{event:true,statusCategory:event.error?'errors':event.whois?'queries':event.code?'commands':'server',code:event.code,text:event.text,error:event.error,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId}); break;
     case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'presence': {

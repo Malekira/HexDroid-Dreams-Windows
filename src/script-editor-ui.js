@@ -109,6 +109,13 @@
     const data = await call("script.openFile");
     if (!data.cancelled) load(data);
   });
+  button('Ayuda de menús',()=>info('Menús y comandos internos de scripts',[
+    'Agregá una línea: ; @menu Salas | Saludar | saludar {sala}',
+    'El último campo es un alias del mismo script y sus argumentos. También podés usar {nick} y {red}. La opción aparece al activar el script y se quita al desactivarlo.',
+    'Menús: Archivo, Ver, Comandos, Salas, Scripts, Ayuda, Apariencia y Ventanas.',
+    'Marcá un alias interno con alias -l nombre { ... } o con ; @internal en la línea anterior. Se puede ejecutar desde menús y otros alias, pero no aparece en Ayuda ni en sugerencias.',
+    'Usá ; @public antes de un alias público si su nombre tiene un prefijo que se reconoce como interno.',
+  ]));
   button("Validar", async () => {
     await call("script.validate", { source: source.value });
     feedback.textContent = "Sintaxis válida. No se ejecutó el script.";

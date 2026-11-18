@@ -24,6 +24,9 @@ class Runtime {
       saveConfig,
       emit,
     });
+    this.statusActivity=new (require('./status-activity').StatusActivity)();
+    const deliver=this.emit;
+    this.emit=(id,type,data)=>{const saved=this.statusActivity.record(id,type,data);deliver(id,type,saved?{...data,time:saved.time,statusEventId:saved.statusEventId}:data);};
     this.memory = new Map();
     this.cryptoAdapters = new Map();
     this.queues = new Map();
@@ -87,8 +90,8 @@ class Runtime {
     });
     this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,data);this.emit(id,"message",data);}});
     this.scripts.on("changed",()=>this.scriptConversations.clean());
-    this.scripts.on("ready",()=>{for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
-    this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions()}));
+    this.scripts.on("ready",()=>{this.emit(null,"script-commands",{commands:this.scripts.completions(),menus:this.scripts.menus()});for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
+    this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions(),menus:this.scripts.menus()}));
     this.scriptMedia = new ScriptMedia({
       web: this.web,
       pick: (o) => this.pick(o),
@@ -636,6 +639,9 @@ class Runtime {
         if(!cert||!p||cert.fingerprint!==data.fingerprint||cert.host!==p.host||cert.port!==p.port||!p.tls)throw new Error('La solicitud de certificado ya no corresponde a esta red.');
         this.trustedCertificates[id]={host:cert.host,port:cert.port,fingerprint:cert.fingerprint,pem:cert.pem};
         fs.writeFileSync(path.join(this.directory,'server-certificates.json'),JSON.stringify(this.trustedCertificates),{mode:0o600});this.pendingCertificates.delete(id);this.sessions.disconnect(id);this.connect({id});return{ok:true};}
+      case 'bans.list':require('./moderation').request(client,data.channel,data.mode||'b',data.service||'ChanServ');return{ok:true,canRemove:require('./moderation').canModerate(client,data.channel)};
+      case 'bans.remove':require('./moderation').remove(client,data);return{ok:true};
+      case 'user.cached':return client?.userStates.get(require('../irc').fold(data.nick))?.whoisTime||{};
       case 'user.whois':
         if(!client?.ready)throw new Error('Conecta esta red.');require('../irc').token(data.nick,'Apodo');client.request('WHOIS '+data.nick+' '+data.nick,'*consultas*');return{ok:true};
       case 'rooms.list':
@@ -739,6 +745,7 @@ class Runtime {
           crypto: this.crypto.targets,
           debug: this.scripts.debug,
         };
+      case 'status.activity':return{messages:this.statusActivity.snapshot(id)};
       case "protocol.read":
         return this.protocolLog.read();
       case "history.folder": {
@@ -889,6 +896,8 @@ class Runtime {
         return { ok: true };
       case "script.reload":await this.scripts.restart();return{ok:true};
       case 'script.list':return this.scripts.list();
+      case 'script.menus':return this.scripts.menus();
+      case 'script.menu.run':return this.scripts.menuRun(data.script,data.key,{network:id,target:data.target||'*',buffer:data.target||'*',chan:data.target||'*',nick:data.nick||'',me:client?.nick||''});
       case 'script.help':return this.scripts.help(data.id);
       case 'script.commands':return this.scripts.completions();
       case 'script.read':return this.scripts.read(data.id);

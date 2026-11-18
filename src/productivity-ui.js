@@ -35,7 +35,7 @@
       body.append(search, list);
       function draw() {
         list.replaceChildren();
-        for (const c of data.commands || []) {
+        for (const c of (data.commands || []).filter(c=>!c.internal)) {
           if (!fold(c.name + " " + c.description).includes(fold(search.value)))
             continue;
           const row = el("article", "script-help-command");
@@ -84,7 +84,7 @@
     lastFetch = Date.now();
     try {
       const rows = await call("script.commands");
-      commands = (Array.isArray(rows) ? rows : []).map((c) => ({
+      commands = (Array.isArray(rows) ? rows : []).filter(c=>!c.internal).map((c) => ({
         name: "/" + c.name,
         description: c.description,
         kind: "Script · " + c.script,
@@ -294,7 +294,7 @@
   api.onEvent((event) => {
     if (event.type === "script-commands") {
       lastFetch = 0;
-      commands = (event.commands || []).map((c) => ({
+      commands = (event.commands || []).filter(c=>!c.internal).map((c) => ({
         name: "/" + c.name,
         description: c.description,
         kind: "Script · " + c.script,

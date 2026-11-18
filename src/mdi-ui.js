@@ -305,6 +305,8 @@
         c.messages.at(-1),
         c.muted,
         network(w.id).avatarRevision,
+        s.statusFilters,
+        network(w.id).state,
       ]);
     if (w.contentKey === contentKey) return;
     w.contentKey = contentKey;
@@ -358,6 +360,7 @@
       row.querySelector(".message-text")?.classList.add("mdi-text");
       destination.push(row);
     }
+    if(c.kind==='server'&&!messageNodes.length){messageNodes.push(el('div','event-message',DreamsStatus.emptyText(network(w.id).state,c.messages.length,network(w.id).nick)));if(c.messages.length){const review=el('button','secondary status-review-filters','Revisar filtros de Status');review.onclick=()=>window.openDreamsStatusSettings?.();messageNodes.push(review);}}
     window.syncDreamsMessageChildren(messages, messageNodes);
     window.syncDreamsMessageChildren(events, eventNodes);
     if (c.follow && s.autoScroll !== false)

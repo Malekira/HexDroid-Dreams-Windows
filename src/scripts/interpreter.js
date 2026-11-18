@@ -266,7 +266,7 @@ class HexVM {
       const tree = parse(script.source);
       this.scripts.set(script.id, script);
       for (const node of tree) {
-        const alias = /^alias\s+([a-z][a-z0-9_.-]*)$/i.exec(node.header);
+        const alias = /^alias\s+(?:-l\s+)?([a-z][a-z0-9_.-]*)$/i.exec(node.header);
         if (alias) {
           if (!node.body) throw new Error("Alias sin bloque.");
           const entry = { ...node, owner: script.id };

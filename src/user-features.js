@@ -87,6 +87,7 @@
   userPanel.hidden = true;
   $("users-panel").append(userPanel);
   let viewing = null;
+  window.getDreamsProfileContext=()=>userPanel.hidden?null:viewing;
   function closeProfile() {
     if (whoisWindow.dialog.open) whoisWindow.dialog.close();
     $("users-panel").append(userPanel);
@@ -249,7 +250,13 @@
     ))
       actions.append(b);
     userPanel.append(actions);
-    if (viewing.floating) userPanel.append(list);
+    if (viewing.floating) {
+      userPanel.append(list);
+      if(details.lines?.length){const full=el('details','whois-full'),head=el('summary','','Respuesta WHOIS completa'),text=el('pre');head.title='Todos los datos enviados por el servidor';text.textContent=details.lines.join('\n');full.append(head,text);userPanel.append(full);}
+    } else if(details.idle){userPanel.append(el('p','muted','Inactividad: '+details.idle),el('small','muted','Dato de la última consulta WHOIS'+(details.sampledAt?' · '+new Date(details.sampledAt).toLocaleTimeString():'')));}
+    const room=selected()?.kind==='channel'&&active?.id===id?selected().name:null;
+    if(room){const ban=button('Ver / quitar bans',()=>window.openDreamsBans?.(id,room,nick,details),userPanel);ban.classList.add('profile-moderation');}
+
   }
   window.refreshDreamsUserPhoto = () => {
     if (!viewing) return;
@@ -276,6 +283,7 @@
     document.querySelector(".user-search").hidden = true;
     document.querySelector(".users-hint").hidden = true;
     showProfile();
+    if(!options.floating&&api.advanced)call('user.cached',{network:id,nick}).then(timing=>{if(viewing?.id===id&&fold(viewing.nick)===fold(nick)){Object.assign(viewing.details,timing);showProfile();}}).catch(()=>{});
     if (options.floating && options.request !== false)
       call("user.whois", { network: id, nick }).catch((e) => {
         if (viewing?.id === id && viewing.nick === nick) {
@@ -830,6 +838,14 @@
           row,
         );
       b.title = "Unirse a " + r.name;
+      const favorite=(config.settings.favoriteRooms||[]).some(f=>f.network===roomNetwork&&fold(f.name)===fold(r.name));
+      button(favorite?'Quitar de favoritos':'Agregar a favoritos',async()=>{
+        const before=config.settings.favoriteRooms||[];
+        config.settings.favoriteRooms=favorite?before.filter(f=>!(f.network===roomNetwork&&fold(f.name)===fold(r.name))):[...before,{network:roomNetwork,name:r.name}];
+        try{await persist();}catch(e){config.settings.favoriteRooms=before;throw e;}
+        renderRooms();renderSidebar();renderHeader();
+      },row);
+
       const topic = el("div", "room-result-topic");
       DreamsFormatting.render(topic, r.topic);
       row.append(topic);
@@ -902,6 +918,7 @@
       ) {
         const d = viewing.details,
           p = event.params;
+        d.lines||=[];if(d.lines.length<200)d.lines.push(event.code+' · '+(event.raw||[event.nick,...p].join(' ')));
         switch (event.code) {
           case "311":
             Object.assign(d, {

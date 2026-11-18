@@ -617,7 +617,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         });
       }
       if (
-        [
+        (/^\d{3}$/.test(c)&&this.pendingWhois.has(fold(p[1]||"")))||[
           "311",
           "312",
           "313",
@@ -634,6 +634,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           nick: p[1],
           code: c,
           params: p.slice(2),
+          raw: p.slice(1).join(" "),
           ...(c === "311"
             ? { realName: require("./avatar-policy").displayRealName(p[5]) }
             : {}),
@@ -675,6 +676,14 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           filehost: this.filehost,
           networkIcon: this.networkIcon,
         });
+      }
+      if(c==='311'){
+        const state={...(this.userStates.get(fold(p[1]))||{}),ident:p[2],host:p[3]};this.userStates.set(fold(p[1]),state);
+      }
+      if(c==='317'){
+        const timing={...require('../whois-time').parse317(p.slice(2)),sampledAt:new Date().toISOString()};
+        this.userStates.set(fold(p[1]),{...(this.userStates.get(fold(p[1]))||{}),whoisTime:timing});
+        this.emit('user-state',{nick:p[1],whoisTime:timing});
       }
       if (c === "761" && p.length >= 5) {
         const nick = String(p[1]).split("!")[0],
@@ -723,6 +732,9 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         this.userStates.delete(fold(m.nick));
         if (old) this.userStates.set(fold(p[0]), old);
       }
+      const moderation=require('./moderation');
+      const restriction=moderation.decode(m)||moderation.serviceReply(this,m);
+      if(restriction)this.emit('ban-list',{...restriction,canRemove:moderation.canModerate(this,restriction.channel)});
       if (c === "CAP") {
         this.capabilitiesMessage(m);
         this.syncAvatars();
@@ -1105,6 +1117,10 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
             pending: false,
             text: data.text,
           });
+      }
+      if(type==='server'&&m&&m.command==='317'){
+        const timing=require('../whois-time').parse317(m.params.slice(2));
+        data={...data,text:data.text+ (timing.idle?' · Inactividad: '+timing.idle:'')+(timing.connectedAt?' · Conectado desde: '+timing.connectedAt+' · Tiempo conectado: '+timing.connectedFor:'')};
       }
       if (type === "server" && m && m.command === "318")
         this.pendingWhois.delete(fold(m.params[1] || ""));

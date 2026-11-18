@@ -6,12 +6,12 @@ function catalog(source) {
     lines = source.split(/\r?\n/),
     out = [];
   for (const node of tree) {
-    const alias = /^alias\s+([a-z][a-z0-9_.-]*)$/i.exec(node.header);
+    const alias = /^alias\s+(?:-l\s+)?([a-z][a-z0-9_.-]*)$/i.exec(node.header);
     if (!alias) continue;
     const name = alias[1],
       escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
       index = lines.findIndex((line) =>
-        new RegExp("^\\s*alias\\s+" + escaped + "(?:\\s|\\{)", "i").test(line),
+        new RegExp("^\\s*alias\\s+(?:-l\\s+)?" + escaped + "(?:\\s|\\{)", "i").test(line),
       );
     let comments = [];
     for (let i = index - 1; i >= 0 && i >= index - 8; i--) {
@@ -33,7 +33,7 @@ function catalog(source) {
         break;
       }
     }
-    const internal = /^(?:sw_|ds_|hdg_|pv\d+\.|[a-z]+\.)/i.test(name),
+    const internal = /^alias\s+-l\b/i.test(node.header)||comments.some(c=>/^@internal\b/i.test(c))||(!comments.some(c=>/^@public\b/i.test(c))&& /^(?:sw_|ds_|hdg_|pv\d+\.|[a-z]+\.)/i.test(name)),
       actions = [];
     function walk(nodes) {
       for (const n of nodes || []) {
@@ -51,7 +51,7 @@ function catalog(source) {
         .trim();
     }
     if (!description)
-      description = comments
+      description = comments.filter(c=>!/^@(?:internal|public|menu)\b/i.test(c))
         .join(" ")
         .replace(/[-=]{3,}/g, "")
         .trim();
