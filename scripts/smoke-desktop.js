@@ -99,6 +99,8 @@ async function run() {
     await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
     await page.getByRole('textbox',{name:'Nick para Notify',exact:true}).fill('Alice');await page.locator('#notify-dialog').getByRole('button',{name:'Añadir',exact:true}).click();
     await expect(page.locator('#notify-list')).toContainText('En línea');
+    await page.getByRole('checkbox',{name:'Mostrar eventos en un privado',exact:true}).check();
+
     const notifyWhoisBefore=received.filter(line=>line.startsWith('WHOIS ')).length;await page.locator('#notify-list').getByRole('button',{name:'Alice',exact:true}).click();await expect(page.locator('#user-profile')).toBeVisible();await expect(page.locator('#user-profile h3')).toHaveText('Alice');expect(received.filter(line=>line.startsWith('WHOIS ')).length).toBe(notifyWhoisBefore);await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
 
     await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toBeVisible();
@@ -107,7 +109,11 @@ async function run() {
     await expect(page.locator('#notify-list')).toContainText('Desconectado');
     await expect(page.getByRole('button',{name:'Notify Alice en línea',exact:true})).toHaveCount(0);
     await expect.poll(()=>app.evaluate(()=>global.__notifyBeeps)).toBe(1);
+    expect(await page.evaluate(()=>conversation(config.profiles[0].id,'*notify*').messages.some(m=>m.text.includes('Alice se desconectó')))).toBe(true);
+
     await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
+    await page.getByRole('button',{name:'Privado *notify*',exact:true}).click();await expect(page.locator('#conversation-title')).toHaveText('Notify');await expect(page.locator('#message-input')).toBeDisabled();await expect(page.locator('#messages')).toContainText('Alice se desconectó');await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
+
     await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
     await page.locator('#notify-list .notify-row').filter({hasText:'Alice'}).getByRole('button',{name:'WHOIS',exact:true}).click();
     await expect(page.locator('#whois-profile-dialog')).toContainText('Alice Test');

@@ -202,7 +202,7 @@
     const label = el("label", "checkbox-label"),
       input = el("input");
     input.type = "checkbox";
-    input.checked = config.settings[key] !== false;
+    input.checked = key==='notifyPrivateLog'?config.settings[key]===true:config.settings[key] !== false;
     input.setAttribute("aria-label", text);
     input.onchange = () => {
       config.settings[key] = input.checked;
@@ -249,6 +249,8 @@
     const list = el("div", "notify-list");
     list.id = "notify-list";
     body.append(list);
+    option("Mostrar eventos en un privado", "notifyPrivateLog");
+    action(body,"Abrir registro Notify",()=>{dialog.close();choose(notifyNetwork==='all'?active.id:notifyNetwork,'*notify*');});
     option("Avisar cambios de conexión", "notifyPresence");
     option("Avisar también desconexiones", "notifyPresenceOffline");
     option("Avisar cambios de nick", "notifyNickChanges");

@@ -389,7 +389,7 @@ function renderMessages(preserveScroll = false) {
       (c.kind!=="server"||!window.DreamsStatus||DreamsStatus.visible(m,config.settings.statusFilters)) &&
       (m.eventType !== "clones" || config.settings.showClones !== false) &&
       (!m.event ||
-        c.kind === "queries" || c.kind === "server" || m.eventType==="presence" ||
+        c.kind === "queries" || c.kind === "server" || c.kind==='notify' || m.eventType==="presence" ||
         config.settings.showEvents ||
         m.error) &&
       true,
@@ -550,7 +550,7 @@ function renderHeader() {
   applyComposerStyle();
   const p = profile(active?.id||selectedNetworkId||config.profiles[0]?.id), n = p && network(p.id), c = selected();
   const connection = n?.state !== 'disconnected' && n?.connection || p;
-  $('conversation-title').textContent = c ? c.name === '*' ? 'Status' : c.kind==='queries'?'WHOIS / WHO':c.name : 'Bienvenido a HexDreams IRC';
+  $('conversation-title').textContent = c ? c.name === '*' ? 'Status' : c.kind==='queries'?'WHOIS / WHO':c.kind==='notify'?'Notify':c.name : 'Bienvenido a HexDreams IRC';
   $('channel-symbol').textContent = c ? c.name === '*' ? '◈' : /^[#&+!]/.test(c.name) ? '#' : '◌' : '✦';
   $('conversation-subtitle').hidden = !config.settings.showTopic || c?.kind !== 'channel' || !c.topic;
   const topicDivider=$('topic-height-resizer');if(topicDivider)topicDivider.hidden = $('conversation-subtitle').hidden;
@@ -560,11 +560,11 @@ function renderHeader() {
   $('connection-button').disabled = !p;
   $('connection-button').textContent = n?.state === 'connected' ? 'Desconectar' : n?.state === 'connecting' ? 'Cancelar' : 'Conectar';
   $('join-button').disabled = n?.state !== 'connected';
-  const canSend = n?.state === 'connected' && c && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
+  const canSend = n?.state === 'connected' && c && c.kind!=='notify' && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
   $('message-input').disabled = !canSend; $('send-button').disabled = !canSend;
   $('message-input').maxLength = active?.target === '*' ? 65534 : 10000;
   for (const button of document.querySelectorAll('#composer .format-bar button')) button.disabled = !canSend;
-  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : !canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
+  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : c?.kind==='notify'?'Registro local de Notify · Solo lectura':!canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;
@@ -865,6 +865,7 @@ api.onEvent(event => {
     case 'connection-error': addMessage(id,'*',{event:true,error:true,critical:true,statusCategory:'errors',code:event.code,text:event.text,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId});notify(event.text,true);break;
     case 'problem': addMessage(id, '*', { event: true, error: true, critical:event.historyFailure===true, text: event.text,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId }); notify(event.text, true); break;
     case 'server': addMessage(id,event.target||'*',{event:true,statusCategory:event.error?'errors':event.whois?'queries':event.code?'commands':'server',code:event.code,text:event.text,error:event.error,time:event.time||new Date().toISOString(),statusEventId:event.statusEventId}); break;
+    case 'notify-log': addMessage(id,'*notify*',{...event,event:true,eventType:'notify',activity:true});break;
     case 'query': conversation(id,event.target);if(event.whois)window.openDreamsWhois?.(id,event.whois,{request:false});break;
     case 'modes': conversation(id,event.target).modes = event.text; break;
     case 'presence': {

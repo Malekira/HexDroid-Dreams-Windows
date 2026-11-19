@@ -248,6 +248,7 @@ class Runtime {
         JSON.stringify(this.sts),
       );
     }
+    if(type==='presence'||type==='presence-nick'){const feed=require('./notify-feed').entry(this.getConfig(),id,type,data);if(feed)this.emit(id,'notify-log',feed);}
     if(type==='presence-nick'&&!data.privateOnly){
       const s=this.getConfig().settings;
       if(s.notifications!==false&&s.notifyPresence!==false&&s.notifyNickChanges!==false&&!(s.mutedUsers?.[id]||[]).some(n=>[data.nick,data.old,data.newNick].some(name=>require('../irc').fold(n)===require('../irc').fold(name)))){
@@ -401,6 +402,7 @@ class Runtime {
     if (settings.flashOnMention) w?.flashFrame(true);
   }
   async send({ id, target, text }) {
+    if(target==='*notify*')throw new Error('Notify es un registro local de solo lectura.');
     if(target==='*consultas*'&&!text.startsWith('/'))throw new Error('Usa /whois nick o /who nick en la conversación de consultas.');
     const ignore = /^\/(ignore|unignore) +([^\s,]+)$/i.exec(text);
     if (ignore) {

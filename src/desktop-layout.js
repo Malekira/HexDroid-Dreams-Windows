@@ -62,6 +62,7 @@
   );
   sidebar.setAttribute("aria-label", "Notify y conversaciones");
   function node(c, kind) {
+    if(c.kind==='notify')kind='private';
     const id = active.id;
     const row = el(
         "div",
@@ -76,7 +77,7 @@
       b = el(
         "button",
         kind === "private" ? "conversation-name" : "tree-name",
-        c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.name,
+        c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.name,
       );
     b.type = "button";
     b.setAttribute(
@@ -88,7 +89,7 @@
           : "Consulta ") + c.name,
     );
     b.replaceChildren(
-      el("span", "tree-label", c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.name),
+      el("span", "tree-label", c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.name),
     );
     row.dataset.target = fold(c.name);
     row.dataset.network = id;
@@ -212,7 +213,7 @@
       query = fold($("search").value);
     const rooms = all.filter((c) => c.kind === "channel"),
       privates = all
-        .filter((c) => c.kind === "private")
+        .filter((c) => c.kind === "private"||c.kind==='notify')
         .sort((a, b) =>
           a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
         );

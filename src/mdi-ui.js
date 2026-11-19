@@ -343,7 +343,7 @@
         (m.event &&
           !s.showEvents &&
           c.kind !== "queries" &&
-          c.kind !== "server" &&
+          c.kind !== "server" && c.kind!=='notify' &&
           m.eventType !== "presence" &&
           !m.error) ||
         (m.eventType === "clones" && s.showClones === false)
@@ -493,9 +493,9 @@
     input.spellcheck = true;
     input.lang = "es";
     input.setAttribute("aria-label", "Escribir en " + c.name);
-    input.placeholder = "Mensaje a " + c.name + "…";
+    input.placeholder = c.kind==='notify'?'Registro local de Notify · Solo lectura':"Mensaje a " + c.name + "…";
     input.disabled =
-      n.state !== "connected" || (c.kind === "channel" && !c.joined);
+      c.kind==='notify' || n.state !== "connected" || (c.kind === "channel" && !c.joined);
     send.type = "submit";
     send.setAttribute("aria-label", "Enviar a " + c.name);
     send.disabled = input.disabled;
@@ -672,7 +672,7 @@
         w.host.style.background =
           config.settings.roomAppearance?.windowBackground || "var(--bg)";
         w.title.textContent =
-          (c.kind === "server" ? "Status" : c.name) +
+          (c.kind === "server" ? "Status" : c.kind==='notify'?'Notify':c.name) +
           (c.modes ? " " + c.modes : "") +
           " · " +
           (profile(id)?.name || "");

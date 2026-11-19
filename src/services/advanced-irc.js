@@ -1296,7 +1296,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       );
     }
     sendTyping(target, state) {
-      if (target === "*" || target === "*consultas*") return;
+      if (target === "*" || target === "*consultas*" || target === "*notify*") return;
       if (!this.capabilities.has("message-tags")) return;
       token(target, "Destino");
       if (!["active", "paused", "done"].includes(state)) return;
@@ -1324,7 +1324,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.sendRaw(`REDACT ${target} ${messageId} :Eliminado por su autor`);
     }
     markRead(target) {
-      if (target === "*" || target === "*consultas*") return;
+      if (target === "*" || target === "*consultas*" || target === "*notify*") return;
       if (this.capabilities.has("draft/read-marker")) {
         token(target, "Destino");
         this.sendRaw(
