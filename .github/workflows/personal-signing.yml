@@ -1,0 +1,36 @@
+name: Verify personal Windows signing
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - scripts/sign-personal.ps1
+      - scripts/test-personal-signing.ps1
+      - .github/workflows/personal-signing.yml
+permissions:
+  contents: read
+jobs:
+  signing:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test personal certificate and Authenticode
+        shell: powershell
+        run: .\scripts\test-personal-signing.ps1
+  publish-helper:
+    needs: signing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Attach tested personal signing helper
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="dreams-windows-v${version}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" scripts/sign-personal.ps1 docs/FIRMA-PERSONAL.md --clobber --repo "$GITHUB_REPOSITORY"
+          fi

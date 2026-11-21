@@ -1,0 +1,324 @@
+.mdi-desktop {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sidebar);
+}
+.mdi-parking,
+.mdi-live-chat {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.mdi-live-chat {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mdi-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px #0005;
+  overflow: hidden;
+  background: var(--bg);
+}
+.mdi-window.mdi-active {
+  border-color: var(--accent);
+}
+.mdi-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  min-height: 27px;
+  padding: 0 3px 0 8px;
+  background: var(--raised);
+  user-select: none;
+  touch-action: none;
+  cursor: move;
+}
+.mdi-title {
+  font-size: 11px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mdi-window-control {
+  width: 25px;
+  height: 23px;
+  min-height: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
+  color: var(--text);
+}
+.mdi-window-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+.mdi-window-content > .mdi-live-chat {
+  flex: 1;
+}
+.mdi-live-chat .conversation-heading h2 {
+  display: none;
+}
+.mdi-live-chat .conversation-body {
+  min-height: 0;
+  flex: 1;
+}
+.mdi-live-chat #users-panel {
+  max-width: 45%;
+  min-width: 110px;
+}
+.mdi-live-chat .timeline {
+  min-width: 0;
+}
+.mdi-live-chat .chat-heading {
+  min-height: 0;
+}
+.mdi-mirror {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.mdi-topic {
+  font-size: 12px;
+  max-height: 80px;
+  overflow-y: auto;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.mdi-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.mdi-timeline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.mdi-messages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+  line-height: var(--chat-line-height, 1.65);
+  overflow-wrap: anywhere;
+}
+.mdi-message {
+  margin-bottom: var(--message-spacing, 9px);
+  white-space: pre-wrap;
+}
+.mdi-message time {
+  font-size: 10px;
+  color: var(--muted);
+}
+.mdi-message.event {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mdi-nick {
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  border: 0;
+  display: inline;
+}
+.mdi-avatar {
+  height: 24px;
+  width: 24px;
+  object-fit: contain;
+  border-radius: 50%;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.mdi-users {
+  width: var(--users-width, 192px);
+  max-width: 45%;
+  min-width: 110px;
+  border-left: 1px solid var(--border);
+  padding: 8px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+.mdi-users-title {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.mdi-user {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  width: 100%;
+  padding: 5px 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.mdi-composer {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.mdi-composer textarea {
+  font: inherit;
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+}
+.mdi-composer button {
+  width: 30px;
+  padding: 2px;
+  background: var(--raised);
+}
+.mdi-grip {
+  position: absolute;
+  touch-action: none;
+  z-index: 5;
+}
+.mdi-grip-n,
+.mdi-grip-s {
+  height: 4px;
+  left: 6px;
+  right: 6px;
+  cursor: ns-resize;
+}
+.mdi-grip-n {
+  top: 0;
+}
+.mdi-grip-s {
+  bottom: 0;
+}
+.mdi-grip-e,
+.mdi-grip-w {
+  width: 4px;
+  top: 6px;
+  bottom: 6px;
+  cursor: ew-resize;
+}
+.mdi-grip-e {
+  right: 0;
+}
+.mdi-grip-w {
+  left: 0;
+}
+.mdi-grip-ne,
+.mdi-grip-nw,
+.mdi-grip-se,
+.mdi-grip-sw {
+  height: 9px;
+  width: 9px;
+}
+.mdi-grip-ne {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+.mdi-grip-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+.mdi-grip-nw {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.mdi-grip-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.maximized .mdi-grip {
+  display: none;
+}
+.mdi-layout-menu > summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  list-style: none;
+}
+.mdi-layout-menu > summary::after {
+  content: " ▸";
+  float: right;
+}
+.mdi-layout-menu[open] > summary::after {
+  content: " ▾";
+}
+.mdi-layout-menu > button {
+  padding-left: 20px !important;
+}
+.mdi-message.mention {
+  background: color-mix(
+    in srgb,
+    var(--mention-border, #7650aa) 22%,
+    transparent
+  );
+  border-left: 2px solid var(--mention-border, #7650aa);
+  padding-left: 5px;
+}
+.mdi-live-chat .message-toolbar {
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 58px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.mdi-live-chat .composer-input textarea {
+  min-width: 0;
+}
+.mdi-live-chat #messages {
+  overflow-x: hidden;
+}
+.mdi-active > .mdi-titlebar {
+  background: color-mix(in srgb, var(--accent) 15%, var(--raised));
+}
+.mdi-events {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.mdi-events > header {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.mdi-events .mdi-message {
+  margin-bottom: 3px;
+}
+/* The internal titlebar already contains the conversation name and modes. */
+.desktop-compact .mdi-live-chat .chat-heading {
+  display: none !important;
+}

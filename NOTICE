@@ -1,0 +1,14 @@
+HexDroid Dreams for Windows
+
+The .hex interpreter and AGE/AGM/FiSH compatibility work reference HexDroid
+Dreams for Android (boxlabs, 2026), distributed under GPL-3.0-or-later:
+https://github.com/Malekira/HexDroid-Dreams-Android
+
+This application is distributed under GPL-3.0-or-later. See LICENSE.
+The corresponding source is available with this release in the Windows repository:
+https://github.com/Malekira/HexDroid-Dreams-Windows
+
+Third-party libraries retain their respective licenses in node_modules.
+Electron includes Chromium and Node.js; their license notices accompany the
+packaged runtime. This implementation has not received an independent
+cryptographic security audit.

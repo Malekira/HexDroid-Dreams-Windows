@@ -1,0 +1,9 @@
+# Notify por listas y alcance
+
+settings.notifyEntries almacena {nick,list,scope}. list identifica al perfil propietario o all; scope admite connection, server y all. La lista global siempre tiene alcance all. La política compartida entre proceso principal y navegador deriva los nombres efectivos por conexión y evita diferencias de comparación de nicks. Se mantiene lectura compatible del formato anterior; al editar se materializan las listas locales y, si existía, la global, sin borrar los campos antiguos.
+
+El servidor se compara mediante el host configurado, sin distinción de mayúsculas ni punto final DNS. Puertos/TLS no cambian esa identidad. No se equiparan aliases DNS, nombres de redes ni personas con el mismo nick en distintos servidores. El estado en línea proviene exclusivamente de perfiles conectados y autorizados, no de la última presencia de una conexión caída. Las listas se pueden filtrar aunque su propietario esté desconectado. Se muestra una fila por servidor donde el nick está presente y se usa esa conexión para las acciones. Si ningún observador confirma presencia se distingue estado negativo conocido de estado sin confirmar.
+
+Los nombres efectivos incluyen todas las listas compartidas y se sincronizan con las sesiones existentes. Se eleva el límite del motor de presencia a 2000 nombres para permitir combinar listas; se conserva la validación IRC de apodos y los límites MONITOR ofrecidos por el servidor. Las consultas continúan subordinadas a la secuencia de inicio existente.
+
+Validación: reglas de alcance y deduplicación IRC; migración compatible; persistencia/sanitización; sincronización de una lista de propietario desconectado en otra sesión; flujo de UI Hannii/Dramatiik, cambio de alcance y recarga; presencia independiente en dos servidores y limpieza al desconectar; suite general y Electron con servidor IRC local. Las pruebas de interfaz usan transporte simulado; las pruebas nativas validan el motor real.

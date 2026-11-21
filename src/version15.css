@@ -1,0 +1,333 @@
+/* All menus share metrics, whether an action or a submenu launcher. */
+.menubar {
+  position: relative;
+  z-index: 2147483000;
+  isolation: isolate;
+  overflow: visible;
+}
+.menubar .menu-popup {
+  overflow: visible;
+  min-width: 245px;
+}
+.menubar .menu-popup button,
+.menubar .menu-submenu > summary,
+.menu-flyout button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 5px 9px !important;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font:
+    12px/18px "Segoe UI",
+    sans-serif;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menubar .menu-submenu > summary {
+  list-style: none;
+}
+.menubar .menu-submenu > summary::-webkit-details-marker {
+  display: none;
+}
+.menubar .menu-submenu > summary::after {
+  content: "▸";
+  float: none;
+  font-size: 11px;
+}
+.menubar .menu-popup button:hover,
+.menubar .menu-popup button:focus-visible,
+.menubar .menu-submenu > summary:hover,
+.menubar .menu-submenu[open] > summary,
+.menu-flyout button:hover,
+.menu-flyout button:focus-visible {
+  background: var(--raised);
+  outline: none;
+  color: var(--text);
+}
+.menubar .menu-popup button:disabled,
+.menu-flyout button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.menubar .menu-popup hr,
+.menu-flyout hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 4px 3px;
+}
+.menubar .menu-submenu {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.menu-flyout:popover-open {
+  position: fixed;
+  display: block;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  min-width: 220px;
+  max-width: calc(100vw - 12px);
+  max-height: calc(100vh - 12px);
+  overflow: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 24px #0007;
+  z-index: 2147483647;
+}
+.menu-flyout .menu-note {
+  font-size: 11px;
+  padding: 5px 9px;
+  color: var(--muted);
+}
+.menubar .command-category > .command-items:not(:popover-open),
+.menubar .favorites-popup:not(:popover-open) {
+  display: none;
+}
+.menubar .menu-note {
+  max-width: 260px;
+  font-size: 10px;
+  white-space: normal;
+  padding: 5px 9px;
+}
+#settings-dialog .settings-nav button {
+  font:
+    12px/1.4 "Segoe UI",
+    sans-serif;
+  border: 0;
+  background: transparent;
+  padding: 7px 9px;
+  color: var(--muted);
+  margin: 0;
+  min-height: 30px;
+}
+#settings-dialog .settings-nav button.selected,
+#settings-dialog .settings-nav button:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+#settings-dialog .settings-group > summary {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 2px;
+}
+#settings-dialog .setting-row,
+#settings-dialog .advanced-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 33px;
+  margin: 0;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+#settings-dialog label:has(input[type="checkbox"]) {
+  justify-content: space-between;
+}
+#settings-dialog input[type="checkbox"] {
+  flex: 0 0 15px;
+  margin: 0;
+}
+#settings-dialog
+  .advanced-field
+  input:not([type="checkbox"]):not([type="color"]),
+#settings-dialog .advanced-field select {
+  max-width: 55%;
+  min-width: 100px;
+  margin: 0;
+  padding: 5px 7px;
+}
+#settings-dialog input[type="color"] {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 27px;
+  padding: 2px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+#settings-dialog .settings-content h3 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+#settings-dialog .settings-content p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+#settings-dialog .settings-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+#settings-dialog button.secondary {
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+#settings-dialog .theme-manager {
+  padding: 8px 0;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+#settings-dialog .theme-manager h3 {
+  font-size: 12px;
+}
+.theme-manager-controls,
+.theme-manager-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.theme-manager-controls > * {
+  min-width: 120px;
+  flex: 1;
+}
+.theme-manager-controls input,
+.theme-manager-controls select {
+  padding: 5px 7px !important;
+}
+.theme-manager-actions {
+  margin-top: 6px;
+}
+.environment-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+.identity-style-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.identity-style-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.identity-style-grid input[type="color"] {
+  width: 100%;
+  height: 30px;
+  padding: 2px;
+}
+.identity-style-grid select {
+  width: 100%;
+  padding: 5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.theme-editor .theme-editor-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.theme-editor .feature-field {
+  margin: 0;
+  font-size: 12px;
+}
+.theme-editor .theme-live-preview {
+  max-height: 145px;
+  overflow: auto;
+  padding: 10px;
+  margin: 6px 0;
+}
+.theme-editor .theme-live-preview p {
+  margin: 5px 0;
+}
+/* Match the writing font while reducing unused space around its single line. */
+.desktop-compact #composer {
+  padding: 3px 7px 5px;
+}
+.desktop-compact .composer-input {
+  padding: 2px 4px;
+  gap: 4px;
+}
+.desktop-compact #message-input {
+  padding: 3px 5px;
+  line-height: 1.35;
+  min-height: 0;
+}
+.desktop-compact .composer-input #send-button {
+  height: 27px;
+  width: 28px;
+  font-size: 18px;
+}
+.desktop-compact .composer-styles > summary {
+  padding: 3px;
+  height: 25px;
+}
+.desktop-compact .composer-input .composer-styles {
+  align-self: center;
+}
+.mdi-composer {
+  padding: 3px 5px;
+}
+.mdi-composer textarea {
+  padding: 3px 5px;
+  line-height: 1.35;
+}
+@media (max-width: 720px) {
+  .environment-colors-grid {
+    grid-template-columns: 1fr;
+  }
+  .identity-style-grid,
+  .theme-editor .theme-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+#settings-dialog label:has(#setting-ownNickColor) {
+  display: none !important;
+}
+.context-menu {
+  background: var(--surface);
+  border-color: var(--border);
+  padding: 5px;
+  border-radius: 6px;
+}
+.context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 5px 9px;
+  font:
+    12px/18px "Segoe UI",
+    sans-serif;
+  color: var(--text);
+  border-radius: 3px;
+}
+.context-menu button:hover,
+.context-menu button:focus-visible {
+  background: var(--raised);
+  outline: none;
+}
+.context-menu hr {
+  border-color: var(--border);
+  margin: 4px 3px;
+}
+.context-menu .context-label {
+  font:
+    11px/1.4 "Segoe UI",
+    sans-serif;
+  color: var(--muted);
+}
+.context-menu{z-index:2147483200}

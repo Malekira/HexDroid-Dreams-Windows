@@ -1,0 +1,23 @@
+/* Compact single line headers retain their drag surfaces and close controls. */
+.dialog-header, .script-view .dialog-header { min-height: 42px; padding: 7px 12px; gap: 10px; flex-wrap: nowrap; }
+.dialog-header h2 { margin: 0; font-size: 17px; line-height: 26px; }
+.dialog-header .eyebrow { display: none; }
+.dialog-header > div { min-width: 0; }
+.dialog-header .icon-button { height: 26px; min-width: 26px; }
+.dialog-header h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appearance-branch > summary { cursor: pointer; padding: 7px 9px; }
+.appearance-branch > div { padding-left: 12px; border-left: 1px solid var(--border); }
+.sidebar-double-divider { border: 0; border-top: 3px double var(--border); margin: 8px 10px; }
+#tree-privates { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+#notify-network-filter { min-width: 0; max-width: 130px; flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; }
+.script-tree button { display: block; padding: 4px 10px; width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#private-panel { container-type: inline-size; }
+@container (max-width: 85px) {
+ .notify-sidebar-title strong, #notify-network-filter, .search, .sidebar-footer, .tree-close { display: none !important; }
+ .notify-sidebar-title { padding: 3px; justify-content: center; }
+ .connection-tree-row, .notify-online-row, .tree-row button, .tree-group summary { padding-left: 3px; padding-right: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+.dialog-header > button:last-child { font-size: 0; flex: 0 0 26px; padding: 0; height: 26px; min-height: 26px; width: 26px; }
+.dialog-header > button:last-child::before { content: '×'; font-size: 22px; line-height: 26px; }
+.script-view[open] { display: flex; flex-direction: column; overflow: hidden; margin: 0; }
+.script-view .form-content { flex: 1; min-height: 0; overflow: auto; }

@@ -1,0 +1,9 @@
+# Historial exclusivo de HexDreams IRC
+
+El historial deja de escribir en el nombre genérico `history.sqlite`. HistoryStore usa una subcarpeta `HexDreams-IRC-history` y el archivo `hexdreams-history.sqlite` en la ubicación ya seleccionada por el usuario. No se mueve el perfil completo ni se alteran los TXT. La base lleva application_id `0x48445848`; se rechazan archivos sin propietario que ya contengan tablas y bases identificadas como pertenecientes a otra aplicación.
+
+La migración abre la base anterior en modo de solo lectura y recorre únicamente `messages`, incluyendo eventos, identificadores y fechas. No consulta su índice FTS. Inserta los datos y marca la migración en una sola transacción; la nueva base genera su propio índice al insertar. Un error revierte la copia y cierra la conexión para permitir reintentar, sin marcarla como terminada. La base anterior queda disponible para respaldo y recuperación. Borrar explícitamente el nuevo historial no vuelve a importar el anterior.
+
+Los scripts ya usaban scripts.json y estados cifrados en secrets.bin mediante el motor .hex; no tenían acceso SQL ni a rutas arbitrarias. No se cambian sus formatos ni sus permisos. Un mensaje generado por un bot puede seguir formando parte del historial como cualquier mensaje IRC; no le concede acceso al archivo. La separación de archivos no sustituye los permisos del sistema operativo ni demuestra que un bot causara la corrupción anterior.
+
+Validación: migración de una base con índice FTS inconsistente conservando el archivo original y los TXT, búsqueda y nuevas escrituras, reapertura sin duplicados, borrado sin reimportación, origen ilegible sin importación parcial y reintento, rechazo de una base ajena, y compatibilidad con historiales antiguos sin columna event. No se dispone de la base real del usuario para comprobar su estado.

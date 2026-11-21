@@ -1,0 +1,27 @@
+"use strict";
+const { parentPort } = require("node:worker_threads");
+const { HexVM } = require("./interpreter");
+let vm = new HexVM();
+parentPort.on("message", (message) => {
+  try {
+    let result;
+    if (message.type === "install") {
+      vm = new HexVM();
+      result = vm.install(message.scripts);
+    } else if (message.type === "state") {
+      const script = vm.scripts.get(message.script);
+      if (script) script.state = message.state;
+      result = {};
+    } else if (message.type === "disable") {
+      vm.disable(message.script);
+      result = {};
+    } else if (message.type === "event")
+      result = vm.dispatch(message.name, message.fields, message.args);
+    else if (message.type === "alias")
+      result = vm.alias(message.name, message.fields, message.args);
+    else throw new Error("Mensaje de worker no válido.");
+    parentPort.postMessage({ id: message.id, result });
+  } catch (e) {
+    parentPort.postMessage({ id: message.id, error: e.message });
+  }
+});

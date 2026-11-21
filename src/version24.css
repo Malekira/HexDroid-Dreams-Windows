@@ -1,0 +1,197 @@
+.users-heading,
+.mdi-users-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 8px;
+  text-transform: none;
+  font-size: 12px;
+}
+.user-search-toggle {
+  margin-left: auto;
+  min-width: 26px;
+  padding: 3px 6px;
+}
+.mdi-users {
+  width: var(--users-width);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.mdi-users > input {
+  width: calc(100% - 12px);
+  margin: 4px 6px;
+  box-sizing: border-box;
+}
+body.nick-regular .message-nick {
+  font-weight: 400;
+}
+.chat-tools .room-view-choice {
+  max-width: 145px;
+}
+.script-view {
+  position: fixed;
+  inset: auto;
+  top: 15%;
+  left: 20%;
+  min-width: 260px;
+  max-width: 90vw;
+  max-height: 85vh;
+  resize: both;
+  overflow: auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  z-index: 100;
+}
+.script-view .form-content {
+  overflow: auto;
+  padding: 12px;
+}
+.hex-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+  min-width: 0;
+}
+.hex-field:has(input[type="checkbox"]),
+.hex-field:has(input[type="radio"]) {
+  flex-direction: row;
+  align-items: center;
+}
+.script-view :is(input, select, textarea) {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 5px;
+}
+.script-view input[type="radio"] {
+  width: 15px;
+}
+.hex-column,
+.hex-row {
+  display: flex;
+  gap: 8px;
+}
+.hex-column {
+  flex-direction: column;
+}
+.hex-row {
+  flex-wrap: wrap;
+  align-items: start;
+}
+.status-filter-group {
+  border-bottom: 1px solid var(--border);
+}
+.status-filter-group .setting-row {
+  padding: 6px 0;
+}
+.theme-file-preview {
+  white-space: pre-wrap;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.classic-palette {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.classic-palette button {
+  padding: 4px 7px;
+  min-width: 30px;
+  border: 1px solid var(--border);
+}
+#multicolor-dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  min-height: 100px;
+}
+.script-view .dialog-header {
+  cursor: move;
+  padding: 10px 12px;
+}
+.script-view .dialog-header h2 {
+  font-size: 16px;
+}
+.v24-inactive-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mdi-titlebar
+  :is(
+    #room-appearance-button,
+    .room-view-choice,
+    .v24-inactive-tools button,
+    .v24-inactive-tools select
+  ) {
+  font-size: 11px;
+  padding: 3px 6px;
+  min-height: 24px;
+}
+.mdi-titlebar .room-view-choice {
+  max-width: 130px;
+}
+.mdi-users-title {
+  margin: 0;
+}
+.mdi-users .mdi-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+}
+.users-hint {
+  display: none;
+}
+:is(.users-panel, .mdi-users) {
+  padding: 10px 8px;
+  box-sizing: border-box;
+}
+.mdi-users {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  min-width: 0;
+  overflow: hidden;
+  flex: 0 0 var(--users-width, 192px);
+}
+:is(.users-panel, .mdi-users) .user-list {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+:is(.users-panel .user-button, .mdi-users .mdi-user) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 6px;
+  font:
+    12px/18px "Segoe UI",
+    sans-serif;
+  text-align: left;
+  border: 0;
+  border-radius: 4px;
+}
+:is(.users-panel, .mdi-users) .user-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.mdi-live-chat #users-panel{max-width:none;min-width:0;flex:0 0 var(--users-width,192px);}
+.menubar nav>.mdi-layout-menu>summary{padding:7px 9px;}
+.menubar nav>.mdi-layout-menu>summary::after{content:none;}

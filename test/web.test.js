@@ -1,0 +1,99 @@
+const { test } = require("node:test"),
+  assert = require("node:assert/strict"),
+  https = require("node:https"),
+  { once } = require("node:events");
+const { WebClient, imageMime, titleOf } = require("../src/services/web");
+test("Web access requires exact approved HTTPS domains and blocks local addresses including IPv4-mapped IPv6", async () => {
+  const w = new WebClient();
+  for (const url of [
+    "http://example.com/",
+    "https://user:pass@example.com/",
+    "https://127.0.0.1/",
+    "https://[::1]/",
+    "https://[::ffff:7f00:1]/",
+  ])
+    await assert.rejects(
+      w.request(url, {
+        domains: [new URL(url).hostname.replace(/^\[|\]$/g, "")],
+      }),
+    );
+  await assert.rejects(w.request("https://example.com/", { domains: ["com"] }));
+  await assert.rejects(
+    new WebClient({ canConnect: () => false }).request("https://example.com/", {
+      domains: ["example.com"],
+    }),
+    /proxy/,
+  );
+  assert.equal(imageMime(Buffer.from('<svg onload="evil()"/>')), null);
+  assert.equal(imageMime(Buffer.from("GIF89a")), "image/gif");
+  assert.equal(
+    titleOf("<title>&lt;safe&gt; &amp; text</title>"),
+    "<safe> & text",
+  );
+});
+test("HTTPS verifies certificates, bounds responses and rechecks redirect domains", async (t) => {
+  const cert = await require("selfsigned").generate(
+    [{ name: "commonName", value: "127.0.0.1" }],
+    {
+      keyType: "ec",
+      curve: "P-256",
+      extensions: [
+        { name: "subjectAltName", altNames: [{ type: 7, ip: "127.0.0.1" }] },
+      ],
+    },
+  );
+  let body;
+  const server = https.createServer(
+    { key: cert.private, cert: cert.cert },
+    (req, res) => {
+      if (req.url === "/redirect") {
+        res.writeHead(302, { location: "https://example.org/" });
+        res.end();
+        return;
+      }
+      if (req.url === "/huge") {
+        res.end("x".repeat(2000));
+        return;
+      }
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => {
+        body = Buffer.concat(chunks).toString();
+        res.end("verified response");
+      });
+    },
+  );
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const base = "https://127.0.0.1:" + server.address().port,
+    w = new WebClient({ allowLocal: true, ca: cert.cert }),
+    options = { domains: ["127.0.0.1"] };
+  await assert.rejects(
+    new WebClient({ allowLocal: true }).request(base, options),
+  );
+  assert.equal(
+    (
+      await w.request(base, {
+        ...options,
+        method: "POST",
+        body: Buffer.from("uploaded"),
+        contentLength: 8,
+      })
+    ).body.toString(),
+    "verified response",
+  );
+  assert.equal(body, "uploaded");
+  await assert.rejects(
+    w.request(base + "/huge", { ...options, maxBytes: 100 }),
+    /grande|límite/,
+  );
+  await assert.rejects(w.request(base + "/redirect", options), /autorizado/);
+  assert.equal(
+    (await w.request(base + "/redirect", { ...options, redirects: 0 })).status,
+    302,
+  );
+});

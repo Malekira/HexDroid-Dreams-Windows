@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'"
+    />
+    <title>Historial — HexDreams IRC</title>
+    <link rel="stylesheet" href="history-viewer.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Historial</h1>
+      <form id="search">
+        <input
+          id="word"
+          aria-label="Buscar palabra"
+          placeholder="Buscar palabra…"
+          maxlength="200"
+        /><label><input id="all" type="checkbox" checked />Todos los logs</label
+        ><button>Buscar</button
+        ><button id="refresh" type="button">Actualizar</button>
+      </form>
+    </header>
+    <main>
+      <nav id="tree" aria-label="Archivos de historial"></nav>
+      <section>
+        <h2 id="title">Selecciona un historial</h2>
+        <p id="feedback" role="status"></p>
+        <pre id="content" role="log"></pre>
+        <button id="more" hidden>Cargar más</button>
+        <div id="results"></div>
+      </section>
+    </main>
+    <script src="history-viewer.js"></script>
+  </body>
+</html>

@@ -52,7 +52,7 @@ test('Local IRC workflow registers, joins, answers PING, receives users, chats a
   for (const type of ['status','message','users','channel','topic','nick']) client.on(type, data => events.push({ type, ...data }));
   client.on('problem', p => problems.push(p)); client.connect();
   await waitFor(() => events.some(e => e.type === 'message' && e.text === 'private hello'));
-  assert.ok(received.includes('NICK Dreamer')); assert.ok(received.includes('USER Dreamer 0 * :HexDroid Dreams'));
+  assert.ok(received.includes('NICK Dreamer')); assert.ok(received.includes('USER Dreamer 0 * :HexDreams IRC'));
   assert.ok(received.includes('PONG :keepalive'));
   assert.ok(events.some(e => e.type === 'users' && e.users.includes('@Alice')));
   assert.ok(events.some(e => e.type === 'topic' && e.text === 'Welcome to Dreams'));
@@ -79,3 +79,12 @@ test('TLS refuses an untrusted certificate instead of silently disabling verific
   assert.match(message, /self.signed|certificate/i);
   await waitFor(() => client.socket === null); assert.equal(client.ready, false);
 });
+test('Userhost-in-names preserves rank but never leaks masks into nick lists or renames',()=>{const c=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),updates=[];c.on('users',data=>updates.push(data));c.receive(Buffer.from(':s 353 Me = #room :@Alice!ident@192.0.2.4 Me!u@host\r\n'));assert.deepEqual(updates.at(-1).users,['@Alice','Me']);c.receive(Buffer.from(':Alice!ident@192.0.2.4 NICK :NewAlice\r\n'));assert.deepEqual(updates.at(-1).users,['@NewAlice','Me']);c.receive(Buffer.from(':Me!u@host NICK :NewMe\r\n'));assert.equal(c.nick,'NewMe');assert.ok(updates.at(-1).users.includes('NewMe'));});
+test('TLS exposes a certificate for approval, sends no identity before trust and binds an accepted pin to its endpoint',async t=>{
+ const server=tls.createServer({key:fs.readFileSync(path.join(__dirname,'fixtures/server.key')),cert:fs.readFileSync(path.join(__dirname,'fixtures/server.crt'))}),lines=[],sockets=new Set();server.on('secureConnection',s=>{sockets.add(s);s.on('data',b=>lines.push(b.toString()));s.on('close',()=>sockets.delete(s));});server.listen(0,'127.0.0.1');await once(server,'listening');const clients=[];t.after(()=>{for(const c of clients)c.socket?.destroy();for(const s of sockets)s.destroy();server.close();});const p={...profile,port:server.address().port,tls:true};
+ const first=new IrcClient(p);clients.push(first);const offered=once(first,'certificate');first.connect();const[cert]=await offered;assert.equal(cert.trusted,false);assert.match(cert.fingerprint,/^[a-f0-9]{64}$/);await waitFor(()=>first.socket===null);assert.equal(lines.length,0);
+ const trusted=new IrcClient(p,{tlsPin:{...cert,host:p.host,port:p.port}});clients.push(trusted);trusted.connect();await waitFor(()=>lines.some(l=>l.includes('CAP LS')));assert.ok(trusted.tlsAccepted);
+ const wrong=new IrcClient(p,{tlsPin:{...cert,host:'another.example',port:p.port}});clients.push(wrong);const rejected=once(wrong,'certificate');wrong.connect();assert.equal((await rejected)[0].trusted,false);await waitFor(()=>wrong.socket===null);assert.equal(wrong.tlsAccepted,false);
+ const changed=new IrcClient(p,{tlsPin:{...cert,fingerprint:'0'.repeat(64),host:p.host,port:p.port}});clients.push(changed);const replacement=once(changed,'certificate');changed.connect();assert.match((await replacement)[0].reason,/cambió/);await waitFor(()=>changed.socket===null);assert.equal(changed.tlsAccepted,false);
+});
+test('Channel events retain ident and host without adding masks to the user list',()=>{const c=new IrcClient({host:'localhost',port:6667,tls:false,nick:'Me',channels:[]}),events=[];c.on('channel',e=>events.push(e));c.receive(Buffer.from(':Alice!ident@visible.example JOIN :#room\r\n:Alice!ident@visible.example PART #room :Hasta luego\r\n:Alice!ident@visible.example JOIN :#room\r\n:Alice!ident@visible.example QUIT :Desconexión\r\n'));assert.equal(events.length,4);for(const e of events){assert.equal(e.ident,'ident');assert.equal(e.host,'visible.example');assert.equal(e.nick,'Alice');}assert.equal(events[1].reason,'Hasta luego');assert.equal(events[3].reason,'Desconexión');});
