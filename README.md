@@ -1,14 +1,14 @@
 # HexDreams IRC para Windows
 
-Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.38.0**.
+Cliente IRC de escritorio creado desde cero. Versión de prueba con IRC y sistemas avanzados: **0.39.0**.
 
 Este repositorio contiene exclusivamente el proyecto Windows activo. El proyecto Android está en [Malekira/HexDroid-Dreams-Android](https://github.com/Malekira/HexDroid-Dreams-Android).
 
-**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.38.0)**
+**[Descargar la versión Windows](https://github.com/Malekira/HexDroid-Dreams-Windows/releases/tag/dreams-windows-v0.39.0)**
 
 ## Abrir en Windows
 
-1. Extrae **todo** `HexDreams-IRC-0.38.0-Windows-x64.zip` en una carpeta normal.
+1. Extrae **todo** `HexDreams-IRC-0.39.0-Windows-x64.zip` en una carpeta normal.
 2. Abre `HexDreamsIRC.exe` dentro de la carpeta extraída. No necesita MSI ni instalar Node.js.
 3. Añade una red: servidor, puerto, TLS, apodo y, opcionalmente, salas de inicio.
 4. Pulsa **Guardar y conectar**. Usa **Unirse a sala** para entrar en más salas.
@@ -134,4 +134,6 @@ Salas → Ver bans consulta bans, excepciones, invitaciones, silencios y AKICK d
 
 Notify → Mostrar eventos en un privado permite registrar entradas, salidas y cambios de nick en una ventana local de solo lectura por conexión, con red, servidor y hora. Abrir registro Notify permite verla sin esperar otro evento. Es un registro de sesión; no agrega persistencia en SQLite ni TXT.
 
-Comandos → Seguimiento de usuarios permite seguir nick exacto, host parcial o nombre real parcial y generar informes TXT en una carpeta elegida. Las coincidencias de host/vhost se mantienen separadas por intervalos; solo eventos directos NICK/CHGHOST confirman continuidad de una conexión, sin probar identidad personal. Ver [guía del seguimiento](docs/CAMBIOS-0.38.0.md).
+Comandos → Seguimiento de usuarios permite seguir nick exacto, host parcial o nombre real parcial y generar informes TXT en una carpeta elegida. Las coincidencias de host/vhost se mantienen separadas por intervalos; solo eventos directos NICK/CHGHOST confirman continuidad de una conexión, sin probar identidad personal. Ver [guía del seguimiento](docs/CAMBIOS-0.39.0.md).
+
+La búsqueda de seguimiento no envía WHO global. Reutiliza observaciones de salas visibles y completa datos con WHOIS individuales, uno cada 15 segundos por servidor y esperando respuesta o timeout. Los sondeos por nick se espacian en rondas de al menos cinco minutos.

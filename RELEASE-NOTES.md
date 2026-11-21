@@ -1,11 +1,10 @@
-# HexDreams IRC 0.38.0 — Windows portable
+# HexDreams IRC 0.39.0 — Windows portable
 
-- Comandos → Seguimiento de usuarios: criterios por nick exacto, parte del host o parte del nombre real; búsqueda de usuarios visibles y espera de futuras coincidencias.
-- Informes TXT con nicks observados, hosts/vhosts, nombres reales, cuenta cuando está disponible, salas, fechas y evidencia. Se elige dónde guardar los informes; la carpeta queda guardada.
-- Los vhosts compartidos no unen personas. La reutilización de hosts tras QUIT, desconexión local o pérdida de visibilidad se conserva en intervalos separados. NICK y CHGHOST observados identifican continuidad de una conexión, no identidad personal, incluido el cambio de nick registrado a Guest si el servidor lo muestra.
-- El informe puede incluir evidencias guardadas anteriormente que coincidan con el criterio, sin unir intervalos por host o nombre real.
-- El botón Salas muestra primero Entrar, Listado y Configurar favoritas; después, las salas favoritas.
+- Se elimina el WHO * automático introducido en el seguimiento de 0.38.0. Esa consulta podía generar respuestas masivas y provocar SendQ exceeded.
+- Las búsquedas por host y nombre real utilizan datos ya recibidos de las salas visibles. Si falta información, se completa mediante WHOIS individuales, sin barridos globales.
+- Como máximo un WHOIS de seguimiento cada 15 segundos por dirección de servidor, incluso con varias conexiones. Se espera la respuesta final o un timeout de 30 segundos antes de continuar. La cola de enriquecimiento queda limitada y los datos ya conocidos no se consultan de nuevo sin necesidad.
+- Se mantienen la prioridad de los comandos personalizados y consultas manuales, los informes, la carpeta elegida y la separación de evidencias. Las comprobaciones exactas de nick se repiten en rondas de al menos cinco minutos.
 
-Las búsquedas respetan el inicio de sesión y los comandos personalizados. Solo se registra lo visible para esta conexión y permitido por el servidor; no se garantiza encontrar usuarios ocultos. El seguimiento tiene archivos propios, separados de SQLite y del addon anterior. Los registros previos de addons no se importan automáticamente. Ante un fallo de escritura se pausa la captura y se avisa; un informe puede reflejar huecos. No se cambian TLS, Notify, scripts, estilos ni otras preferencias.
+Esto corrige la consulta masiva detectada; sin el registro del servidor no puede asegurarse que explique cada desconexión SendQ. La búsqueda por host/nombre real queda limitada a la información visible para esa conexión; los datos que no estén disponibles pueden tardar o no encontrarse. No se cambian redes, TLS, Notify ni addons, y no se borran seguimientos ni evidencias.
 
-Extrae todo el ZIP con HexDreams cerrado. No requiere instalación.
+Cierra HexDreams y extrae todo el ZIP en una carpeta nueva. No requiere instalación.

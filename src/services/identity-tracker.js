@@ -5,7 +5,7 @@ const plain=s=>require('../formatting').plain(String(s||''));
 const norm=s=>plain(s).toLocaleLowerCase();
 class IdentityTracker{
  constructor(directory,{error=()=>{},changed=()=>{},now=()=>Date.now()}={}){
-  this.directory=path.join(directory,'identity-tracker');this.configFile=path.join(this.directory,'config.json');this.journal=path.join(this.directory,'observations.jsonl');this.config={watches:[],reportsDirectory:path.join(directory,'Informes')};this.error=error;this.changed=changed;this.now=now;this.live=new Map();this.queues=new Map();this.lastSearch=new Map();this.pending=[];
+  this.directory=path.join(directory,'identity-tracker');this.configFile=path.join(this.directory,'config.json');this.journal=path.join(this.directory,'observations.jsonl');this.config={watches:[],reportsDirectory:path.join(directory,'Informes')};this.error=error;this.changed=changed;this.now=now;this.live=new Map();this.queues=new Map();this.lastSearch=new Map();this.pending=[];this.inFlight=new Map();this.serverLastQuery=new Map();this.roundRobin=0;this.lastEnrichment=new Map();this.lastLocalScan=new Map();
   try{const cfg=JSON.parse(fs.readFileSync(this.configFile,'utf8'));if(!Array.isArray(cfg.watches)||cfg.watches.length>100||cfg.watches.some(w=>!w||!/^[a-f0-9-]{36}$/i.test(w.id)||typeof w.network!=='string'||!['nick','host','realName'].includes(w.type)||typeof w.value!=='string'||!w.value||w.value.length>200)||typeof cfg.reportsDirectory!=='string'||!path.isAbsolute(cfg.reportsDirectory))throw Error('Configuración de seguimiento no válida.');this.config=cfg;}catch(e){if(e.code!=='ENOENT'){this.storageError=e.message;queueMicrotask(()=>this.error('No se pudo cargar el seguimiento: '+e.message));}}
  }
  save(){if(this.storageError)throw Error('Revisá el archivo de configuración de seguimiento: '+this.storageError);fs.mkdirSync(this.directory,{recursive:true});const temp=this.configFile+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.config,null,2),{mode:0o600});fs.renameSync(temp,this.configFile);}
@@ -17,7 +17,7 @@ class IdentityTracker{
  key(network,nick){return network+'\0'+fold(nick);}
  append(s,o,evidence){this.pending.push(JSON.stringify({time:new Date(this.now()).toISOString(),session:s.id,network:s.network,server:s.server||'',watches:[...s.watches],nick:s.nick,ident:s.ident||'',host:s.host||'',realName:s.realName||'',account:s.account||'',channels:[...s.channels],source:o.source,evidence,kind:o.kind,old:o.old||'',reason:o.reason||''})+'\n');if(!this.flushTimer){this.flushTimer=setTimeout(()=>this.flush(),200);this.flushTimer.unref();}this.changed();}
  flush(){clearTimeout(this.flushTimer);this.flushTimer=null;if(!this.pending.length)return;try{fs.mkdirSync(this.directory,{recursive:true});fs.appendFileSync(this.journal,this.pending.join(''),{mode:0o600});this.pending=[];this.writeFailed=false;}catch(e){if(!this.writeFailed)this.error('Captura de seguimiento en pausa porque no se pudo guardar: '+e.message);this.writeFailed=true;this.hadWriteFailure=true;}}
- observe(network,o){if(this.writeFailed)return;if(!o?.nick||!this.config.watches.some(w=>w.network===network))return;if(o.kind==='part'&&o.own){for(const [key,s]of this.live)if(s.network===network&&s.channels.delete(o.channel)&&!s.channels.size){this.append(s,{...o,kind:'visibility'},'HexDreams salió de la última sala compartida; se perdió visibilidad, sin confirmar salida del usuario');this.live.delete(key);}return;}const key=this.key(network,o.nick);let s=this.live.get(key);
+ observe(network,o){if(o&&['query-end','missing'].includes(o.kind)&&fold(this.inFlight.get(network)?.nick||'')===fold(o.nick)){this.inFlight.delete(network);}if(o?.kind==='query-end')return;if(this.writeFailed)return;if(!o?.nick||!this.config.watches.some(w=>w.network===network))return;if(o.kind==='part'&&o.own){for(const [key,s]of this.live)if(s.network===network&&s.channels.delete(o.channel)&&!s.channels.size){this.append(s,{...o,kind:'visibility'},'HexDreams salió de la última sala compartida; se perdió visibilidad, sin confirmar salida del usuario');this.live.delete(key);}return;}const key=this.key(network,o.nick);let s=this.live.get(key);
   if(['quit','missing','part'].includes(o.kind)){if(!s)return;if(o.kind==='part'){s.channels.delete(o.channel);if(s.channels.size)return;}this.append(s,o,o.kind==='quit'?'Desconexión observada':o.kind==='missing'?'El servidor indica que el nick no está conectado':'Se perdió visibilidad; no prueba desconexión');this.live.delete(key);return;}
   let evidence='Coincidencia de criterio; no identifica a una persona';
   if(s&&o.host&&s.host&&norm(o.host)!==norm(s.host)&&!['host','nick'].includes(o.kind)){
@@ -31,13 +31,51 @@ class IdentityTracker{
   if(o.kind==='nick'){this.live.delete(key);o={...o,old:o.nick};s.nick=o.next;this.live.set(this.key(network,s.nick),s);evidence='NICK observado: continuidad confirmada de la conexión, no identidad personal';}
   else s.nick=o.nick;
   for(const field of ['ident','host','realName','account'])if(o[field]!==undefined)s[field]=field==='realName'?plain(o[field]):o[field];
-  if(o.channel&&/^[#&+!]/.test(o.channel))s.channels.add(o.channel);
+  if(o.channel&&/^[#&+!]/.test(o.channel))s.channels.add(o.channel);if(Array.isArray(o.channels))for(const channel of o.channels)if(/^[#&+!]/.test(channel))s.channels.add(channel);
   if(o.kind==='host')evidence='CHGHOST observado: cambio de host/vhost en la misma conexión';
   const after=JSON.stringify([s.nick,s.ident,s.host,s.realName,s.account,[...s.channels],s.watches]);if(before!==after||o.kind==='nick'||o.kind==='host')this.append(s,o,evidence);
  }
- disconnect(network){for(const [key,s]of this.live)if(s.network===network){this.append(s,{kind:'visibility',source:'Desconexión local'},'Fin de visibilidad por desconexión de HexDreams; no prueba salida del usuario');this.live.delete(key);}this.queues.delete(network);this.lastSearch.delete(network);}
- search(network){this.flush();if(this.writeFailed)throw Error('No se pudo reanudar el guardado de observaciones.');const watches=this.config.watches.filter(w=>w.network===network);const nicks=watches.filter(w=>w.type==='nick').flatMap(w=>[w.value,...[...this.live.values()].filter(s=>s.network===network&&s.watches.includes(w.id)).map(s=>s.nick)]);const queries=[...new Set(nicks.map(nick=>'WHOIS '+nick+' '+nick))];if(watches.some(w=>w.type!=='nick'))queries.push('WHO *');this.queues.set(network,queries);this.lastSearch.set(network,this.now());}
- tick(sessions){for(const [id,s]of sessions){const c=s.client;if(s.stopped||!c?.ready||c.startupPending)continue;if(!this.config.watches.some(w=>w.network===id))continue;if(!this.lastSearch.has(id)||this.now()-this.lastSearch.get(id)>=60000&&!(this.queues.get(id)||[]).length)this.search(id);const q=this.queues.get(id)||[];if(!q.length)continue;if(c.pendingWhois&&[...c.pendingWhois.values()].some(v=>v.target!=='*rastreo*'&&this.now()-v.time<30000)||c.pendingWho&&c.pendingWho.target!=='*rastreo*'&&this.now()-c.pendingWho.time<30000)continue;let command=q.shift();if(command==='WHO *'&&c.whox)command+=' %tcuhnfar,153';try{c.request(command,'*rastreo*');}catch(e){this.error('No se pudo consultar el seguimiento: '+e.message);}}}
+ disconnect(network){for(const [key,s]of this.live)if(s.network===network){this.append(s,{kind:'visibility',source:'Desconexión local'},'Fin de visibilidad por desconexión de HexDreams; no prueba salida del usuario');this.live.delete(key);}this.queues.delete(network);this.lastSearch.delete(network);this.inFlight.delete(network);}
+ search(network){
+  this.flush();if(this.writeFailed)throw Error('No se pudo reanudar el guardado de observaciones.');
+  const watches=this.config.watches.filter(w=>w.network===network);
+  const nicks=watches.filter(w=>w.type==='nick').flatMap(w=>[w.value,...[...this.live.values()].filter(s=>s.network===network&&s.watches.includes(w.id)).map(s=>s.nick)]);
+  this.queues.set(network,[...new Map(nicks.map(nick=>[fold(nick),nick])).values()].map(nick=>'WHOIS '+nick+' '+nick));this.lastSearch.set(network,this.now());this.lastLocalScan.delete(network);
+ }
+ tick(sessions){
+  const entries=[...sessions];if(!entries.length)return;
+  const start=this.roundRobin++%entries.length;
+  for(let i=0;i<entries.length;i++){
+   const [id,s]=entries[(start+i)%entries.length],c=s.client;
+   if(s.stopped||!c?.ready||c.startupPending)continue;
+   const watches=this.config.watches.filter(w=>w.network===id);if(!watches.length)continue;
+   if(!this.lastSearch.has(id)||this.now()-this.lastSearch.get(id)>=300000&&!(this.queues.get(id)||[]).length)this.search(id);
+   const q=this.queues.get(id)||[];
+   // Reuse only observations already received. Never enumerate the network with WHO *.
+   const scan=!this.lastLocalScan.has(id)||this.now()-this.lastLocalScan.get(id)>=60000;
+   const snapshot=scan?(c.identityCache?.snapshot()||[]):[];if(scan)this.lastLocalScan.set(id,this.now());
+   for(const row of snapshot){
+    this.observe(id,{...row,server:c.profile?.host||''});
+    const missingName=watches.some(w=>w.type==='realName')&&row.realName===undefined;
+    const knownHost=watches.some(w=>w.type==='host'&&this.matches(w,row))&&(row.realName===undefined||row.ident===undefined);
+    if((missingName||knownHost)&&row.channel&&(!this.lastEnrichment.has(this.key(id,row.nick))||this.now()-this.lastEnrichment.get(this.key(id,row.nick))>=600000)){
+     const command='WHOIS '+row.nick+' '+row.nick;
+     if(!q.includes(command)&&fold(this.inFlight.get(id)?.nick||'')!==fold(row.nick)&&q.length<100)q.push(command);
+    }
+   }
+   if(!q.length)continue;
+   const current=this.inFlight.get(id);
+   if(current&&this.now()-current.time<30000)continue;
+   this.inFlight.delete(id);
+   if(c.pendingWhois&&[...c.pendingWhois.values()].some(v=>v.target!=='*rastreo*'&&this.now()-v.time<30000)||c.pendingWho&&c.pendingWho.target!=='*rastreo*'&&this.now()-c.pendingWho.time<30000)continue;
+   const server=String(c.profile?.host||id).toLowerCase().replace(/\.$/,'');
+   if([...this.inFlight.values()].some(p=>p.server===server&&this.now()-p.time<30000))continue;
+   if(this.serverLastQuery.has(server)&&this.now()-this.serverLastQuery.get(server)<15000)continue;
+   const command=q.shift(),nick=command.split(' ').at(-1);
+   try{c.request(command,'*rastreo*');this.serverLastQuery.set(server,this.now());this.inFlight.set(id,{nick,time:this.now(),server});this.lastEnrichment.set(this.key(id,nick),this.now());if(this.lastEnrichment.size>10000)this.lastEnrichment.delete(this.lastEnrichment.keys().next().value);}
+   catch(e){this.error('No se pudo consultar el seguimiento: '+e.message);}
+  }
+ }
  async report(id,profiles){const watch=this.config.watches.find(w=>w.id===id);if(!watch)throw Error('Seguimiento no encontrado.');this.flush();if(this.pending.length)throw Error('No se puede generar el informe mientras falla el guardado de observaciones.');const lines=[],sessions=new Map();let total=0,unreadable=0,reportBytes=0;
   const eligible=new Set();
   if(fs.existsSync(this.journal)){const input=fs.createReadStream(this.journal,{encoding:'utf8'}),reader=readline.createInterface({input,crlfDelay:Infinity});try{for await(const line of reader){let row;try{row=JSON.parse(line);}catch{continue;}if(row?.network===watch.network&&typeof row.session==='string'&&(Array.isArray(row.watches)&&row.watches.includes(id)||this.matches(watch,row)||watch.type==='nick'&&row.old&&fold(row.old)===fold(watch.value)))eligible.add(row.session);}}finally{reader.close();input.destroy();}}

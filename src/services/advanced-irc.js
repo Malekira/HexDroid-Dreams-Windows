@@ -63,6 +63,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.ownAvatarTemplate =
         profile.ownAvatarTemplate || this.profile.photoUrl;
       this.pendingWhois = new Map();
+      this.identityCache = new (require("./identity-cache").IdentityCache)();
       this.avatarDiscovery = profile.avatarDiscovery !== false;
       this.avatarSequence = 0;
     }
@@ -140,6 +141,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       this.lastConnectionError=null;this.lastConnectionAlert=null;this.lastRegistrationError=null;
       this.avatarSubscribed = false;
       this.userStates.clear();
+      this.identityCache.rows.clear();
       this.open().catch((e) => this.fail(e.message));
     }
     async open() {
@@ -591,7 +593,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       if(["463","464","465","466"].includes(c)){this.fail(p.slice(1).join(" ")||"El servidor rechazó la conexión ("+c+").",c);return;}
       if(c==="NOTICE"&&!(m.prefix||"").includes("!")&&/\b(?:[zgk]-?line[ds]?|bann?ed|closing link|connection (?:denied|refused))\b/i.test(p.at(-1)||""))this.reportConnectionError(p.at(-1),{code:c,fatal:false});
       if(!this.ready&&/^[45]\d\d$/.test(c)&&c!=="422")this.reportConnectionError(p.slice(1).join(" "),{code:c,fatal:false});
-      const identityObservation=require('./identity-observation').decode(m);if(identityObservation)this.emit('identity-observation',{...identityObservation,own:fold(identityObservation.nick)===fold(this.nick)});
+      const identityObservation=require('./identity-observation').decode(m);if(identityObservation){const observation={...identityObservation,own:fold(identityObservation.nick)===fold(this.nick)};this.identityCache.observe(observation);this.emit('identity-observation',observation);}
       this.clones.observe(m);
       if (c === "CHGHOST") this.clones.schedule();
       if (c === "305" || c === "306")
