@@ -159,6 +159,14 @@
       entries = (config.settings.favoriteRooms || [])
         .filter((r) => r.network === id)
         .sort((a, b) => a.name.localeCompare(b.name));
+    action("Entrar a otra sala…", () => openJoin());
+    action("Listado de salas", () => {
+      openJoin();
+      if ($("join-dialog").open)
+        $("join-dialog").querySelector("h2").textContent = "Listado de salas";
+    });
+    action("Configurar favoritas…", () => window.openDreamsFavorites());
+    menu.append(el("hr"));
     menu.append(el("div", "menu-section-label", "Favoritas"));
     if (!entries.length)
       menu.append(el("div", "menu-note", "Sin favoritas en esta red"));
@@ -172,13 +180,6 @@
         if (result?.error) throw Error(result.error);
       });
     menu.append(el("hr"));
-    action("Entrar a otra sala…", () => openJoin());
-    action("Listado de salas", () => {
-      openJoin();
-      if ($("join-dialog").open)
-        $("join-dialog").querySelector("h2").textContent = "Listado de salas";
-    });
-    action("Configurar favoritas…", () => window.openDreamsFavorites());
     const r = rooms.getBoundingClientRect();
     menu.style.left = Math.max(4, Math.min(r.left, innerWidth - 290)) + "px";
     menu.style.top = r.bottom + 3 + "px";

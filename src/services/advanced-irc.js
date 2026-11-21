@@ -591,6 +591,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       if(["463","464","465","466"].includes(c)){this.fail(p.slice(1).join(" ")||"El servidor rechazó la conexión ("+c+").",c);return;}
       if(c==="NOTICE"&&!(m.prefix||"").includes("!")&&/\b(?:[zgk]-?line[ds]?|bann?ed|closing link|connection (?:denied|refused))\b/i.test(p.at(-1)||""))this.reportConnectionError(p.at(-1),{code:c,fatal:false});
       if(!this.ready&&/^[45]\d\d$/.test(c)&&c!=="422")this.reportConnectionError(p.slice(1).join(" "),{code:c,fatal:false});
+      const identityObservation=require('./identity-observation').decode(m);if(identityObservation)this.emit('identity-observation',{...identityObservation,own:fold(identityObservation.nick)===fold(this.nick)});
       this.clones.observe(m);
       if (c === "CHGHOST") this.clones.schedule();
       if (c === "305" || c === "306")

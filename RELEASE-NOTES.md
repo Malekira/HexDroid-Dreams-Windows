@@ -1,10 +1,11 @@
-# HexDreams IRC 0.37.0 — Windows portable
+# HexDreams IRC 0.38.0 — Windows portable
 
-- Notify → Mostrar eventos en un privado agrega entradas, salidas y cambios de nick a una ventana Notify de solo lectura, por conexión. Cada línea identifica red, servidor y hora.
-- Abrir registro Notify permite consultar la ventana sin esperar otro evento. Los eventos nuevos no cambian el foco de la conversación actual.
-- El registro tiene su propia opción y funciona aunque estén desactivados los avisos emergentes. No convierte el primer sondeo de presencia en entradas ni duplica el cambio de nick como una nueva conexión; no registra usuarios observados únicamente por un PV abierto.
-- Al desactivar la opción se dejan de agregar eventos; las líneas ya mostradas permanecen durante esa sesión. El registro no envía mensajes, avisos de escritura ni marcas de lectura a IRC, y sigue visible al ocultar los eventos de sala.
+- Comandos → Seguimiento de usuarios: criterios por nick exacto, parte del host o parte del nombre real; búsqueda de usuarios visibles y espera de futuras coincidencias.
+- Informes TXT con nicks observados, hosts/vhosts, nombres reales, cuenta cuando está disponible, salas, fechas y evidencia. Se elige dónde guardar los informes; la carpeta queda guardada.
+- Los vhosts compartidos no unen personas. La reutilización de hosts tras QUIT, desconexión local o pérdida de visibilidad se conserva en intervalos separados. NICK y CHGHOST observados identifican continuidad de una conexión, no identidad personal, incluido el cambio de nick registrado a Guest si el servidor lo muestra.
+- El informe puede incluir evidencias guardadas anteriormente que coincidan con el criterio, sin unir intervalos por host o nombre real.
+- El botón Salas muestra primero Entrar, Listado y Configurar favoritas; después, las salas favoritas.
 
-La opción se guarda en la configuración y comienza desactivada. Es un registro local de sesión: no agrega guardado SQLite/TXT y se cierra con las demás pestañas al desconectar, como antes.
+Las búsquedas respetan el inicio de sesión y los comandos personalizados. Solo se registra lo visible para esta conexión y permitido por el servidor; no se garantiza encontrar usuarios ocultos. El seguimiento tiene archivos propios, separados de SQLite y del addon anterior. Los registros previos de addons no se importan automáticamente. Ante un fallo de escritura se pausa la captura y se avisa; un informe puede reflejar huecos. No se cambian TLS, Notify, scripts, estilos ni otras preferencias.
 
 Extrae todo el ZIP con HexDreams cerrado. No requiere instalación.

@@ -27,6 +27,7 @@ class Runtime {
     this.statusActivity=new (require('./status-activity').StatusActivity)();
     const deliver=this.emit;
     this.emit=(id,type,data)=>{const saved=this.statusActivity.record(id,type,data);deliver(id,type,saved?{...data,time:saved.time,statusEventId:saved.statusEventId}:data);};
+    this.identityTracker=new (require('./identity-tracker').IdentityTracker)(directory,{error:text=>this.emit(null,'tracker-error',{text}),changed:()=>this.emit(null,'tracker-changed',{})});
     this.memory = new Map();
     this.cryptoAdapters = new Map();
     this.queues = new Map();
@@ -135,6 +136,7 @@ class Runtime {
           : null,
       tlsMaterial: (host) => this.dccCertificate(host),
     });
+    this.trackerTimer=setInterval(()=>{try{this.identityTracker.tick(this.sessions.sessions);}catch(e){this.emit(null,'tracker-error',{text:e.message});}},2000);this.trackerTimer.unref();
     this.sessions.on("event",(id,type,data)=>this.enqueue(id,type,data));
     this.crypto.on("security", (data) =>
       this.emit(data.network, "security", data),
@@ -220,6 +222,9 @@ class Runtime {
   enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
+    if(type==='identity-observation'){this.identityTracker?.observe(id,{...data,server:this.sessions?.get?.(id)?.profile.host||this.getConfig().profiles?.find(p=>p.id===id)?.host||''});return;}
+    if(type==='status'&&data.state==='disconnected')this.identityTracker?.disconnect(id);
+    if(type==='server'&&data.target==='*rastreo*')return;
     if (type === "protocol") {
       if (this.getConfig().settings.protocolLogging)
         this.protocolLog.append(id, data.direction, data.line);
@@ -747,6 +752,13 @@ class Runtime {
           crypto: this.crypto.targets,
           debug: this.scripts.debug,
         };
+      case 'tracker.list':return this.identityTracker.list();
+      case 'tracker.add':return this.identityTracker.add(data,this.getConfig().profiles);
+      case 'tracker.remove':this.identityTracker.remove(data.watch);return{ok:true};
+      case 'tracker.search':this.identityTracker.search(id);return{ok:true};
+      case 'tracker.folder':{const directory=await this.pick({properties:['openDirectory','createDirectory']});if(!directory)return{cancelled:true};this.identityTracker.setFolder(directory);return{directory};}
+      case 'tracker.report':return this.identityTracker.report(data.watch,this.getConfig().profiles);
+      case 'tracker.openFolder':{await fs.promises.mkdir(this.identityTracker.config.reportsDirectory,{recursive:true});const error=await this.electron.shell.openPath(this.identityTracker.config.reportsDirectory);if(error)throw Error(error);return{ok:true};}
       case 'status.activity':return{messages:this.statusActivity.snapshot(id)};
       case "protocol.read":
         return this.protocolLog.read();
@@ -1335,7 +1347,7 @@ class Runtime {
   }
   close() {
     if(this.closed)return;this.closed=true;
-    clearInterval(this.awayTimer);
+    clearInterval(this.awayTimer);clearInterval(this.trackerTimer);this.identityTracker?.close();
     this.sessions.close();
     this.scripts.close();
     this.dcc.close();

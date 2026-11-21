@@ -570,6 +570,16 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
 
 
+    console.log('Prueba Electron: seguimiento integrado, vhost compartido e informe en carpeta elegida');
+    const identityWatch=await page.evaluate(()=>window.dreams.advanced('tracker.add',{network:config.profiles[0].id,type:'host',value:'shared-tracker.host'}));expect(identityWatch.error).toBeUndefined();
+    const reportsDirectory=path.join(root,'informes-elegidos');
+    await app.evaluate(({dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});},reportsDirectory);
+    expect((await page.evaluate(()=>window.dreams.advanced('tracker.folder'))).directory).toBe(reportsDirectory);
+    for(const socket of sockets)socket.write(':EvidenceOne!ident@shared-tracker.host JOIN :#dreams\r\n:EvidenceTwo!ident@shared-tracker.host JOIN :#dreams\r\n:EvidenceOne!ident@shared-tracker.host NICK EvidenceNew\r\n:EvidenceNew!ident@shared-tracker.host CHGHOST ident actual.host\r\n');
+    await expect.poll(async()=>{const data=await page.evaluate(()=>window.dreams.advanced('tracker.list'));return data.watches.find(w=>w.id===identityWatch.id)?.observed.map(o=>o.nick).sort();}).toEqual(['EvidenceNew','EvidenceTwo']);
+    const identityReport=await page.evaluate(watch=>window.dreams.advanced('tracker.report',{watch}),identityWatch.id);expect(identityReport.error).toBeUndefined();expect(identityReport.sessions).toBe(2);expect(path.dirname(identityReport.file)).toBe(reportsDirectory);const evidence=fs.readFileSync(identityReport.file,'utf8');expect(evidence).toContain('EvidenceOne, EvidenceNew');expect(evidence).toContain('CHGHOST observado');expect(evidence).toContain('actual.host');
+    await page.evaluate(watch=>window.dreams.advanced('tracker.remove',{watch}),identityWatch.id);
+
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');
