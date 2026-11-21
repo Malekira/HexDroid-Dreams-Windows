@@ -134,6 +134,8 @@ Salas → Ver bans consulta bans, excepciones, invitaciones, silencios y AKICK d
 
 Notify → Mostrar eventos en un privado permite registrar entradas, salidas y cambios de nick en una ventana local de solo lectura por conexión, con red, servidor y hora. Abrir registro Notify permite verla sin esperar otro evento. Es un registro de sesión; no agrega persistencia en SQLite ni TXT.
 
-Comandos → Seguimiento de usuarios permite seguir nick exacto, host parcial o nombre real parcial y generar informes TXT en una carpeta elegida. Las coincidencias de host/vhost se mantienen separadas por intervalos; solo eventos directos NICK/CHGHOST confirman continuidad de una conexión, sin probar identidad personal. Ver [guía del seguimiento](docs/CAMBIOS-0.39.0.md).
+Comandos → Seguimiento de usuarios permite seguir nick exacto, host parcial o ident parcial y generar informes TXT en una carpeta elegida. Las coincidencias de host/vhost se mantienen separadas por intervalos; solo eventos directos NICK/CHGHOST confirman continuidad de una conexión, sin probar identidad personal. Ver [guía del seguimiento](docs/CAMBIOS-0.39.0.md).
 
 La búsqueda de seguimiento no envía WHO global. Reutiliza observaciones de salas visibles y completa datos con WHOIS individuales, uno cada 15 segundos por servidor y esperando respuesta o timeout. Los sondeos por nick se espacian en rondas de al menos cinco minutos.
+
+Sistema agrupa Status, WHOIS/WHO, registros locales, servicios reconocidos y entradas internas de scripts. Un privado puede moverse manualmente a Sistema o Privados desde su menú contextual. En Configuración → NOTICE se puede activar una ventana adicional de NOTICE por red, conservando los destinos originales.

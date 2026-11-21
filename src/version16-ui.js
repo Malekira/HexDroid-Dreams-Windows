@@ -105,6 +105,7 @@
           "Puedes elegir varios destinos. Sala utiliza la sala de origen o la sala activa de esa red. Si no hay una sala activa o el aviso no tiene PV, se utiliza Status.",
         ),
       );
+      field("noticeWindow", "Mostrar todos los NOTICE en una ventana de Sistema", "checkbox", s.noticeWindow===true);
       field("noticePopup", "Enviar notificación emergente de Windows");
       const useColor = field(
           "useNoticeColor",

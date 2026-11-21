@@ -1,10 +1,10 @@
 # HexDreams IRC 0.39.0 — Windows portable
 
-- Se elimina el WHO * automático introducido en el seguimiento de 0.38.0. Esa consulta podía generar respuestas masivas y provocar SendQ exceeded.
-- Las búsquedas por host y nombre real utilizan datos ya recibidos de las salas visibles. Si falta información, se completa mediante WHOIS individuales, sin barridos globales.
-- Como máximo un WHOIS de seguimiento cada 15 segundos por dirección de servidor, incluso con varias conexiones. Se espera la respuesta final o un timeout de 30 segundos antes de continuar. La cola de enriquecimiento queda limitada y los datos ya conocidos no se consultan de nuevo sin necesidad.
-- Se mantienen la prioridad de los comandos personalizados y consultas manuales, los informes, la carpeta elegida y la separación de evidencias. Las comprobaciones exactas de nick se repiten en rondas de al menos cinco minutos.
+- Corrección de SendQ: se elimina el WHO * automático del seguimiento. Se reutilizan datos recibidos de salas visibles y, cuando falta información, se usan WHOIS individuales, como máximo uno cada 15 segundos por servidor, esperando respuesta o timeout. No hay barridos globales.
+- El criterio de seguimiento ahora es ident, junto a nick y host. El nombre real solo se conserva como dato informativo. Los criterios antiguos por nombre real quedan pausados para no cambiar el significado de sus evidencias; se pueden conservar para informes o quitar y crear uno por ident.
+- Nuevo apartado Sistema: Status, WHOIS/WHO, registro de Notify, NOTICE, servicios reconocidos y entradas internas de scripts. Salas y Privados contienen sus conversaciones correspondientes. Un destino desconocido puede moverse manualmente entre Sistema y Privados desde su menú contextual.
+- Opción en Configuración → NOTICE: Mostrar todos los NOTICE en una ventana de Sistema. Crea una ventana por red, adicional a los PV/destinos existentes, sin robar foco ni enviar mensajes desde ese registro. Comienza desactivada.
 
-Esto corrige la consulta masiva detectada; sin el registro del servidor no puede asegurarse que explique cada desconexión SendQ. La búsqueda por host/nombre real queda limitada a la información visible para esa conexión; los datos que no estén disponibles pueden tardar o no encontrarse. No se cambian redes, TLS, Notify ni addons, y no se borran seguimientos ni evidencias.
+Se conservan informes, carpeta elegida, evidencias, configuración de redes y addons. Las búsquedas se limitan a lo visible para la conexión y pueden tardar en completar datos. La consulta masiva detectada podía provocar SendQ; sin el registro del servidor no se puede asegurar que explique todas las desconexiones posibles.
 
 Cierra HexDreams y extrae todo el ZIP en una carpeta nueva. No requiere instalación.

@@ -21,3 +21,5 @@
 .dialog-header > button:last-child::before { content: '×'; font-size: 22px; line-height: 26px; }
 .script-view[open] { display: flex; flex-direction: column; overflow: hidden; margin: 0; }
 .script-view .form-content { flex: 1; min-height: 0; overflow: auto; }
+
+#tree-system{border-top:1px solid var(--border);margin-top:6px;padding-top:6px}#tree-system .script-tree{margin:0;padding:0}

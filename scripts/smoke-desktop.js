@@ -112,7 +112,7 @@ async function run() {
     expect(await page.evaluate(()=>conversation(config.profiles[0].id,'*notify*').messages.some(m=>m.text.includes('Alice se desconectó')))).toBe(true);
 
     await page.getByRole('button',{name:'Cerrar Notify',exact:true}).click();
-    await page.getByRole('button',{name:'Privado *notify*',exact:true}).click();await expect(page.locator('#conversation-title')).toHaveText('Notify');await expect(page.locator('#message-input')).toBeDisabled();await expect(page.locator('#messages')).toContainText('Alice se desconectó');await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
+    await page.getByRole('button',{name:'Registro Notify *notify*',exact:true}).click();await expect(page.locator('#conversation-title')).toHaveText('Notify');await expect(page.locator('#message-input')).toBeDisabled();await expect(page.locator('#messages')).toContainText('Alice se desconectó');await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
 
     await page.getByRole('button',{name:'Notify: usuarios en línea',exact:true}).click();
     await page.locator('#notify-list .notify-row').filter({hasText:'Alice'}).getByRole('button',{name:'WHOIS',exact:true}).click();
@@ -579,6 +579,14 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await expect.poll(async()=>{const data=await page.evaluate(()=>window.dreams.advanced('tracker.list'));return data.watches.find(w=>w.id===identityWatch.id)?.observed.map(o=>o.nick).sort();}).toEqual(['EvidenceNew','EvidenceTwo']);
     const identityReport=await page.evaluate(watch=>window.dreams.advanced('tracker.report',{watch}),identityWatch.id);expect(identityReport.error).toBeUndefined();expect(identityReport.sessions).toBe(2);expect(path.dirname(identityReport.file)).toBe(reportsDirectory);const evidence=fs.readFileSync(identityReport.file,'utf8');expect(evidence).toContain('EvidenceOne, EvidenceNew');expect(evidence).toContain('CHGHOST observado');expect(evidence).toContain('actual.host');expect(received.some(line=>/^WHO \*(?: |$)/.test(line))).toBe(false);
     await page.evaluate(watch=>window.dreams.advanced('tracker.remove',{watch}),identityWatch.id);
+
+    console.log('Prueba Electron: Sistema separa servicios y usuarios; NOTICE opcional conserva los privados');
+    await page.evaluate(async()=>{window.__noticeCopySettings={noticeWindow:config.settings.noticeWindow,noticeDestinations:config.settings.noticeDestinations};config.settings.noticeWindow=true;config.settings.noticeDestinations=['original','private'];await persist();});
+    for(const socket of sockets)socket.write(':NoticeAlice!ident@host NOTICE Dreamer :Aviso agrupado de Alice\r\n:NoticeBob!ident@host NOTICE Dreamer :Aviso agrupado de Bob\r\n');
+    await expect(page.locator('#tree-system')).toContainText('NOTICE');await expect(page.locator('#tree-privates')).toContainText('NoticeAlice');
+    await page.getByRole('button',{name:'Registro NOTICE *notices*',exact:true}).click();await expect(page.locator('#message-input')).toBeDisabled();await expect(page.locator('#messages')).toContainText('Aviso agrupado de Alice');await expect(page.locator('#messages')).toContainText('Aviso agrupado de Bob');
+    expect(await page.evaluate(()=>network(config.profiles[0].id).conversations.get('noticealice').messages.at(-1).text)).toBe('Aviso agrupado de Alice');
+    await page.evaluate(async()=>{Object.assign(config.settings,window.__noticeCopySettings);await persist();choose(config.profiles[0].id,'#dreams');});
 
     console.log('Prueba Electron: aprobación de certificado TLS por red');
     await page.getByRole('button',{name:'Añadir red',exact:true}).click();

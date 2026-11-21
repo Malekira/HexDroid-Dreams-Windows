@@ -28,7 +28,7 @@
   sidebar.querySelector('.sidebar-section-divider')?.remove();sidebar.prepend(connectionTitle,connections,double(),notifyTitle,$('sidebar-notify-list'),double());
   const scriptTree=el('div','script-tree');scriptTree.setAttribute('aria-label','Entradas de scripts');connections.after(scriptTree);
   let entries=[],entrySignature="";
-  function drawEntries(){const signature=JSON.stringify(entries.map(e=>[e,profile(e.network)?.name]));if(signature===entrySignature)return;entrySignature=signature;scriptTree.replaceChildren();for(const entry of entries){const b=action(scriptTree,entry.label+' ('+entry.count+')',()=>api.advanced('script.tree.open',{id:entry.id}));b.dataset.network=entry.network;b.title=(profile(entry.network)?.name||entry.network)+' · '+entry.label;}}
+  function drawEntries(){const system=$('tree-system');if(system&&scriptTree.parentElement!==system)system.append(scriptTree);const visible=entries.filter(e=>e.network===active?.id);const signature=JSON.stringify(visible.map(e=>[e,profile(e.network)?.name]));if(signature!==entrySignature){entrySignature=signature;scriptTree.replaceChildren();for(const entry of visible){const b=action(scriptTree,entry.label+' ('+entry.count+')',()=>api.advanced('script.tree.open',{id:entry.id}));b.dataset.network=entry.network;b.title=(profile(entry.network)?.name||entry.network)+' · '+entry.label;}}if(system)system.querySelector('summary').textContent='Sistema ('+(Number(system.dataset.conversationCount||0)+visible.length)+')';}
   api.onEvent(event=>{
     if(event.type==='script-tree'){entries=event.entries||[];drawEntries();}
     if(event.type==='script-conversation'&&profile(event.id)){

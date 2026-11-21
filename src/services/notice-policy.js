@@ -16,4 +16,8 @@ function destinations(data, settings, active) {
   if (routes.includes("status")) out.add("*");
   return [...out].filter(Boolean);
 }
-module.exports = { destinations };
+function windowEntry(data,settings){
+ if(settings.noticeWindow!==true||!data.notice||data.own||data.historical)return null;
+ return{...data,target:'*notices*',sourceTarget:data.target,text:'['+(data.target==='*'?'Servidor':data.target)+'] '+data.text};
+}
+module.exports = { destinations,windowEntry };

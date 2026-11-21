@@ -296,6 +296,7 @@ class Runtime {
       if(data.notice){const notice=await this.scripts.event("NOTICE",{...eventFields,text:result.text});result.halted ||= notice.halted;result.haltedBy ||= notice.haltedBy;result.text=notice.text;}
       if (result.halted && privateMessage && !data.own && !data.historical) { this.scriptConversations?.hold(result.haltedBy,id,data); return; }
       data = { ...data, text: result.text };
+      if(data.notice){const windowEntry=require('./notice-policy').windowEntry(data,this.getConfig().settings);if(windowEntry)this.emit(id,'notice-log',windowEntry);}
       const outputs=data.notice?require('./notice-policy').destinations(data,this.getConfig().settings,this.activeConversation?.id===id?this.activeConversation:null).map(target=>({...data,target,sourceTarget:data.target})):[data];
       for(const output of outputs){if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,output);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,output);}
       if(!data.own&&!data.historical)this.notify(id,{...data,notificationTarget:outputs[0]?.target});
@@ -407,7 +408,7 @@ class Runtime {
     if (settings.flashOnMention) w?.flashFrame(true);
   }
   async send({ id, target, text }) {
-    if(target==='*notify*')throw new Error('Notify es un registro local de solo lectura.');
+    if(target==='*notify*'||target==='*notices*')throw new Error('Esta es una ventana local de solo lectura.');
     if(target==='*consultas*'&&!text.startsWith('/'))throw new Error('Usa /whois nick o /who nick en la conversación de consultas.');
     const ignore = /^\/(ignore|unignore) +([^\s,]+)$/i.exec(text);
     if (ignore) {
@@ -531,6 +532,7 @@ class Runtime {
         text: rest.join(" "),
         event: true,
         nick: "script",
+        systemSource: "script",
       });
       return;
     }

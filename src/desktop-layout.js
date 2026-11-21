@@ -62,7 +62,7 @@
   );
   sidebar.setAttribute("aria-label", "Notify y conversaciones");
   function node(c, kind) {
-    if(c.kind==='notify')kind='private';
+    if(DreamsConversationGroups.section(c)==='system')kind=c.kind==='server'?'server':c.kind==='private'?'service':c.kind;
     const id = active.id;
     const row = el(
         "div",
@@ -77,20 +77,21 @@
       b = el(
         "button",
         kind === "private" ? "conversation-name" : "tree-name",
-        c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.name,
+        c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.kind==='notices'?'NOTICE':c.name,
       );
     b.type = "button";
     b.setAttribute(
       "aria-label",
-      (kind === "server" ? "Status " : kind === "private"
+      (kind === "server" ? "Status " : kind === "notices" ? "Registro NOTICE " : kind === "notify" ? "Registro Notify " : kind === "service" ? "Servicio " : kind === "private"
         ? "Privado "
         : kind === "channel"
           ? "Sala "
           : "Consulta ") + c.name,
     );
     b.replaceChildren(
-      el("span", "tree-label", c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.name),
+      el("span", "tree-label", c.kind === "server" ? "Status" : c.kind === "queries" ? "WHOIS / WHO" : c.kind==='notify'?'Notify':c.kind==='notices'?'NOTICE':c.name),
     );
+    row.dataset.conversationSection = DreamsConversationGroups.section(c);
     row.dataset.target = fold(c.name);
     row.dataset.network = id;
     b.setAttribute(
@@ -211,12 +212,14 @@
     }
     const all = active ? [...network(active.id).conversations.values()] : [],
       query = fold($("search").value);
+    for(const c of all){const section=config.settings.conversationSections?.[active.id]?.[fold(c.name)];if(c.kind==='private'&&['system','private'].includes(section))c.sidebarSection=section;}
     const rooms = all.filter((c) => c.kind === "channel"),
       privates = all
-        .filter((c) => c.kind === "private"||c.kind==='notify')
+        .filter((c) => DreamsConversationGroups.section(c)==='private')
         .sort((a, b) =>
           a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
         );
+    const system=all.filter(c=>DreamsConversationGroups.section(c)==='system').sort((a,b)=>{const rank=c=>c.kind==='server'?0:c.kind==='queries'?1:c.kind==='notify'?2:c.kind==='notices'?3:4;return rank(a)-rank(b)||a.name.localeCompare(b.name);});
     const desired = new Set();
     const existingRows=new Map([...list.querySelectorAll(".tree-row")].map(row=>[row.dataset.target,row]));
     function reconcile(parent, entries) {
@@ -225,7 +228,7 @@
         const key = fold(c.name);
         desired.add(key);
         let row = existingRows.get(key);
-        if (!row) row = node(c, c.kind);
+        if (!row||row.dataset.conversationSection!==DreamsConversationGroups.section(c)){row?.remove();row = node(c, c.kind);}
         const expected = previous
           ? previous.nextElementSibling
           : parent.querySelector(":scope > .tree-row");
@@ -267,6 +270,7 @@
     for (const [title, id, key, entries] of [
       ["Salas", "tree-rooms", "treeRoomsOpen", rooms],
       ["Privados", "tree-privates", "treePrivatesOpen", privates],
+      ["Sistema", "tree-system", "treeSystemOpen", system],
     ]) {
       let g = $(id);
       if (!g) {
@@ -277,15 +281,13 @@
       const visible = entries.filter(
         (c) => !query || fold(c.name).includes(query),
       );
+      if(id==='tree-system')g.dataset.conversationCount=String(visible.length);
       g.querySelector("summary").textContent =
         title + " (" + visible.length + ")";
       if (query) g.open = true;
       reconcile(g, entries);
     }
-    reconcile(
-      list,
-      all.filter((c) => c.kind === "queries" || c.kind === "server"),
-    );
+
     for (const row of list.querySelectorAll(".tree-row"))
       if (!desired.has(row.dataset.target)) row.remove();
     window.updateDreamsCommandMenu?.();

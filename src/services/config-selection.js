@@ -15,7 +15,7 @@ const groups = {
     "nickPalette",
   ],
   notifications: [
-    "notifyPrivateLog","notifyEntries","sharedNotify","sharedNotifyNicks","notifyFilter",
+    "noticeWindow","notifyPrivateLog","notifyEntries","sharedNotify","sharedNotifyNicks","notifyFilter",
     "autoAwayEnabled",
     "autoAwayMinutes",
     "autoAwayMessage",

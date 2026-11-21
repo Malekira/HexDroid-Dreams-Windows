@@ -6,7 +6,7 @@
   'use strict';
   const plain=typeof module==='object'&&module.exports?require('./formatting').plain:text=>globalThis.DreamsFormatting?.plain(text)??text;
   const fold = s => String(s).toLowerCase().replace(/[\[\]\\^]/g, c => ({ '[':'{', ']':'}', '\\':'|', '^':'~' })[c]);
-  const kind = name => name === '*' ? 'server' : name==='*consultas*'?'queries':name==='*notify*'?'notify': /^[#&+!]/.test(name) ? 'channel' : 'private';
+  const kind = name => name === '*' ? 'server' : name==='*consultas*'?'queries':name==='*notify*'?'notify':name==='*notices*'?'notices': /^[#&+!]/.test(name) ? 'channel' : 'private';
   function sanitizeWorkspace(input, profiles = []) {
     const output = { networks: [], active: null };
     for (const p of profiles) {
@@ -15,7 +15,7 @@
       for (const entry of Array.isArray(saved?.conversations) ? saved.conversations.slice(0, 500) : []) {
         if (!entry || typeof entry.name !== 'string' || !entry.name || entry.name.length > 200 || /[\s\0\r\n:,]/.test(entry.name) || entry.name === '*') continue;
         const key = fold(entry.name); if (seen.has(key)) continue; seen.add(key);
-        conversations.push({ name: entry.name, muted: entry.muted === true });
+        conversations.push({ name: entry.name, muted: entry.muted === true,...(['system','private'].includes(entry.sidebarSection)?{sidebarSection:entry.sidebarSection}:{}) });
       }
       const lastTarget = saved?.lastTarget === '*' || conversations.some(c => fold(c.name) === fold(saved?.lastTarget)) ? saved.lastTarget : '*';
       output.networks.push({ id: p.id, conversations, lastTarget });
@@ -30,7 +30,7 @@
     constructor(profiles = [], saved = {}) {
       this.profiles = profiles; this.networks = new Map(); this.active = null;
       const state = sanitizeWorkspace(saved, profiles);
-      for (const n of state.networks) { this.network(n.id).lastTarget = n.lastTarget; for (const c of n.conversations) this.conversation(n.id, c.name).muted = c.muted; }
+      for (const n of state.networks) { this.network(n.id).lastTarget = n.lastTarget; for (const c of n.conversations){const view=this.conversation(n.id,c.name);view.muted=c.muted;if(c.sidebarSection)view.sidebarSection=c.sidebarSection;} }
       this.active = state.active || (profiles[0] ? { id: profiles[0].id, target: '*' } : null);
     }
     network(id) {
@@ -65,7 +65,7 @@
       entries.splice(entries.findIndex(([key]) => key === fold(before)), 0, [fold(name), c]); n.conversations = new Map(entries); return true;
     }
     serialize() {
-      return sanitizeWorkspace({ active:this.active, networks:[...this.networks].map(([id,n]) => ({ id, lastTarget:n.lastTarget, conversations:[...n.conversations.values()].filter(c => c.kind !== 'server').map(c => ({ name:c.name, muted:c.muted })) })) }, this.profiles);
+      return sanitizeWorkspace({ active:this.active, networks:[...this.networks].map(([id,n]) => ({ id, lastTarget:n.lastTarget, conversations:[...n.conversations.values()].filter(c => c.kind !== 'server').map(c => ({ name:c.name, muted:c.muted,...(c.sidebarSection?{sidebarSection:c.sidebarSection}:{}) })) })) }, this.profiles);
     }
   }
   Workspace.sequence = 0;
