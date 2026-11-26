@@ -3,8 +3,8 @@ const {parse} = require('./importer');
 const {arithmetic} = require('../interpreter');
 const fold = s => String(s).toLowerCase().replace(/[\[\]\\^]/g,c=>({'[':'{',']':'}','\\':'|','^':'~'})[c]);
 class Halt extends Error {}
-const COMMANDS = new Set(['var','set','unset','inc','dec','return','halt','echo','msg','notice','mode','kick']);
-const BUILTINS = new Set(['me','chan','nick','network','null','true','false','calc','len','lower','upper','replace','gettok','numtok','address','v1','v2']);
+const COMMANDS = new Set(['var','set','unset','inc','dec','return','halt','echo','msg','notice','mode','kick','haltdef','hadd','hinc','hdel','writeini','remini','dialog','did','noop','query','close','scid','scon']);
+const BUILTINS = new Set(['me','chan','nick','network','null','true','false','calc','len','lower','upper','replace','gettok','numtok','address','v1','v2','chr','qt','scriptdir','cid','time','readini','ini','hget','hfind','dialog','did','dname','query','tip','regex']);
 function splitTop(text, delimiter) {
  const out=[];let depth=0,start=0;
  for(let i=0;i<text.length;i++){
@@ -29,11 +29,18 @@ function instructions(source) {
    if(++count>10000)throw Error('Demasiadas instrucciones.');
    const header=tokens[at++];
    if(header==='{')throw Error('Bloque sin instrucción.');
-   const control=/^(if|elseif|while)\s*\(([\s\S]*)\)$/.exec(header);
-   if(control||header==='else'){
-    if(tokens[at++]!=='{')throw Error('Los controles requieren un bloque explícito.');
-    const node={type:control?.[1]||'else',expression:control?.[2]||'',body:block(depth+1)};
-    if(tokens[at++]!=='}')throw Error('Bloque sin cerrar.');
+   const control=/^(if|elseif|while)\s*\(/.exec(header);
+   const otherwise=/^else(?:\s|$)/.test(header);
+   if(control||otherwise){
+    let expression='',rest='';
+    if(control){let end=header.indexOf('(')+1,n=1,start=end;
+     for(;end<header.length&&n;end++){if(header[end]==='(')n++;else if(header[end]===')')n--;}
+     if(n)throw Error('Condición sin cerrar.');expression=header.slice(start,end-1);rest=header.slice(end).trim();
+    }else rest=header.slice(4).trim();
+    let body;
+    if(rest)body=instructions(rest);
+    else {if(tokens[at++]!=='{')throw Error('Control sin instrucción ni bloque.');body=block(depth+1);if(tokens[at++]!=='}')throw Error('Bloque sin cerrar.');}
+    const node={type:control?.[1]||'else',expression,body};
     if(['else','elseif'].includes(node.type)&&!['if','elseif'].includes(result.at(-1)?.type))throw Error('else/elseif sin if.');
     result.push(node);
    }else{
@@ -48,13 +55,22 @@ function instructions(source) {
 }
 function compile(source){
  const parsed=parse(source);if(parsed.diagnostics.length)throw Error(parsed.diagnostics.map(d=>'Línea '+d.line+': '+d.message).join('\n'));
- const aliases=new Map();aliases.handlers=[];
+ const aliases=new Map();aliases.handlers=[];aliases.dialogs=new Map();
  for(const d of parsed.declarations){
   if(d.type==='on'){
-   const event=/^(?:\*|1):JOIN:([^:]+):$/i.exec(d.name);
-   if(!event||!['#','*'].includes(event[1])&&!/^[#&+!][^\s*?:]+$/.test(event[1]))throw Error('Evento mSL todavía no soportado: '+d.name);
+   const event=/^(\^?)(?:\*|1):(JOIN|LOAD|OPEN|TEXT|ACTION|DIALOG):(.*)$/i.exec(d.name);
+   if(!event)throw Error('Evento mSL todavía no soportado: '+d.name);
+   const type=event[2].toUpperCase(),parts=event[3].split(':');let pattern='',dialog='',interaction='',control='';
+   if(type==='JOIN'){pattern=parts[0];if(!['#','*'].includes(pattern)&&!/^[#&+!][^\s*?:]+$/.test(pattern))throw Error('Sala de evento no soportada.');}
+   if(['OPEN','TEXT','ACTION'].includes(type)){
+    if(type==='OPEN'?(parts[0]!=='?'||parts[1]!=='*'):(parts[0]!=='*'||parts[1]!=='?'))throw Error('Solo se admiten estos eventos sobre privados con patrón *.');pattern='?';
+   }
+   if(type==='DIALOG'){[dialog,interaction,control]=parts;if(!['init','sclick','dclick','close','edit'].includes(interaction)||!/^\d+$/.test(control))throw Error('Evento de diálogo no soportado.');}
    const start=d.body.indexOf('{'),end=d.body.lastIndexOf('}');
-   aliases.handlers.push({event:'JOIN',pattern:event[1],body:instructions(d.body.slice(start+1,end))});continue;
+   aliases.handlers.push({event:type,pattern,dialog,interaction,control,pre:!!event[1],body:instructions(d.body.slice(start+1,end))});continue;
+  }
+  if(d.type==='dialog'){
+   aliases.dialogs.set(d.name.toLowerCase(),require('./state').parseDialog(d));continue;
   }
   if(d.type!=='alias')throw Error('Declaración mSL todavía no soportada: '+d.type+' (línea '+d.line+').');
   if(!/^[a-z][\w.-]*$/i.test(d.name))throw Error('Nombre de alias no válido.');
@@ -71,8 +87,8 @@ function compile(source){
    const op=/\s(!?is[a-z]+|===|!==|=~)\s/i.exec(expr);
    if(op&&!['isin','!isin'].includes(op[1].toLowerCase()))throw Error('Comparación todavía no soportada: '+op[1]);
   }
-  if(/[\[\]]|\$\$|\$\([^)]|\x00/.test(expr))throw Error('Evaluación dinámica todavía no soportada.');
-  for(const m of expr.matchAll(/\$([a-z][\w]*)/gi))if(!BUILTINS.has(m[1].toLowerCase())&&!aliases.has(m[1].toLowerCase()))throw Error('Identificador mSL todavía no soportado: $'+m[1]);
+  if(/\$\$|\$\([^)]|\x00/.test(expr))throw Error('Evaluación dinámica todavía no soportada.');
+  for(const m of expr.matchAll(/\$([a-z][\w.-]*)/gi))if(!BUILTINS.has(m[1].toLowerCase())&&!aliases.has(m[1].toLowerCase()))throw Error('Identificador mSL todavía no soportado: $'+m[1]);
   if(n.type==='command'&&['var','set','inc','dec','unset'].includes(n.command)){
    if(!/^%[\w.-]+(?:\s+(?:=\s*)?[\s\S]*)?$/.test(n.args))throw Error('Asignación todavía no soportada: '+n.args);
    if(splitTop(n.args,',').length>1)throw Error('Las asignaciones múltiples todavía no están soportadas.');
@@ -83,19 +99,27 @@ function compile(source){
  return aliases;
 }
 class MslVM {
- constructor(source){this.aliases=compile(source);this.globals=new Map();}
+ constructor(source,ini={}){this.aliases=compile(source);this.globals=new Map();this.compat=new (require('./state').CompatState)(this,ini);}
+ execute(fields,run){
+  this.steps=0;this.actions=[];this.fields=fields;this.halted=false;this.compat.begin();
+  const old=new Map(this.globals);
+  try{const value=run();return this.result(value);}
+  catch(e){if(e instanceof Halt){this.halted=true;return this.result('');}this.globals=old;this.compat.rollback();throw e;}
+ }
+ result(value=''){return {handled:true,actions:this.actions,value,halted:this.halted,...this.compat.finish()};}
  invoke(name,fields={},args=[]){
   name=name.toLowerCase();if(!this.aliases.has(name)||this.aliases.get(name).local)return {handled:false,actions:[]};
-  this.steps=0;this.actions=[];this.fields=fields;const old=new Map(this.globals);
-  try{const value=this.call(name,args,0);return {handled:true,actions:this.actions,value};}
-  catch(e){if(e instanceof Halt)return {handled:true,actions:this.actions,value:''};this.globals=old;throw e;}
+  return this.execute(fields,()=>this.call(name,args,0));
  }
  dispatch(name,fields={},args=[]){
-  const handler=this.aliases.handlers.find(h=>h.event===name&&(['#','*'].includes(h.pattern)?/^[#&+!]/.test(fields.chan||''):fold(h.pattern)===fold(fields.chan||'')));
+  const handler=this.aliases.handlers.find(h=>h.event===name&&
+   (name==='JOIN'?(['#','*'].includes(h.pattern)?/^[#&+!]/.test(fields.chan||''):fold(h.pattern)===fold(fields.chan||'')):
+    name==='DIALOG'?h.dialog.toLowerCase()===String(fields.dname||'').toLowerCase()&&h.interaction===fields.interaction&&h.control===String(fields.control):true));
   if(!handler)return {handled:false,actions:[]};
-  this.steps=0;this.actions=[];this.fields=fields;const old=new Map(this.globals);
-  try{this.run(handler.body,{args,locals:new Map(),depth:0});return {handled:true,actions:this.actions};}
-  catch(e){if(e instanceof Halt)return {handled:true,actions:this.actions};this.globals=old;throw e;}
+  return this.execute(fields,()=>{this.run(handler.body,{args,locals:new Map(),depth:0});return '';});
+ }
+ dialogEvent(fields,name,interaction,control,values){
+  return this.execute(fields,()=>{this.compat.interact(name,interaction,control,values);return '';});
  }
  step(){if(++this.steps>10000)throw Error('Se excedió el presupuesto de instrucciones mSL.');}
  bounded(value){value=String(value??'');if(value.length>16384)throw Error('Texto mSL demasiado largo.');return value;}
@@ -104,16 +128,16 @@ class MslVM {
   let out='';
   for(let i=0;i<text.length;){
    const rest=text.slice(i);let m;
-   if(rest.startsWith('$+')){out=out.trimEnd();i+=2;while(/\s/.test(text[i]||'')&&i<text.length)i++;}
+   if(rest.startsWith('$+')&&!rest.startsWith('$+(')){out=out.trimEnd();i+=2;while(/\s/.test(text[i]||'')&&i<text.length)i++;}
    else if((m=/^%[\w.-]+/.exec(rest))){out+=ctx.locals.has(m[0].toLowerCase())?ctx.locals.get(m[0].toLowerCase()):this.globals.get(m[0].toLowerCase())||'';i+=m[0].length;}
    else if((m=/^\$(\d+)(?:-(\d*))?/.exec(rest))){const n=Number(m[1]);out+=n===0?ctx.args.length:m[2]!==undefined?ctx.args.slice(n-1,m[2]?Number(m[2]):undefined).join(' '):ctx.args[n-1]||'';i+=m[0].length;}
-   else if((m=/^\$([a-z][\w]*)/i.exec(rest))){
+   else if((m=/^\$([a-z][\w.-]*|\+(?=\())/i.exec(rest))){
     const key=m[1].toLowerCase();i+=m[0].length;let params=null;
     if(text[i]==='('){let end=i+1,n=1;for(;end<text.length&&n;end++){if(text[end]==='(')n++;else if(text[end]===')')n--;}
      if(n)throw Error('Identificador sin cerrar.');
      params=splitTop(text.slice(i+1,end-1),',').map(p=>this.value(p.trim(),ctx,depth+1));i=end;
     }
-    let property='';const prop=/^\.([a-z][\w]*)/i.exec(text.slice(i));if(prop){property=prop[1].toLowerCase();i+=prop[0].length;if(property!=='pnick')throw Error('Propiedad todavía no soportada: '+property);}
+    let property='';const prop=/^\.([a-z][\w]*)/i.exec(text.slice(i));if(prop){property=prop[1].toLowerCase();i+=prop[0].length;if(!['pnick','item','text','seltext','lines','state'].includes(property))throw Error('Propiedad todavía no soportada: '+property);}
     out+=this.identifier(key,params,property,ctx,depth+1);
    }else {out+=text[i++];}
    if(out.length>16384)throw Error('Texto mSL demasiado largo.');
@@ -123,6 +147,7 @@ class MslVM {
  identifier(key,args,property,ctx,depth){
   const f=this.fields;
   if(this.aliases.has(key)){if(property)throw Error('Propiedad de alias no soportada.');return this.call(key,args||[],ctx.depth+1)||'';}
+  const extra=this.compat.identifier(key,args,property,ctx);if(extra!==undefined)return extra;
   if(!BUILTINS.has(key))throw Error('Identificador no soportado: $'+key);
   if(key==='chan'&&args){
    if(args.length!==1||!/^\d+$/.test(args[0]))throw Error('$chan admite un índice numérico en esta etapa.');
@@ -149,7 +174,7 @@ class MslVM {
    case 'lower':return (args[0]||'').toLowerCase();
    case 'upper':return (args[0]||'').toUpperCase();
    case 'replace':{if(args.length<3||args.length%2!==1)throw Error('$replace requiere pares de búsqueda y reemplazo.');let value=args[0];for(let i=1;i<args.length;i+=2){if(!args[i])throw Error('Búsqueda vacía.');const pieces=value.split(args[i]);if(value.length+(pieces.length-1)*(args[i+1].length-args[i].length)>16384)throw Error('Texto mSL demasiado largo.');value=this.bounded(pieces.join(args[i+1]));}return value;}
-   case 'gettok':case 'numtok':{const code=Number(args[key==='gettok'?2:1]);if(!Number.isInteger(code)||code<1||code>255)throw Error('Separador de tokens no válido.');const items=(args[0]||'').split(String.fromCharCode(code)).filter(Boolean);if(key==='numtok')return String(items.length);if(!/^-?\d+$/.test(args[1]))throw Error('Los intervalos de $gettok todavía no están soportados.');const n=Number(args[1]);return n===0?String(items.length):items[n<0?items.length+n:n-1]||'';}
+   case 'gettok':case 'numtok':{const code=Number(args[key==='gettok'?2:1]);if(!Number.isInteger(code)||code<1||code>255)throw Error('Separador de tokens no válido.');const items=(args[0]||'').split(String.fromCharCode(code)).filter(Boolean);if(key==='numtok')return String(items.length);const range=/^(\d+)-(\d*)$/.exec(args[1]);if(range)return items.slice(Number(range[1])-1,range[2]?Number(range[2]):undefined).join(String.fromCharCode(code));if(!/^-?\d+$/.test(args[1]))throw Error('Índice de $gettok no válido.');const n=Number(args[1]);return n===0?String(items.length):items[n<0?items.length+n:n-1]||'';}
    default:throw Error('Forma de identificador no soportada: $'+key);
   }
  }
@@ -190,10 +215,12 @@ class MslVM {
      if(store.size>=1000&&!store.has(key))throw Error('Demasiadas variables mSL.');store.set(key,this.bounded(value));
     }else if(command==='return')return {value:this.value(n.args,ctx)};
     else if(command==='halt')throw new Halt();
+    else if(command==='haltdef'){this.halted=true;}
+    else if(this.compat.command(command,n.args,ctx)){}
     else if(this.aliases.has(command)){this.call(command,this.value(n.args,ctx).split(/\s+/).filter(Boolean),ctx.depth+1);}
     else{
-     if(this.actions.length>=40)throw Error('Demasiadas acciones mSL en una invocación.');
-     this.actions.push({type:command,text:this.value(n.args,ctx),silent:n.silent});
+     if(this.actions.length>=200)throw Error('Demasiadas acciones mSL en una invocación.');
+     this.actions.push({type:command,text:this.value(n.args,ctx),silent:n.silent,...(this.fields.network?{network:this.fields.network,buffer:this.fields.buffer}:{} )});
     }
    }
    if(result)return result;

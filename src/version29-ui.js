@@ -33,7 +33,7 @@
     if(event.type==='script-tree'){entries=event.entries||[];drawEntries();}
     if(event.type==='script-conversation'&&profile(event.id)){
       const c=network(event.id).conversations.get(fold(event.target));
-      if(event.operation==='open')choose(event.id,event.target);
+      if(event.operation==='open'){if(event.user)conversation(event.id,event.target).sidebarSection='private';choose(event.id,event.target);}
       else if(c?.kind==='private')closeConversation(event.id,event.target);
     }
   });

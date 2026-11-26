@@ -1,7 +1,11 @@
-Versión portable de prueba para Windows x64. Extraer todo el ZIP y ejecutar HexDreamsIRC.exe. Para usar un perfil separado, ejecutar Probar-compatibilidad.cmd.
+Portable de prueba para Windows x64. Extraer todo el ZIP y ejecutar HexDreamsIRC.exe. Probar-compatibilidad.cmd usa un perfil separado.
 
-Incluye la primera ejecución de alias mSL y eventos JOIN, análisis/importación de .mrc/.xcr, ejemplos y la corrección de visibilidad de Ver/quitar bans en el perfil.
+Cambios solicitados:
 
-Alcance: todavía no ejecuta paneles, menús, temporizadores ni todos los eventos o paquetes de mIRC. Se comprobó el addon original kaos_ident en Electron con IRC local, también desde el app.asar del paquete. Pasaron 267 pruebas automatizadas. La publicación automática genera y verifica el ejecutable en Windows: arranque, interfaz, IRC local y prueba del addon desde el portable empaquetado.
+- Compatibilidad con Control_Privados_mIRC_v87.mrc original: retención de privados, aceptar/rechazar/ignorar, búfer de 25 mensajes, diálogos, configuración INI y lista persistente de autoaceptados. El original se incluye sin modificaciones en Extras/mIRC.
+- Salas: recuperación inicial de 50 líneas y conservación de todas las nuevas durante la sesión, sin el recorte de 600. Se conservan las preferencias de guardado de historial.
+- El análisis informa claramente que no instala el addon; los auxiliares pv.* no aparecen en sugerencias.
 
-El archivo .sha256 permite comprobar la integridad del ZIP.
+La publicación verifica pruebas unitarias, interfaz y el ejecutable empaquetado en Windows con un IRC local y el addon exacto. No se certifica compatibilidad universal con mIRC: RAW, timers y otras APIs siguen pendientes.
+
+El archivo SHA-256 permite verificar la integridad del ZIP.

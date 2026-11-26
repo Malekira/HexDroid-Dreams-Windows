@@ -204,14 +204,15 @@ test('Message formatting, selection, clipboard, search and user permissions have
   await page.getByRole('menuitem',{name:'WHOIS',exact:true}).click();
   await expect.poll(() => page.evaluate(() => window.__sent.at(-1).text)).toBe('/whois Luna');
 });
-test('Message bursts are bounded and do not lose the reading position or first unread marker', async ({page}) => {
+test('Room bursts retain all messages without losing the reading position or unread marker', async ({page}) => {
   const errors=[]; page.on('pageerror',error => errors.push(error.message));
   await page.goto('http://127.0.0.1:4173'); await addNetwork(page);
   await page.evaluate(() => {
     const id=JSON.parse(localStorage.getItem('dreams-test')).profiles[0].id;
     for(let i=0;i<900;i++) window.__emit({id,type:'message',target:'#general',nick:'Luna',text:'burst '+i,time:new Date().toISOString()});
   });
-  await expect(page.locator('.message')).toHaveCount(600);
+  await expect(page.locator('.message')).toHaveCount(900);
+  await expect(page.locator('.message-text').first()).toHaveText('burst 0');
   await page.locator('#messages').evaluate(node => {node.scrollTop=100;node.dispatchEvent(new Event('scroll'));});
   const before=await page.locator('#messages').evaluate(node => node.scrollTop);
   await page.evaluate(() => {

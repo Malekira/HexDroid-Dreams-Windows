@@ -50,3 +50,11 @@ test('Echo confirmation updates an existing message and historical loading never
  const w=new Workspace([{id:'one',nick:'Me'}]);const original=w.addMessage('one','#room',{nick:'Me',text:'hello',clientId:'client',pending:true,own:true});w.addMessage('one','#room',{nick:'Me',text:'hello',clientId:'client',messageId:'server',pending:false,own:true});const c=w.conversation('one','#room');assert.equal(c.messages.length,1);assert.equal(c.messages[0].id,original.id);assert.equal(c.messages[0].pending,false);w.addMessage('one','#room',{nick:'Alice',text:'old',messageId:'past',historical:true});assert.equal(c.unread,0);
 });
 test('Room messages and channel events produce activity without marking historical data as new',()=>{const w=new Workspace(profiles);w.choose('one','#first');w.addMessage('one','#second',{event:true,activity:true,text:'Alice joined'});const room=w.conversation('one','#second');assert.equal(room.unread,1);assert.ok(room.activityUntil>Date.now());w.addMessage('one','#second',{event:true,activity:true,historical:true,text:'old join'});assert.equal(room.unread,1);assert.equal(w.conversation('one','*consultas*').kind,'queries');});
+test('Rooms retain their initial 50 history rows and every new line throughout the workspace session',()=>{
+ const w=new Workspace(profiles);w.choose('one','#room');
+ for(let i=0;i<50;i++)w.addMessage('one','#room',{text:'saved '+i,historical:true});
+ for(let i=0;i<1500;i++)w.addMessage('one','#room',{nick:'Alice',text:'live '+i});
+ w.choose('one','#other');w.choose('one','#room');const room=w.conversation('one','#room');
+ assert.equal(room.messages.length,1550);assert.equal(room.messages[0].text,'saved 0');assert.equal(room.messages[50].text,'live 0');assert.equal(room.messages.at(-1).text,'live 1499');
+ assert.equal(new Workspace(profiles).conversation('one','#room').messages.length,0);
+});

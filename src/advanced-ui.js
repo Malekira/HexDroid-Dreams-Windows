@@ -125,7 +125,7 @@
     try {
       const result = await action();
       if (result?.error) throw new Error(result.error);
-      feedback.textContent = result?.cancelled ? "Cancelado." : "Listo.";
+      feedback.textContent = result?.cancelled ? 'Cancelado.' : result?.feedback || 'Listo.';
       return result;
     } catch (e) {
       feedback.textContent = e.message;
@@ -372,7 +372,8 @@
       );
     } else if (section === "history") {
       const fields={};for(const[key,label]of Object.entries({textLogRooms:'Guardar historial en TXT por sala (mensajes y eventos)',textLogPrivates:'Guardar historial en TXT por PV',textLogStatus:'Guardar historial de status de red',textLogQueries:'Guardar historial de WHOIS/WHO'}))fields[key]=input(label,config.settings.textLogsEnabled!==false&&config.settings[key]!==false,'checkbox');
-      const roomRows=input('Recargar últimas filas de salas',config.settings.historyRoomRows??(config.settings.historyEnabled?300:0),'number'),privateRows=input('Recargar últimas filas de PV',config.settings.historyPrivateRows??(config.settings.historyEnabled?300:0),'number');
+      note('La cantidad de filas solo limita la recuperación inicial. Las salas conservan todas las líneas nuevas durante esta sesión.');
+      const roomRows=input('Recargar últimas filas de salas',config.settings.historyRoomRows??50,'number'),privateRows=input('Recargar últimas filas de PV',config.settings.historyPrivateRows??(config.settings.historyEnabled?300:0),'number');
       roomRows.min=privateRows.min='0';roomRows.max=privateRows.max='600';roomRows.step=privateRows.step='1';note('0 no recarga. Máximo 600 filas por conversación. Elegir filas activa el guardado para recarga y búsqueda; el TXT se configura por separado.');
       const days=input('Tiempo de conservación (días)',config.settings.textLogDays||0,'number'),max=input('Límite por archivo (MB)',config.settings.textLogMaxMB||0,'number');days.min=max.min='0';
       note('0 conserva indefinidamente y no limita el tamaño. Con límite de tamaño se conservan las líneas más recientes; la retención elimina los archivos sin actividad durante ese tiempo.');
@@ -562,7 +563,7 @@
         report.open=true;
         text.style.whiteSpace='pre-wrap';
         text.textContent=[result.message,result.compatibility?.message||'',...result.declarations.map(d=>d.type+' '+d.name+' · línea '+d.line),...result.dependencies.map(d=>'Dependencia: '+d),...result.diagnostics.map(d=>'Línea '+d.line+': '+d.message)].join('\n');
-        report.append(heading,text);body.append(report);
+        report.append(heading,text);body.append(report);return {feedback:result.compatibility?.supported?'Análisis terminado: compatible con las funciones implementadas. No se instaló.':'Análisis terminado: addon todavía no compatible. No se instaló.'};
       });
       button("Importar archivo .hex", async () => {
         await call("script.import");
@@ -614,11 +615,11 @@
         row.append(cell);
         rows.append(row);
       }
-      const mirc=el('details'),mircTitle=el('summary','','Compatibilidad mIRC · alias y JOIN');
+      const mirc=el('details'),mircTitle=el('summary','','Compatibilidad mIRC · privados y diálogos');
       mirc.open=(state.mircScripts||[]).length>0;mirc.append(mircTitle);body.append(mirc);
-      mirc.append(el('p','muted','Permite alias y eventos JOIN del subconjunto soportado. Paneles, timers y otros eventos todavía no se ejecutan; los archivos que los incluyan se rechazan completos.'));
+      mirc.append(el('p','muted','Admite alias, JOIN y las funciones de privados, diálogos, INI y tablas hash utilizadas por Control de Privados v87. La compatibilidad con otros addons depende de las funciones que usen.'));
       if(state.mircError)mirc.append(el('p','',state.mircError));
-      button('Importar alias .mrc/.xcr…',async()=>{const result=await call('script.mirc.import');if(!result.cancelled)await show();},mirc);
+      button('Importar addon .mrc/.xcr…',async()=>{const result=await call('script.mirc.import');if(!result.cancelled)await show();},mirc);
       for(const addon of state.mircScripts||[]){
         const row=el('div','script-card mirc-addon-row'),label=el('label','checkbox-label',addon.name+' '),toggle=el('input');
         toggle.type='checkbox';toggle.checked=addon.enabled;toggle.setAttribute('aria-label','Activar '+addon.name);
@@ -836,7 +837,7 @@
     if(active && config.settings.sendTyping!==false)call("typing",{...context(),state:"done"}).catch(()=>{});
     lastTyping=0;typing.textContent="";clearTimeout(typingTimer);
     originalChoose(id,target,...rest);call("read",{network:id,target}).catch(()=>{});
-    const n=network(id),c=n.conversations.get(fold(target)),limit=c?.kind==='channel'?(config.settings.historyRoomRows??300):c?.kind==='private'?(config.settings.historyPrivateRows??300):0;
+    const n=network(id),c=n.conversations.get(fold(target)),limit=c?.kind==='channel'?(config.settings.historyRoomRows??50):c?.kind==='private'?(config.settings.historyPrivateRows??300):0;
     if(!c||!config.settings.historyEnabled||!limit||historyLoaded.has(c))return;
     historyLoaded.add(c);
     const identity=m=>m.messageId?'server:'+m.messageId:m.clientId?'client:'+m.clientId:JSON.stringify([m.nick||'',m.text||'',Number(new Date(m.time)),!!m.event,!!m.action]);

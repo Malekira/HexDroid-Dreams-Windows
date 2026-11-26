@@ -95,6 +95,7 @@ async function closeConversation(id, target) {
   if (c.joined && network(id).state === 'connected') {
     const result = await api.send({ id, target, text: '/part' }); if (result?.error) { notify(result.error, true); return; }
   }
+  if(c.kind==='private'&&api.advanced)api.advanced('script.mirc.queryClosed',{network:id,target}).catch(()=>{});
   const cWasActive = active?.id === id && fold(active.target) === fold(target);
   network(id).conversations.delete(fold(target));
   if(cWasActive){active=null;workspace.active=null;if(c.kind!=='server')choose(id,'*');else{$('message-input').value='';render();}}else render();
@@ -388,7 +389,7 @@ function renderMessages(preserveScroll = false) {
     (m) =>
       (c.kind!=="server"||!window.DreamsStatus||DreamsStatus.visible(m,config.settings.statusFilters)) &&
       (m.eventType !== "clones" || config.settings.showClones !== false) &&
-      (!m.event ||
+      (!m.event || m.scriptOutput ||
         c.kind === "queries" || c.kind === "server" || ['notify','notices'].includes(c.kind) || m.eventType==="presence" ||
         config.settings.showEvents ||
         m.error) &&

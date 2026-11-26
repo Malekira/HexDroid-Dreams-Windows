@@ -2,24 +2,30 @@
 const {executeInput}=require('../../commands');
 const {token,cleanText}=require('../../irc');
 const iconv=require('iconv-lite');
+const {take}=require('./state');
 function snapshot(client,fields){
  const known=client?.identityCache?client.identityCache.snapshot():[...(client?.userStates||[])].map(([nick,user])=>({nick,...user}));
  const addresses=known.map(user=>({nick:user.nick,ident:user.ident||'',host:user.host||''}));
  return {...fields,chan:/^[#&+!]/.test(fields.chan||'')?fields.chan:'',networkName:client?.network||client?.profile?.name||fields.network,me:client?.nick||'',prefixes:client?.prefixes||'~&@%+',rooms:[...(client?.members||[])].map(([name,users])=>({name,users:[...users.values()]})),addresses};
 }
 function prepare(actions,fields,client){
- if(!Array.isArray(actions)||actions.length>40)throw Error('Lote mSL demasiado grande.');
+ if(!Array.isArray(actions)||actions.length>200)throw Error('Lote mSL demasiado grande.');
  const out=[];
  const line=value=>{cleanText(value);if(iconv.encode(value,client?.profile?.encoding||'utf8').length>510)throw Error('Una línea mSL supera el límite IRC.');};
  const probe={ready:true,nick:client?.nick||'',sendRaw:line,sendMessage:(target,text)=>{token(target,'Destino');line('PRIVMSG '+target+' :'+text);}};
  for(const action of actions){
   if(typeof action.text!=='string'||/[\r\n\0]/.test(action.text))throw Error('Texto de acción mSL inválido.');
   if(action.type==='echo'){
-   let text=action.text,target=fields.buffer||'*';
-   if(/^-[as](?:\s|$)/.test(text)){if(text.startsWith('-s'))target='*';text=text.slice(2).trimStart();}
-   else if(text.startsWith('-'))throw Error('Opción echo todavía no soportada.');
-   out.push({type:'echo',target,text});continue;
+   let text=action.text,color=null,target=fields.buffer||'*';
+   const peek=()=>take(text,1).values[0],pop=()=>{const v=take(text,1);text=v.rest;return v.values[0];};
+   if(/^\d{1,2}$/.test(peek()||''))color=pop();
+   if(peek()==='-s'){target='*';pop();}else if(peek()==='-a')pop();
+   else if(peek()?.startsWith('-'))throw Error('Opción echo todavía no soportada.');
+   else if(/^[#&+!]/.test(peek()||'')||(fields.queries||[]).some(q=>q.toLowerCase()===String(peek()).toLowerCase()))target=pop();
+   out.push({type:'echo',target,text:(color!==null?'\x03'+color.padStart(2,'0'):'')+text});continue;
   }
+  if(['query','close'].includes(action.type)){token(action.text,'Nick');out.push({type:action.type,target:action.text});if(action.type==='query')(fields.queries||=[]).push(action.text);continue;}
+  if(action.type==='tip'){out.push({type:'tip',text:action.text,title:String(action.title||'Addon')});continue;}
   if(!client?.ready)throw Error('Conecta primero esta red.');
   let command,target=fields.buffer||'*';
   if(action.type==='kick'){
@@ -28,23 +34,33 @@ function prepare(actions,fields,client){
    command='/'+action.type+' '+action.text;
    if(action.type==='mode'&&!/^[#&+!][^\s,]+(?:\s+[+-][a-zA-Z]+(?:\s+[^\r\n]*)?)?$/.test(action.text))throw Error('Uso mSL: mode #sala [modos argumentos]');
   }else throw Error('Acción mSL no soportada: '+action.type);
-  executeInput(probe,target,command);out.push({type:'command',target,command});
+  executeInput(probe,target,command);const msg=action.type==='msg'?/^(\S+)\s+([\s\S]+)$/.exec(action.text):null;out.push({type:'command',target,command,...(msg?{to:msg[1],body:msg[2],noEcho:!(/^[#&+!]/.test(msg[1])||(fields.queries||[]).some(q=>q.toLowerCase()===msg[1].toLowerCase()))}: {})});
  }
  return out;
 }
 class MircHost {
  constructor({client,emit,delay=ms=>new Promise(resolve=>setTimeout(resolve,ms)),now=()=>Date.now()}){this.client=client;this.emit=emit;this.delay=delay;this.now=now;this.last=new Map();}
  async deliver(actions,fields,valid=()=>true){
-  const client=this.client(fields.network),socket=client?.socket,batch=prepare(actions,fields,client);
-  const needsConnection=batch.some(a=>a.type==='command');
-  const sessionValid=()=>this.client(fields.network)===client&&client?.ready&&client.socket===socket;
+  if(!Array.isArray(actions)||actions.length>200||actions.filter(a=>['mode','kick','msg','notice'].includes(a.type)).length>40)throw Error('Lote mSL demasiado grande.');
+  const snapshots=new Map(),queries=new Map();
+  const batch=actions.map(action=>{
+   const network=action.network||fields.network,client=this.client(network);
+   if(!snapshots.has(network))snapshots.set(network,{client,socket:client?.socket});
+   if(!queries.has(network))queries.set(network,[...(fields.queries||[])]);
+   const a=prepare([action],{...fields,buffer:action.buffer||fields.buffer,queries:queries.get(network)},client)[0];return {...a,network};
+  });
+  const sessionValid=network=>{const saved=snapshots.get(network);return this.client(network)===saved.client&&saved.client?.ready&&saved.client.socket===saved.socket;};
   for(const a of batch){
-   if(!valid()||(needsConnection&&!sessionValid()))throw Error('Se canceló el addon mSL.');
-   if(a.type==='echo'){this.emit(fields.network,'message',{target:a.target,text:a.text,event:true,nick:'script',systemSource:'script'});continue;}
-   const remaining=Math.min(350,350-(this.now()-(this.last.get(fields.network)||0)));if(remaining>0)await this.delay(remaining);
-   if(!valid()||this.client(fields.network)!==client||!client?.ready||client.socket!==socket)throw Error('Se canceló el addon porque cambió o se desconectó la sesión.');
-   executeInput(client,a.target,a.command,(type,data)=>this.emit(fields.network,type,data));this.last.set(fields.network,this.now());
+   if(!valid())throw Error('Se canceló el addon mSL.');
+   const client=snapshots.get(a.network).client;
+   if(a.type==='echo'){this.emit(a.network,'message',{target:a.target,text:a.text,event:true,scriptOutput:true,nick:'script',systemSource:'script'});continue;}
+   if(a.type==='tip'){this.emit(a.network,'mirc-tip',{title:a.title,text:a.text});continue;}
+   if(['query','close'].includes(a.type)){this.emit(a.network,'script-conversation',{target:a.target,operation:a.type==='query'?'open':'close',user:true});continue;}
+   const remaining=Math.min(350,350-(this.now()-(this.last.get(a.network)||0)));if(remaining>0)await this.delay(remaining);
+   if(!valid()||!sessionValid(a.network))throw Error('Se canceló el addon porque cambió o se desconectó la sesión.');
+   if(a.noEcho)client.sendMessage(a.to,a.body,false,{noEcho:true});else executeInput(client,a.target,a.command,(type,data)=>this.emit(a.network,type,data));this.last.set(a.network,this.now());
   }
+
  }
 }
 module.exports={snapshot,prepare,MircHost};
