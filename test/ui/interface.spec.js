@@ -770,7 +770,12 @@ test('Moderation lists keep complete masks, support another room and respect rea
  await page.locator('#bans-dialog').getByRole('button',{name:'Quitar',exact:true}).click();expect(await page.evaluate(()=>window.__advancedCalls.filter(c=>c.name==='bans.remove').at(-1).data.mask)).toBe('*!*@bad.host');
  await page.getByLabel('Sala de bans',{exact:true}).selectOption('other');await page.getByLabel('Otra sala',{exact:true}).fill('#otra');await page.getByLabel('Otra sala',{exact:true}).press('Enter');expect(await page.evaluate(()=>window.__advancedCalls.filter(c=>c.name==='bans.list').at(-1).data.channel)).toBe('#otra');
  await page.evaluate(()=>window.__canRemove=false);await page.locator('#bans-dialog').getByRole('button',{name:'Consultar',exact:true}).click();await expect(page.locator('.ban-row button')).toBeDisabled();await page.locator('#bans-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
- await page.evaluate(()=>window.openDreamsUser(active.id,'Alice'));await page.getByRole('button',{name:'Ver / quitar bans',exact:true}).click();await expect(page.locator('#bans-dialog')).toContainText('Usuario: Alice');
+ await page.evaluate(()=>window.openDreamsUser(active.id,'Alice'));
+ await expect(page.getByRole('button',{name:'Ver / quitar bans',exact:true})).toHaveCount(0);
+ await page.evaluate(()=>{selected().users=['Dreamer','Alice'];window.openDreamsUser(active.id,'Alice');});
+ await expect(page.getByRole('button',{name:'Ver / quitar bans',exact:true})).toHaveCount(0);
+ await page.evaluate(()=>{selected().users=['@Dreamer','Alice'];window.openDreamsUser(active.id,'Alice');});
+ await page.getByRole('button',{name:'Ver / quitar bans',exact:true}).click();await expect(page.locator('#bans-dialog')).toContainText('Usuario: Alice');
 });
 test('Room list favorite action persists without joining and can be reversed',async({page})=>{
  await page.addInitScript(()=>{window.dreams.advanced=async name=>['script.menus','presence.status'].includes(name)?[]:{};});

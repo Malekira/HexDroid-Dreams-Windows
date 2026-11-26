@@ -43,6 +43,7 @@ por ejemplo, puede ser necesario volver a escribir `/hdseguir`.
 La opción «Ver / quitar bans» del perfil solo se muestra si compartís una sala
 con el usuario y tenés allí permisos de moderación.
 
-Se comprobó el motor en pruebas automáticas y en Electron con IRC local, incluidos
-el worker y el addon original. El ejecutable Windows se generó desde Linux:
-no se ha validado su arranque en Windows real. Esta descarga es para esa prueba.
+La publicación automática genera el portable en Windows y exige pruebas de
+arranque, interfaz y Electron con IRC local, incluidos el worker y el addon
+original desde el ejecutable empaquetado. Esta beta sigue siendo una versión
+de prueba: esos controles no certifican todos los addons ni todas las redes.
