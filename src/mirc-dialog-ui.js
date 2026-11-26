@@ -1,15 +1,15 @@
 'use strict';
 (()=>{
- const windows=new Map();
+ const windows=new Map();let foreground=1500;
  const call=async data=>{const r=await api.advanced('script.mirc.dialog',data);if(r?.error)throw Error(r.error);};
  function remove(key){const item=windows.get(key);if(!item)return;item.remote=true;item.root.close();item.root.remove();windows.delete(key);}
  function show(script,definition){
-  const key=script+'\0'+definition.name;let item=windows.get(key);
+  const key=script+'\0'+definition.name;let item=windows.get(key);const opening=!item;
   if(!item){
    const root=el('dialog','script-view mirc-dialog'),header=el('header','dialog-header'),title=el('h2'),close=el('button','secondary','Cerrar'),content=el('div','mirc-controls');
    header.append(title,close);root.append(header,content);document.body.append(root);
    item={root,title,content,controls:new Map(),script,definition};windows.set(key,item);
-   close.onclick=()=>root.close();
+   root.addEventListener('pointerdown',()=>{root.style.zIndex=String(++foreground);});close.onclick=()=>root.close();
    root.addEventListener('close',()=>{if(!item.remote)call({script,name:item.definition.name,network:item.definition.network,interaction:'close',control:'0',values:{}}).catch(e=>notify(e.message,true));windows.delete(key);root.remove();});
   }
   item.definition=definition;item.title.textContent=definition.title;
@@ -39,7 +39,7 @@
    input.setAttribute('aria-label',c.label||c.text||'Control '+c.id);
   }
   for(const node of old.values())node.remove();
-  if(!item.root.open)item.root.show();if(definition.focus)item.root.focus();
+  if(!item.root.open)item.root.show();if(opening||definition.focus){item.root.style.zIndex=String(++foreground);item.root.focus();}
  }
  async function send(item,interaction,control){
 

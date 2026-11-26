@@ -51,6 +51,8 @@ async function run(){
   await expect.poll(()=>received.some(l=>/^PRIVMSG Bob :Disculpa Bob/.test(l))).toBe(true);
   expect(await page.evaluate(()=>network(active.id).conversations.has(fold('Bob')))).toBe(false);
   await page.locator('#message-input').fill('/pvconfig');await page.locator('#message-input').press('Enter');await expect(config).toBeVisible();
+  await page.locator('#message-input').fill('/pvpendientes');await page.locator('#message-input').press('Enter');
+  await pending.getByRole('button',{name:'Configuracion',exact:true}).click();
   await config.locator('[data-mirc-id="13"]').fill('Bien "{nick}"');
   await config.locator('[data-mirc-id="21"] input').check();await config.getByRole('button',{name:'Guardar',exact:true}).click();await expect(config).toHaveCount(0);
   send(':Carol!guest@three.host PRIVMSG Tester :modo automatico');await expect.poll(()=>received.includes('PRIVMSG Carol :Bien "Carol"')).toBe(true);

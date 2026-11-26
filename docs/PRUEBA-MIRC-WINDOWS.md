@@ -1,4 +1,4 @@
-# HexDreams IRC 0.40.0-beta.2 · portable Windows x64
+# HexDreams IRC 0.40.0-beta.3 · portable Windows x64
 
 Extraé todo el ZIP y ejecutá `HexDreamsIRC.exe`. No requiere instalación.
 `Probar-compatibilidad.cmd` permite usar una configuración separada, guardada en

@@ -1,4 +1,4 @@
-# Compatibilidad mIRC · 0.40.0-beta.2
+# Compatibilidad mIRC · 0.40.0-beta.3
 
 HexDreams utiliza su propio intérprete mSL aislado, sin ejecutar mIRC.
 Esta versión incorpora las funciones necesarias para el archivo original
