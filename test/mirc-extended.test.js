@@ -85,3 +85,10 @@ test('a named timer replaces its earlier scheduled command',async t=>{
  await m.alias('replaceTimer',fields,['old']);await m.alias('replaceTimer',fields,['new']);await pause(100);
  assert.deepEqual(sent.map(a=>a.text),['-s new']);
 });
+
+test('unloading an imported module also removes its private ignores',async t=>{
+ const m=manager(t);await m.install('guard.mrc',Buffer.from('alias block { ignore -pu300 Alice }'));
+ await m.install('controller.mrc',Buffer.from('alias removeGuard { unload -rs addons/guard.mrc }'));
+ await m.alias('block',fields);assert.equal(m.ignored({...fields,buffer:'Alice'}),true);
+ await m.alias('removeGuard',fields);assert.equal(m.ignored({...fields,buffer:'Alice'}),false);
+});
