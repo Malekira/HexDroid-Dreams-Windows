@@ -6,7 +6,7 @@
   'use strict';
   const plain=typeof module==='object'&&module.exports?require('./formatting').plain:text=>globalThis.DreamsFormatting?.plain(text)??text;
   const fold = s => String(s).toLowerCase().replace(/[\[\]\\^]/g, c => ({ '[':'{', ']':'}', '\\':'|', '^':'~' })[c]);
-  const kind = name => name === '*' ? 'server' : name==='*consultas*'?'queries':name==='*notify*'?'notify':name==='*notices*'?'notices': /^[#&+!]/.test(name) ? 'channel' : 'private';
+  const kind = name => name === '*' ? 'server' : name==='*consultas*'?'queries':name==='*notify*'?'notify':name==='*notices*'?'notices':name.startsWith('*addon-')?'script': /^[#&+!]/.test(name) ? 'channel' : 'private';
   function sanitizeWorkspace(input, profiles = []) {
     const output = { networks: [], active: null };
     for (const p of profiles) {

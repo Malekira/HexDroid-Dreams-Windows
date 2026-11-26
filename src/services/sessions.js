@@ -65,7 +65,7 @@ class SessionManager extends EventEmitter {
       "bouncer",
       "certificate",
       "sts",
-      "protocol",
+      "protocol", "script-raw",
       "identity-observation", "ban-list", "features", "user-profile", "room-list", "presence", "avatar-publish", "oper-state", "presence-nick", "clones", "room-event", "away-state",
     ];
     for (const type of events)
@@ -155,6 +155,7 @@ class SessionManager extends EventEmitter {
       s.startup=null;client.startupPending=false;
       client.syncAvatars?.();
       if(client.presence){client.presence.suspended=false;client.presence.start();}
+      this.emit('event',s.profile.id,'startup-ready',{});
     };
     const complete=()=>{
       if(s.stopped||s.client!==client||s.startup!==phase)return;

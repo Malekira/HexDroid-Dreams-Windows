@@ -1,1 +1,3 @@
 test/fixtures/mirc/Control_Privados_mIRC_v87.mrc -text
+
+test/fixtures/mirc/*.mrc -text

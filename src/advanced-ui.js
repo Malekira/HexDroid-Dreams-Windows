@@ -617,7 +617,7 @@
       }
       const mirc=el('details'),mircTitle=el('summary','','Compatibilidad mIRC · privados y diálogos');
       mirc.open=(state.mircScripts||[]).length>0;mirc.append(mircTitle);body.append(mirc);
-      mirc.append(el('p','muted','Admite alias, JOIN y las funciones de privados, diálogos, INI y tablas hash utilizadas por Control de Privados v87. La compatibilidad con otros addons depende de las funciones que usen.'));
+      mirc.append(el('p','muted','Admite alias, privados v87, diálogos básicos, INI, hashes, timers, RAW numéricos, menús y ventanas locales. Otros addons pueden necesitar funciones o módulos aún no disponibles.'));
       if(state.mircError)mirc.append(el('p','',state.mircError));
       button('Importar addon .mrc/.xcr…',async()=>{const result=await call('script.mirc.import');if(!result.cancelled)await show();},mirc);
       for(const addon of state.mircScripts||[]){

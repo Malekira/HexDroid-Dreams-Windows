@@ -33,8 +33,8 @@
     if(event.type==='script-tree'){entries=event.entries||[];drawEntries();}
     if(event.type==='script-conversation'&&profile(event.id)){
       const c=network(event.id).conversations.get(fold(event.target));
-      if(event.operation==='open'){if(event.user)conversation(event.id,event.target).sidebarSection='private';choose(event.id,event.target);}
-      else if(c?.kind==='private')closeConversation(event.id,event.target);
+      if(event.operation==='open'){if(event.user)conversation(event.id,event.target).sidebarSection='private';if(!c||c.kind!=='script')choose(event.id,event.target);}
+      else if(['private','script'].includes(c?.kind))closeConversation(event.id,event.target);
     }
   });
   api.advanced?.('script.tree.list').then(rows=>{if(Array.isArray(rows)){entries=rows;drawEntries();}}).catch(()=>{});

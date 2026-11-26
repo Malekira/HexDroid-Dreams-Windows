@@ -21,8 +21,12 @@ function parse(source) {
     if (!current) {
       const group = /^#([\w.-]+)\s+(on|off|end)$/i.exec(text);
       if (group) { declarations.push({type:'group',name:group[1],state:group[2].toLowerCase(),line,body:''}); continue; }
+      if(/^:\s/.test(text)){declarations.push({type:'label',name:text,line,body:''});continue;}
+      if(/^(?:if\s*\(|set\s|unset\s|var\s)/i.test(text)&&!text.endsWith('{')){declarations.push({type:'init',name:'init',line,body:original});continue;}
       const m = /^(alias(?:\s+-l)?\s+([^\s{]+)|on\s+([^{}]+)|raw\s+([^{}]+)|dialog\s+([^\s{]+)|menu\s+([^{}]+))\s*\{/i.exec(text);
-      if (!m) { diagnostics.push({line,message:'Declaración no reconocida o sin bloque explícito.',code:'unsupported-declaration'}); continue; }
+      if (!m) {
+        const bare=/^([a-z][\w.-]*)\s*\{/i.exec(text);if(bare){current={type:'alias',name:bare[1],line,body:'alias '+original+'\n'};depth=(text.match(/(?:^|\s)\{(?=\s|$)/g)||[]).length-(text.match(/(?:^|\s)\}(?=\s|$)/g)||[]).length;if(depth<=0){declarations.push(current);current=null;depth=0;}continue;}
+        diagnostics.push({line,message:'Declaración no reconocida o sin bloque explícito.',code:'unsupported-declaration'}); continue; }
       const type = text.split(/\s/)[0].toLowerCase();
       current = {type,name:(m[2]||m[3]||m[4]||m[5]||m[6]).trim(),line,body:''};
     }
@@ -50,7 +54,7 @@ function inspect(buffer, name = 'addon.mrc') {
     if (m) dependencies.add(m[1].replace(/^"|"$/g,''));
   }
   let compatibility;
-  try{require('./language').compile(source);compatibility={supported:true,message:'Puede importarse como archivo de alias del subconjunto mSL actual.'};}
+  try{require('./language').compile(source);compatibility={supported:true,message:'El archivo compila en el subconjunto mSL actual. Esto no garantiza que todas sus rutas funcionen; las dependencias deben importarse por separado.'};}
   catch(e){compatibility={supported:false,message:e.message};}
   return {name,encoding,stage:'inspection',executable:false,compatibility,
     declarations:parsed.declarations.map(({body,...entry})=>entry),

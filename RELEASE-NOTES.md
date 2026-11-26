@@ -1,12 +1,17 @@
-Portable de prueba para Windows x64. Extraer todo el ZIP y ejecutar HexDreamsIRC.exe. Probar-compatibilidad.cmd usa un perfil separado.
+# HexDreams IRC 0.40.0-beta.4 · Windows portable
 
-Cambios solicitados:
+Ampliación del motor propio de compatibilidad mIRC: temporizadores cancelables,
+RAW numéricos, menús, ventanas locales en Sistema, eventos de conexión/entrada,
+archivos virtuales e ignores temporales. Conserva privados v87 y el historial de
+salas (50 recuperadas + nuevas líneas sin recorte durante la sesión).
 
-- Compatibilidad con Control_Privados_mIRC_v87.mrc original: retención de privados, aceptar/rechazar/ignorar, búfer de 25 mensajes, diálogos, configuración INI y lista persistente de autoaceptados. El original se incluye sin modificaciones en Extras/mIRC.
-- Salas: recuperación inicial de 50 líneas y conservación de todas las nuevas durante la sesión, sin el recorte de 600. Se conservan las preferencias de guardado de historial.
-- Los comandos del addon traen sus ventanas al primer plano incluso si ya estaban abiertas.
-- El análisis informa claramente que no instala el addon; los auxiliares pv.* no aparecen en sugerencias.
+Comprobaciones con los originales aSolas, delBans, voices, megaWho,
+myClonDetector y spy. Pruebas Electron con IRC local para kaos_ident, spy,
+delBans y privados v87; pruebas de interfaz y empaquetado en Windows.
 
-La publicación verifica pruebas unitarias, interfaz y el ejecutable empaquetado en Windows con un IRC local y el addon exacto. No se certifica compatibilidad universal con mIRC: RAW, timers y otras APIs siguen pendientes.
+No es compatibilidad universal: los paneles más grandes aún requieren APIs,
+eventos y módulos adicionales. El ZIP incluye el estado detallado por addon
+en Extras/mIRC/ALCANCE.md. Compilar no certifica todas las rutas de un addon.
 
-El archivo SHA-256 permite verificar la integridad del ZIP.
+Extraer el ZIP completo y ejecutar HexDreamsIRC.exe. Probar-compatibilidad.cmd
+usa un perfil separado. No se necesita instalar ni ejecutar mIRC.

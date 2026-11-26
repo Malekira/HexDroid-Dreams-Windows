@@ -27,10 +27,14 @@ function parseDialog(d){
  return result;
 }
 class CompatState{
- constructor(vm,ini={}){this.vm=vm;this.ini=clone(ini);this.hash=new Map();this.dialogs=new Map();}
- begin(){this.old=clone({ini:this.ini,hash:this.hash,dialogs:this.dialogs});this.dirty=false;this.ui=new Set();this.closed=[];}
+ constructor(vm,ini={},files={}){this.vm=vm;this.files=new Map(Object.entries(files));this.ini=clone(ini);this.hash=new Map();this.dialogs=new Map();}
+ begin(){this.old=clone({ini:this.ini,hash:this.hash,dialogs:this.dialogs,files:this.files});this.dirty=false;this.filesDirty=false;this.ui=new Set();this.closed=[];}
  rollback(){Object.assign(this,this.old);}
- finish(){const dialogs=[...this.ui].filter(n=>this.dialogs.has(n)).map(n=>{const d=clone(this.dialogs.get(n));delete this.dialogs.get(n).focus;return d;});return {dialogs,closed:this.closed,...(this.dirty?{ini:clone(this.ini)}:{})};}
+ finish(){const dialogs=[...this.ui].filter(n=>this.dialogs.has(n)).map(n=>{const d=clone(this.dialogs.get(n));delete this.dialogs.get(n).focus;return d;});return {dialogs,closed:this.closed,...(this.filesDirty?{files:Object.fromEntries(this.files)}:{}),...(this.dirty?{ini:clone(this.ini)}:{})};}
+ filePath(value){
+  value=String(value||'').replace(/^"|"$/g,'').replace(/\\/g,'/').replace(/^addon:\//i,'');
+  if(!value||value.startsWith('/')||value.split('/').some(p=>!p||p==='.'||p==='..')||/[:\0\r\n]/.test(value)||value.length>240)throw Error('Ruta fuera del espacio privado del addon.');return value.toLowerCase();
+ }
  path(value){value=String(value).replace(/^"|"$/g,'');if(!/^addon:\/[a-z\d_.-]+\.ini$/i.test(value))throw Error('El addon solo puede usar archivos INI dentro de su espacio privado.');return key(value);}
  file(value,create=false){const name=this.path(value);if(!this.ini[name]&&create)this.ini[name]={};return this.ini[name]||{};}
  table(name,create=false){name=key(name);if(!this.hash.has(name)&&create){if(this.hash.size>=50)throw Error('Demasiadas tablas hash.');this.hash.set(name,new Map());}return this.hash.get(name);}
@@ -50,6 +54,7 @@ class CompatState{
   if(name==='readini'){if(!a||![3,4].includes(a.length))throw Error('$readini no válido.');const offset=a.length===4?1:0;const file=this.file(a[0]),section=key(a[1+offset]),item=key(a[2+offset]);return Object.hasOwn(file,section)&&Object.hasOwn(file[section],item)?String(file[section][item]):'';}
   if(name==='ini'){if(!a||a.length!==3)throw Error('$ini no válido.');const file=this.file(a[0]),section=Object.hasOwn(file,key(a[1]))?file[key(a[1])]:{},keys=Object.keys(section),n=Number(a[2]);return n===0?String(keys.length):keys[n-1]||'';}
   if(name==='hget'){
+   if(a?.length===1)return this.table(a[0])?a[0]:'';
    const t=this.table(a?.[0]);if(!t)return '';if(p==='item')return a[1]==='0'?String(t.size):[...t.keys()][Number(a[1])-1]||'';return t.get(key(a?.[1]))||'';
   }
   if(name==='hfind'){
@@ -58,6 +63,7 @@ class CompatState{
   }
   if(name==='dialog')return this.dialogs.has(key(a?.[0]))?a[0]:'';
   if(name==='did'){
+   if(!a)return String(f.control||'');if(a.length===1)a=[f.dname,a[0]];
    const c=this.control(a?.[0],a?.[1]);if(!c)return '';
    if(p==='lines')return String(c.items.length);
    if(p==='seltext')return c.items[c.selected-1]||'';
@@ -109,13 +115,13 @@ class CompatState{
   }
  }
  runDialog(name,interaction,control,ctx={depth:0}){
-  const vm=this.vm,handler=vm.aliases.handlers.find(h=>h.event==='DIALOG'&&key(h.dialog)===key(name)&&h.interaction===interaction&&h.control===String(control));
+  const vm=this.vm,handler=vm.aliases.handlers.find(h=>h.event==='DIALOG'&&key(h.dialog)===key(name)&&h.interaction===interaction&&(h.control==='*'||h.control===String(control)));
   if(!handler)return;const previous=vm.fields;vm.fields={...previous,dname:name,interaction,control:String(control)};
   try{vm.run(handler.body,{locals:new Map(),args:[],depth:ctx.depth+1});}finally{vm.fields=previous;}
  }
  interact(name,interaction,control,values){
   name=key(name);const d=this.dialogs.get(name);if(!d)throw Error('La ventana del addon ya no está abierta.');
-  if(interaction==='close'){this.dialogs.delete(name);this.closed.push(name);return;}
+  if(interaction==='close'){this.runDialog(name,'close','0');this.dialogs.delete(name);this.closed.push(name);return;}
   const active=this.control(name,control);if(!active||active.disabled||!['sclick','dclick','edit'].includes(interaction))throw Error('Interacción de diálogo no válida.');
   if((interaction==='dclick'&&active.type!=='list')||(interaction==='sclick'&&!['button','radio','check','list'].includes(active.type)))throw Error('Interacción de control no válida.');
   for(const [id,value]of Object.entries(values||{})){
@@ -124,8 +130,7 @@ class CompatState{
    else if(c.type==='list'){const n=Number(value);if(!Number.isInteger(n)||n<0||n>c.items.length)throw Error('Selección de lista inválida.');c.selected=n;}
    else if(['radio','check'].includes(c.type)){if(typeof value!=='boolean')throw Error('Estado de control inválido.');c.checked=value;}
   }
-  if(active.options.includes('cancel')){this.dialogs.delete(name);this.closed.push(name);return;}
-  this.runDialog(name,interaction,control);
+  this.runDialog(name,interaction,control);if(active.options.includes('cancel')||active.options.includes('ok')){this.dialogs.delete(name);this.closed.push(name);}
  }
 }
 module.exports={CompatState,parseDialog,words,take};

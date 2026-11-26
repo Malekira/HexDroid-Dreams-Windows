@@ -587,6 +587,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
     }
     handle(m) {
       const { command: c, params: p } = m;
+      if(/^\d{3}$/.test(c)&&this.listenerCount('script-raw'))this.emit('script-raw',{command:c,params:[...p],nick:m.nick,prefix:m.prefix});
       if(this.startupPending&&["403","405","471","473","474","475","476","477","489"].includes(c))this.emit("startup-room-failed",{target:p[1]});
       const ownNickChange = c === "NICK" && fold(m.nick) === fold(this.nick);
       const routinePresence=this.presence.handle(m);

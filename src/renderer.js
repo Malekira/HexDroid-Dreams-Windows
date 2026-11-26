@@ -390,7 +390,7 @@ function renderMessages(preserveScroll = false) {
       (c.kind!=="server"||!window.DreamsStatus||DreamsStatus.visible(m,config.settings.statusFilters)) &&
       (m.eventType !== "clones" || config.settings.showClones !== false) &&
       (!m.event || m.scriptOutput ||
-        c.kind === "queries" || c.kind === "server" || ['notify','notices'].includes(c.kind) || m.eventType==="presence" ||
+        c.kind === "queries" || c.kind === "server" || ['notify','notices','script'].includes(c.kind) || m.eventType==="presence" ||
         config.settings.showEvents ||
         m.error) &&
       true,
@@ -561,11 +561,11 @@ function renderHeader() {
   $('connection-button').disabled = !p;
   $('connection-button').textContent = n?.state === 'connected' ? 'Desconectar' : n?.state === 'connecting' ? 'Cancelar' : 'Conectar';
   $('join-button').disabled = n?.state !== 'connected';
-  const canSend = n?.state === 'connected' && c && !['notify','notices'].includes(c.kind) && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
+  const canSend = n?.state === 'connected' && c && !['notify','notices','script'].includes(c.kind) && (c.name === '*' || !/^[#&+!]/.test(c.name) || c.joined);
   $('message-input').disabled = !canSend; $('send-button').disabled = !canSend;
   $('message-input').maxLength = active?.target === '*' ? 65534 : 10000;
   for (const button of document.querySelectorAll('#composer .format-bar button')) button.disabled = !canSend;
-  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : ['notify','notices'].includes(c?.kind)?'Registro local · Solo lectura':!canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
+  $('message-input').placeholder = !c ? 'Selecciona una conversación…' : ['notify','notices','script'].includes(c?.kind)?'Registro local · Solo lectura':!canSend ? 'Conecta la red y entra en la sala para escribir…' : c.kind==='queries'?'Consulta: /whois nick o /who nick':c.name === '*' ? 'Escribe un comando, por ejemplo /join #general' : `Mensaje a ${c.name}…`;
   $('composer-context').textContent = c ? `${n.nick || p.nick} · ${n.state === 'connected' ? 'Conectado' : n.state === 'connecting' ? 'Conectando…' : 'Desconectado'}` : 'Conecta una red para empezar a conversar';
   $('transport-label').textContent = p ? (connection.tls ? n.state === 'connected' ? '◈ TLS verificado' : '◈ TLS activado' : '⚠ Conexión sin cifrar') : 'IRC · Tu próximo espacio';
   const connected = [...networks.values()].filter(n => n.state === 'connected').length;

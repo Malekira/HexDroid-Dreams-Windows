@@ -40,7 +40,7 @@ alias leer { echo -s %total / %local }`);
  assert.equal(vm.invoke('leer').actions[0].text,'-s 2 / ');
 });
 test('unsupported modules reject entirely, failed invocations roll back globals and no actions escape',()=>{
- for(const source of ['alias a { run test.exe }','alias a { echo $read(secret.txt) }','alias a { timer 1 2 echo hello }','on *:TEXT:*:#:{\n echo hi\n}\nalias a { echo hi }','dialog d {\n title x\n}'])assert.throws(()=>compile(source));
+ for(const source of ['alias a { run test.exe }','alias a { dll forbidden.dll entry }','alias a { sockopen x host 80 }','dialog d {\n title x\n}'])assert.throws(()=>compile(source));
  const vm=new MslVM('alias boom { inc %n | echo -s partial | while ($true) { inc %n } }\nalias n { echo -s %n }');
  assert.throws(()=>vm.invoke('boom'),/presupuesto/);assert.equal(vm.invoke('n').actions[0].text,'-s ');
  assert.throws(()=>new MslVM('alias a { a }').invoke('a'),/anidadas/);

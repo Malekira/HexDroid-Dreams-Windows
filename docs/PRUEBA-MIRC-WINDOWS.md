@@ -1,4 +1,4 @@
-# HexDreams IRC 0.40.0-beta.3 · portable Windows x64
+# HexDreams IRC 0.40.0-beta.4 · portable Windows x64
 
 Extraé todo el ZIP y ejecutá `HexDreamsIRC.exe`. No requiere instalación.
 `Probar-compatibilidad.cmd` permite usar una configuración separada, guardada en
@@ -34,4 +34,4 @@ con IRC local, tanto desde fuentes como desde el ejecutable empaquetado en Windo
 Incluye pruebas del v87 original y de conservación de mensajes de sala.
 
 Esta beta no ofrece compatibilidad universal con addons mIRC: siguen pendientes
-RAW, timers, controles adicionales, DLL y otras APIs. Ver `CONTROL-PRIVADOS-V87.md`.
+controles adicionales, eventos de moderación, DLL y otras APIs. RAW numéricos, timers y menús básicos sí están implementados. Ver `Extras/mIRC/ALCANCE.md` para el estado por addon.

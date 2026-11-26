@@ -13,6 +13,8 @@ async function run(){
    if(line==='CAP LS 302')socket.write(':local CAP * LS :\r\n');
    if(line.startsWith('USER '))socket.write(':local 001 Tester :Welcome\r\n:local 005 Tester PREFIX=(qaohv)~&@%+ :supported\r\n');
    if(line==='JOIN #prueba')socket.write(':Tester!me@local JOIN :#prueba\r\n:local 353 Tester = #prueba :@Tester Victima\r\n:local 366 Tester #prueba :End\r\n:Victima!guest@one.host JOIN :#prueba\r\n');
+   if(line==='WHO Victima')socket.write(':local 352 Tester #prueba guest one.host local Victima H :0 Victima\r\n:local 315 Tester Victima :End\r\n');
+   if(line==='MODE #prueba -b')socket.write(':local 367 Tester #prueba *!*@blocked.host Tester 123\r\n:local 368 Tester #prueba :End\r\n');
    if(line==='MODE #prueba')socket.write(':local 324 Tester #prueba +nt\r\n');
   }});
  });
@@ -42,8 +44,27 @@ async function run(){
   for(const socket of sockets)socket.write(':SinAccion!guest@three.host JOIN :#prueba\r\n');
   await expect(page.getByRole('button',{name:'SinAccion',exact:true})).toBeVisible();
   expect(received.some(line=>line.startsWith('KICK #prueba SinAccion'))).toBe(false);
+  // Exercise original timer/RAW/menu/custom-window addons through real IPC and IRC.
+  for(const name of ['spy.mrc','delBans.mrc']){
+   const file=path.join(__dirname,'../test/fixtures/mirc',name);
+   await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},file);
+   const result=await page.evaluate(()=>window.dreams.advanced('script.mirc.import'));expect(result.error).toBeUndefined();
+  }
+  await page.evaluate(()=>window.dreams.send({id:active.id,target:'#prueba',text:'/spy Victima'}));
+  await expect.poll(()=>received.includes('WHO Victima')).toBe(true);
+  await expect(page.locator('#conversation-title')).toHaveText('*addon-spy*');
+  await expect(page.locator('#message-input')).toBeDisabled();
+  await expect(page.locator('#messages')).toContainText('Victima');
+  await page.getByText('Scripts',{exact:true}).first().click();
+  await expect(page.getByRole('button',{name:'spy › Comands',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'spy › Comands',exact:true}).click();
+  await page.getByRole('button',{name:'Sala #prueba',exact:true}).click({button:'right'});
+  await expect(page.getByRole('menuitem',{name:'spy › Comands',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.evaluate(()=>window.dreams.send({id:active.id,target:'#prueba',text:'/delBans'}));
+  await expect.poll(()=>received.some(line=>line.startsWith('MODE #prueba -bbbbbb *!*@blocked.host'))).toBe(true);
   expect(errors).toEqual([]);
-  console.log('PASS: Electron + IRC local + IPC + worker mSL; kaos_ident original, alias, JOIN, ident y desactivación'+(process.env.DREAMS_APP_ASAR?' desde app.asar empaquetado.':'.'));
+  console.log('PASS: originales spy/delBans: RAW, timer, menú, ventana local; Electron + IRC local + IPC + worker mSL; kaos_ident original, alias, JOIN, ident y desactivación'+(process.env.DREAMS_APP_ASAR?' desde app.asar empaquetado.':'.'));
  }finally{
   if(app){let timer;try{await Promise.race([app.close(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Electron no cerró.')),10000);})]);}catch(e){app.process().kill();throw e;}finally{clearTimeout(timer);}}
   for(const socket of sockets)socket.destroy();server.close();fs.rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});

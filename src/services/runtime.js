@@ -26,7 +26,7 @@ class Runtime {
     });
     this.statusActivity=new (require('./status-activity').StatusActivity)();
     const deliver=this.emit;
-    this.emit=(id,type,data)=>{if(type==='mirc-tip')this.mircTip(id,data);if(type==='script-conversation')this.mirc?.query(id,data.target,data.operation==='open');if(type==='query')this.mirc?.query(id,data.target);const saved=this.statusActivity.record(id,type,data);deliver(id,type,saved?{...data,time:saved.time,statusEventId:saved.statusEventId}:data);};
+    this.emit=(id,type,data)=>{if(type==='mirc-tip')this.mircTip(id,data);if(type==='mirc-window'){type='script-conversation';data={target:'*addon-'+data.name.slice(1)+'*',operation:data.operation};}if(type==='script-conversation')this.mirc?.query(id,data.target,data.operation==='open');if(type==='query')this.mirc?.query(id,data.target);const saved=this.statusActivity.record(id,type,data);deliver(id,type,saved?{...data,time:saved.time,statusEventId:saved.statusEventId}:data);};
     this.identityTracker=new (require('./identity-tracker').IdentityTracker)(directory,{error:text=>this.emit(null,'tracker-error',{text}),changed:()=>this.emit(null,'tracker-changed',{})});
     this.memory = new Map();
     this.cryptoAdapters = new Map();
@@ -89,9 +89,11 @@ class Runtime {
         ...f,
       }),
     });
-    this.mircHost = new (require('../scripts/mirc/host').MircHost)({client:id=>this.sessions.get(id),emit:(...args)=>this.emit(...args)});
+    this.mircHost = new (require('../scripts/mirc/host').MircHost)({client:id=>this.sessions.get(id),emit:(...args)=>this.emit(...args),local:(a,f)=>this.mircLocal(a,f)});
     this.mirc = new (require('../scripts/mirc/manager').MircManager)(directory,{
       session:fields=>this.sessions.get(fields.network)?.socket,
+      available:fields=>!!this.sessions.get(fields.network)?.ready&&!this.sessions.get(fields.network)?.startupPending,
+      error:text=>this.emit(null,'problem',{text:'Addon mIRC: '+text}),
       connections:()=>[...this.sessions.sessions].filter(([,s])=>s.client?.ready).map(([network])=>({network,buffer:'*'})),
       ui:data=>this.emit(null,'mirc-dialogs',data),
       snapshot:fields=>require('../scripts/mirc/host').snapshot(this.sessions.get(fields.network),fields),
@@ -231,8 +233,17 @@ class Runtime {
   enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
+    if(type==='script-raw'){
+      if(!this.sessions.get(id)?.startupPending)this.mirc?.event('RAW',{network:id,buffer:'*',code:data.command,nick:data.nick,text:data.params.join(' ')},data.params).catch(e=>this.emit(id,'problem',{text:'RAW mIRC: '+e.message}));return;
+    }
+    if(type==='startup-ready'){this.mirc?.event('CONNECT',{network:id,buffer:'*'}).catch(e=>this.emit(id,'problem',{text:e.message}));return;}
+    if(type==='status'&&data.state==='disconnected'){this.mirc?.disconnect(id);this.mirc?.event('DISCONNECT',{network:id,buffer:'*'}).catch(e=>this.emit(id,'problem',{text:e.message}));}
     if(type==='channel'&&data.action==='join'&&this.mirc&&!this.sessions.get(id)?.startupPending){
       this.mirc.event('JOIN',{network:id,buffer:data.target,chan:data.target,nick:data.nick,ident:data.ident||'',host:data.host||''},[data.target]).catch(error=>this.emit(id,'problem',{text:'Addon mIRC: '+error.message}));
+    }
+    if(this.mirc&&!this.sessions.get(id)?.startupPending){
+      const name=type==='nick'?'NICK':type==='channel'&&data.action==='part'?data.action.toUpperCase():null;
+      if(name)this.mirc.event(name,{network:id,buffer:data.target||'*',chan:data.target||'',nick:data.old||data.nick||'',newnick:data.nick||'',host:data.host||'',ident:data.ident||'',text:data.reason||''},name==='PART'?String(data.reason||'').split(/\s+/):[data.nick||'']).catch(e=>this.emit(id,'problem',{text:'Addon mIRC: '+e.message}));
     }
     if(type==='identity-observation'){this.identityTracker?.observe(id,{...data,server:this.sessions?.get?.(id)?.profile.host||this.getConfig().profiles?.find(p=>p.id===id)?.host||''});return;}
     if(type==='status'&&data.state==='disconnected')this.identityTracker?.disconnect(id);
@@ -304,10 +315,12 @@ class Runtime {
         own: !!data.own,
         text: data.text,
       };
+      if(!data.own&&!data.historical&&this.mirc?.ignored(eventFields))return;
       if(privateMessage&&!data.own&&!data.historical&&!data.notice&&!require('../service-targets').isService(data.nick)){
         const intercepted=await this.mirc?.privateMessage({...eventFields,chan:'',action:!!data.action});
         if(intercepted?.halted)return;
       }
+      if(!data.own&&!data.historical&&(!privateMessage||data.notice)){const result=await this.mirc?.event(data.notice?'NOTICE':data.action?'ACTION':'TEXT',eventFields,data.text.split(/\s+/));if(result?.halted)return;}
       const result=await this.scripts.event(data.action?"ACTION":"TEXT",eventFields);
       if(data.notice){const notice=await this.scripts.event("NOTICE",{...eventFields,text:result.text});result.halted ||= notice.halted;result.haltedBy ||= notice.haltedBy;result.text=notice.text;}
       if (result.halted && privateMessage && !data.own && !data.historical) { this.scriptConversations?.hold(result.haltedBy,id,data); return; }
@@ -423,6 +436,16 @@ class Runtime {
     }
     if (settings.flashOnMention) w?.flashFrame(true);
   }
+  async mircLocal(action,fields){
+   const id=action.network||fields.network,client=this.sessions.get(id);
+   if(action.type==='fullname'){
+    if(typeof action.text!=='string'||/[\r\n\0]/.test(action.text)||Buffer.byteLength(action.text)>490)throw Error('Nombre real mIRC no válido.');
+    const config=structuredClone(this.getConfig()),profile=config.profiles.find(p=>p.id===id);if(!profile)throw Error('Seleccioná una red.');profile.realName=action.text;this.saveConfig(config);
+    if(this.sessions.sessions.get(id)?.profile)this.sessions.sessions.get(id).profile.realName=action.text;
+    if(client)client.profile.realName=action.text;return;
+   }
+
+  }
   mircTip(id,data){
     try{if(this.getConfig().settings.notifications!==false&&this.electron.Notification.isSupported()){
       const tip=new this.electron.Notification({title:String(data.title||'Addon'),body:String(data.text||''),silent:true});tip.show();
@@ -430,6 +453,7 @@ class Runtime {
   }
   scriptCommands(){return [...new Map([...this.mirc.completions(),...this.scripts.completions()].map(c=>[c.name.toLowerCase(),c])).values()];}
   async send({ id, target, text }) {
+    if(String(target).startsWith('*addon-'))throw Error('Ventana local de solo lectura.');
     if(target==='*notify*'||target==='*notices*')throw new Error('Esta es una ventana local de solo lectura.');
     if(target==='*consultas*'&&!text.startsWith('/'))throw new Error('Usa /whois nick o /who nick en la conversación de consultas.');
     const ignore = /^\/(ignore|unignore) +([^\s,]+)$/i.exec(text);
@@ -460,6 +484,7 @@ class Runtime {
       });
       return { ok: true };
     }
+    const nativeInput=await this.mirc.event('INPUT',{network:id,buffer:target,chan:target,channel:/^[#&+!]/.test(target),text},text.split(/\s+/));if(nativeInput.halted)return {ok:true};
     const input = await this.scripts.event("INPUT", {
       network: id,
       buffer: target,
@@ -873,7 +898,7 @@ class Runtime {
         client.redact(target, data.messageId);
         return { ok: true };
       case "read":
-        this.activeConversation={id,target};
+        this.activeConversation={id,target};if(String(target).startsWith('*addon-'))return {ok:true};
         if(!/^[#&+!*]/.test(target))this.mirc.query(id,target);
         client.markRead(target);
         return { ok: true };
@@ -950,6 +975,8 @@ class Runtime {
       }
       case 'script.mirc.dialog':return this.mirc.dialog(data.script,String(data.name),String(data.interaction),String(data.control),data.values,{network:id,buffer:target||'*'});
       case 'script.mirc.queryClosed':this.mirc.query(id,target,false);return {ok:true};
+      case 'script.mirc.menus':return this.mirc.menus({network:id,buffer:target||'*',chan:target||'',nick:data.nick||'',channel:/^[#&+!]/.test(target||'')});
+      case 'script.mirc.menu':return this.mirc.menu(data.script,data.key,{network:id,buffer:target||'*',chan:target||'',nick:data.nick||'',selectedNicks:data.nicks||[data.nick].filter(Boolean),channel:/^[#&+!]/.test(target||'')});
       case 'script.mirc.list':return this.mirc.list();
       case 'script.mirc.configure':return this.mirc.configure(data.id,data.enabled);
       case 'script.mirc.remove':return this.mirc.remove(data.id);
