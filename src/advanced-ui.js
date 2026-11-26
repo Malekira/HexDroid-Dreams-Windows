@@ -555,6 +555,15 @@
       note(
         "Los scripts se activan automáticamente al importarlos o crearlos, con todos los permisos disponibles.",
       );
+      button("Analizar addon mIRC…", async () => {
+        const result=await call('script.mirc.inspect');
+        if(result.cancelled)return;
+        const report=el('details'),heading=el('summary','',result.name+' · '+result.encoding),text=el('pre');
+        report.open=true;
+        text.style.whiteSpace='pre-wrap';
+        text.textContent=[result.message,result.compatibility?.message||'',...result.declarations.map(d=>d.type+' '+d.name+' · línea '+d.line),...result.dependencies.map(d=>'Dependencia: '+d),...result.diagnostics.map(d=>'Línea '+d.line+': '+d.message)].join('\n');
+        report.append(heading,text);body.append(report);
+      });
       button("Importar archivo .hex", async () => {
         await call("script.import");
         await show();
@@ -604,6 +613,18 @@
         cell.colSpan = 5;
         row.append(cell);
         rows.append(row);
+      }
+      const mirc=el('details'),mircTitle=el('summary','','Compatibilidad mIRC · alias y JOIN');
+      mirc.open=(state.mircScripts||[]).length>0;mirc.append(mircTitle);body.append(mirc);
+      mirc.append(el('p','muted','Permite alias y eventos JOIN del subconjunto soportado. Paneles, timers y otros eventos todavía no se ejecutan; los archivos que los incluyan se rechazan completos.'));
+      if(state.mircError)mirc.append(el('p','',state.mircError));
+      button('Importar alias .mrc/.xcr…',async()=>{const result=await call('script.mirc.import');if(!result.cancelled)await show();},mirc);
+      for(const addon of state.mircScripts||[]){
+        const row=el('div','script-card mirc-addon-row'),label=el('label','checkbox-label',addon.name+' '),toggle=el('input');
+        toggle.type='checkbox';toggle.checked=addon.enabled;toggle.setAttribute('aria-label','Activar '+addon.name);
+        toggle.onchange=async()=>{if(busy){toggle.checked=!toggle.checked;return;}toggle.disabled=true;try{await run(()=>call('script.mirc.configure',{id:addon.id,enabled:toggle.checked}));}finally{await show();}};
+        label.append(toggle);row.append(label,el('small','muted',[...addon.aliases.map(a=>'/'+a),...(addon.events||[])].join(' · ')));
+        button('Eliminar',async()=>{await call('script.mirc.remove',{id:addon.id});await show();},row);mirc.append(row);
       }
     } else if (section === "backup") {
       note('Elige qué apartados exportar o restaurar en una ventana aparte.');

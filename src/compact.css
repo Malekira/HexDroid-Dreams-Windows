@@ -1055,3 +1055,5 @@ html[data-theme="purple-light"] :is(dialog,.users-panel,.settings-nav){backgroun
 .tracker-controls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.tracker-controls input{flex:1;min-width:150px}.tracker-controls select{max-width:180px}.tracker-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(150px,2fr) auto auto;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}.tracker-row span,.tracker-row strong{overflow-wrap:anywhere}.tracker-row button{padding:2px 6px;min-height:25px;font-size:12px}@media(max-width:650px){.tracker-row{grid-template-columns:1fr 1fr}.tracker-row span{grid-column:1/-1}}
 
 #identity-tracker-dialog .note{overflow-wrap:anywhere}
+
+.mirc-addon-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border)}.mirc-addon-row small{flex:1;overflow-wrap:anywhere}.mirc-addon-row button{min-height:28px;padding:3px 8px}

@@ -89,10 +89,17 @@ class Runtime {
         ...f,
       }),
     });
+    this.mircHost = new (require('../scripts/mirc/host').MircHost)({client:id=>this.sessions.get(id),emit:(...args)=>this.emit(...args)});
+    this.mirc = new (require('../scripts/mirc/manager').MircManager)(directory,{
+      session:fields=>this.sessions.get(fields.network)?.socket,
+      snapshot:fields=>require('../scripts/mirc/host').snapshot(this.sessions.get(fields.network),fields),
+      host:(actions,fields,valid)=>this.mircHost.deliver(actions,fields,valid),
+      changed:()=>this.emit(null,'script-commands',{commands:this.scriptCommands(),menus:this.scripts.menus()}),
+    });
     this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,data);this.emit(id,"message",data);}});
     this.scripts.on("changed",()=>this.scriptConversations.clean());
-    this.scripts.on("ready",()=>{this.emit(null,"script-commands",{commands:this.scripts.completions(),menus:this.scripts.menus()});for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
-    this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scripts.completions(),menus:this.scripts.menus()}));
+    this.scripts.on("ready",()=>{this.emit(null,"script-commands",{commands:this.scriptCommands(),menus:this.scripts.menus()});for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
+    this.scripts.on("changed",()=>this.emit(null,"script-commands",{commands:this.scriptCommands(),menus:this.scripts.menus()}));
     this.scriptMedia = new ScriptMedia({
       web: this.web,
       pick: (o) => this.pick(o),
@@ -222,6 +229,9 @@ class Runtime {
   enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
+    if(type==='channel'&&data.action==='join'&&this.mirc&&!this.sessions.get(id)?.startupPending){
+      this.mirc.event('JOIN',{network:id,buffer:data.target,chan:data.target,nick:data.nick,ident:data.ident||'',host:data.host||''},[data.target]).catch(error=>this.emit(id,'problem',{text:'Addon mIRC: '+error.message}));
+    }
     if(type==='identity-observation'){this.identityTracker?.observe(id,{...data,server:this.sessions?.get?.(id)?.profile.host||this.getConfig().profiles?.find(p=>p.id===id)?.host||''});return;}
     if(type==='status'&&data.state==='disconnected')this.identityTracker?.disconnect(id);
     if(type==='server'&&data.target==='*rastreo*')return;
@@ -407,6 +417,7 @@ class Runtime {
     }
     if (settings.flashOnMention) w?.flashFrame(true);
   }
+  scriptCommands(){return [...new Map([...this.mirc.completions(),...this.scripts.completions()].map(c=>[c.name.toLowerCase(),c])).values()];}
   async send({ id, target, text }) {
     if(target==='*notify*'||target==='*notices*')throw new Error('Esta es una ventana local de solo lectura.');
     if(target==='*consultas*'&&!text.startsWith('/'))throw new Error('Usa /whois nick o /who nick en la conversación de consultas.');
@@ -451,6 +462,7 @@ class Runtime {
     if (m) {
       const result = await this.scripts.alias(m[1], fields, m[2].split(/\s+/));
       if (result.handled) return { ok: true };
+      if ((await this.mirc.alias(m[1],fields,m[2].split(/\s+/).filter(Boolean))).handled) return {ok:true};
     }
     if(/^\/(away|back)(?:\s|$)/i.test(text)){const match=/^\/(away|back)\s*(.*)$/i.exec(text);this.autoAway?.setManual(id,match[1].toLowerCase()==="away"&&!!match[2]);}
     executeInput(this.sessions.get(id), target, text, (type, data) =>
@@ -745,6 +757,7 @@ class Runtime {
         return {
           secureStorage: this.vault.available(),
           scripts: this.scripts.list(),
+          mircScripts:this.mirc.list(),mircError:this.mirc.loadError,
           scriptRunning: !!this.scripts.worker,
           aliases:this.scripts.worker?(this.scripts.aliasNames||[]):[],
           launchers: [...this.launchers.values()].filter((l) =>
@@ -915,13 +928,28 @@ class Runtime {
       case 'script.menus':return this.scripts.menus();
       case 'script.menu.run':return this.scripts.menuRun(data.script,data.key,{network:id,target:data.target||'*',buffer:data.target||'*',chan:data.target||'*',nick:data.nick||'',me:client?.nick||''});
       case 'script.help':return this.scripts.help(data.id);
-      case 'script.commands':return this.scripts.completions();
+      case 'script.commands':return this.scriptCommands();
       case 'script.read':return this.scripts.read(data.id);
       case 'script.validate':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');new (require('../scripts/interpreter').HexVM)().install([{id:'validation',name:'validation',source:data.source,enabled:false,permissions:[],domains:[]}]);return{ok:true};}
       case 'script.save':{
         if(typeof data.name!=='string'||!data.name.trim()||data.name.length>100)throw Error('Nombre de script no válido.');
         if(data.id)return this.scripts.update(data.id,{...data,name:data.name.trim()});
         const id=this.scripts.install(data.name.trim(),data.source);await this.scripts.configure(id,{enabled:true});return this.scripts.read(id);
+      }
+      case 'script.mirc.list':return this.mirc.list();
+      case 'script.mirc.configure':return this.mirc.configure(data.id,data.enabled);
+      case 'script.mirc.remove':return this.mirc.remove(data.id);
+      case 'script.mirc.import': {
+        const file=await this.pick({filters:[{name:'Addons mIRC (subconjunto compatible)',extensions:['mrc','xcr']}]});
+        if(!file)return {cancelled:true};
+        if(fs.statSync(file).size>262144)throw Error('El addon supera 256 KB.');
+        return this.mirc.install(path.basename(file),fs.readFileSync(file));
+      }
+      case 'script.mirc.inspect': {
+        const file=await this.pick({filters:[{name:'Addons mIRC (diagnóstico)',extensions:['mrc','xcr']}]});
+        if(!file)return{cancelled:true};
+        if(fs.statSync(file).size>262144)throw Error('El addon supera 256 KB.');
+        return require('../scripts/mirc/importer').inspect(fs.readFileSync(file),path.basename(file));
       }
       case 'script.openFile':{const file=await this.pick({filters:[{name:'Scripts .hex',extensions:['hex']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>262144)throw Error('El script supera 256 KB.');return{name:path.basename(file),source:fs.readFileSync(file,'utf8')};}
       case 'script.exportSource':{if(typeof data.source!=='string'||Buffer.byteLength(data.source)>262144)throw Error('El script supera 256 KB.');const file=await this.destination({defaultPath:path.basename(String(data.name||'script.hex')),filters:[{name:'Scripts .hex',extensions:['hex']}]});if(file)fs.writeFileSync(file,data.source,{encoding:'utf8',mode:0o600});return{ok:!!file};}
@@ -1352,6 +1380,7 @@ class Runtime {
     clearInterval(this.awayTimer);clearInterval(this.trackerTimer);this.identityTracker?.close();
     this.sessions.close();
     this.scripts.close();
+    this.mirc?.close();
     this.dcc.close();
     this.history.close();
   }

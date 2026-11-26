@@ -1,7 +1,7 @@
 {
   "name": "hexdreams-irc",
   "productName": "HexDreams IRC",
-  "version": "0.39.0",
+  "version": "0.40.0-beta.1",
   "description": "Cliente IRC de escritorio para Windows",
   "private": true,
   "main": "src/main.js",

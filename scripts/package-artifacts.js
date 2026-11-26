@@ -28,6 +28,13 @@ fs.copyFileSync(path.join(root, 'scripts', 'sign-personal.ps1'), path.join(appDi
 fs.copyFileSync(path.join(root, 'docs', 'FIRMA-PERSONAL.md'), path.join(appDir, 'FIRMA-PERSONAL.md'));
 fs.cpSync(path.join(root, 'extras'), path.join(appDir, 'Extras'), {recursive:true});
 if(fs.existsSync(path.join(root,'addons')))fs.cpSync(path.join(root,'addons'),path.join(appDir,'Extras'),{recursive:true});
+const mircExamples=path.join(appDir,'Extras','mIRC');
+fs.mkdirSync(mircExamples,{recursive:true});
+for(const file of ['moderacion-basica.mrc','avisos-join.mrc'])fs.copyFileSync(path.join(root,'docs','examples',file),path.join(mircExamples,file));
+fs.copyFileSync(path.join(root,'docs','PRUEBA-MIRC-WINDOWS.md'),path.join(appDir,'PRUEBA-COMPATIBILIDAD.md'));
+fs.copyFileSync(path.join(root,'docs','COMPATIBILIDAD-MIRC.md'),path.join(mircExamples,'ALCANCE.md'));
+const isolatedLauncher='@echo off\r\nsetlocal\r\nstart "" "%~dp0HexDreamsIRC.exe" "--user-data-dir=%~dp0Datos-Prueba-Compatibilidad"\r\n';
+fs.writeFileSync(path.join(appDir,'Probar-compatibilidad.cmd'),isolatedLauncher);
 const zipPath = path.join(dist, `HexDreams-IRC-${version}-Windows-x64.zip`);
 fs.rmSync(zipPath, { force: true });
 if (process.platform === 'win32') {

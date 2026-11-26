@@ -254,7 +254,7 @@
       userPanel.append(list);
       if(details.lines?.length){const full=el('details','whois-full'),head=el('summary','','Respuesta WHOIS completa'),text=el('pre');head.title='Todos los datos enviados por el servidor';text.textContent=details.lines.join('\n');full.append(head,text);userPanel.append(full);}
     } else if(details.idle){userPanel.append(el('p','muted','Inactividad: '+details.idle),el('small','muted','Dato de la última consulta WHOIS'+(details.sampledAt?' · '+new Date(details.sampledAt).toLocaleTimeString():'')));}
-    const room=selected()?.kind==='channel'&&active?.id===id?selected().name:null;
+    const room=DreamsProfileModeration.roomFor(network(id),nick,selected()?.kind==='channel'&&active?.id===id?selected().name:'');
     if(room){const ban=button('Ver / quitar bans',()=>window.openDreamsBans?.(id,room,nick,details),userPanel);ban.classList.add('profile-moderation');}
 
   }
