@@ -25,7 +25,7 @@ function prepare(actions,fields,client){
    out.push({type:'echo',target,text:(color!==null?'\x03'+color.padStart(2,'0'):'')+text});continue;
   }
   if(['custom-window','text-file','fullname','flood','ignore'].includes(action.type)){out.push({...action});continue;}
-  if(['query','close'].includes(action.type)){token(action.text,'Nick');out.push({type:action.type,target:action.text});if(action.type==='query')(fields.queries||=[]).push(action.text);continue;}
+  if(['query','close'].includes(action.type)){token(action.text,'Nick');out.push({type:action.type,target:action.text});if(action.type==='query')(fields.queries||=[]).push(action.text);else{const names=fields.queries||[];const at=names.findIndex(n=>n.toLowerCase()===action.text.toLowerCase());if(at>=0)names.splice(at,1);}continue;}
   if(action.type==='tip'){out.push({type:'tip',text:action.text,title:String(action.title||'Addon')});continue;}
   if(!client?.ready)throw Error('Conecta primero esta red.');
   let command,target=fields.buffer||'*';
@@ -42,7 +42,7 @@ function prepare(actions,fields,client){
    command='/'+action.type+' '+action.text;
    if(action.type==='mode'&&!/^[#&+!][^\s,]+(?:\s+[+-][a-zA-Z]+(?:\s+[^\r\n]*)?)?$/.test(action.text))throw Error('Uso mSL: mode #sala [modos argumentos]');
   }else throw Error('Acción mSL no soportada: '+action.type);
-  executeInput(probe,target,command);const msg=action.type==='msg'?/^(\S+)\s+([\s\S]+)$/.exec(action.text):null;out.push({type:'command',target,command,...(msg?{to:msg[1],body:msg[2],noEcho:!(/^[#&+!]/.test(msg[1])||(fields.queries||[]).some(q=>q.toLowerCase()===msg[1].toLowerCase()))}: {})});
+  executeInput(probe,target,command);const msg=action.type==='msg'?/^(\S+)\s+([\s\S]+)$/.exec(action.text):null;out.push({type:'command',target,command,...(msg?{to:msg[1],body:msg[2],noEcho:!(/^[#&+!]/.test(msg[1]))&&(fields.suppressPrivateEcho||!(fields.queries||[]).some(q=>q.toLowerCase()===msg[1].toLowerCase()))}: {})});
  }
  return out;
 }

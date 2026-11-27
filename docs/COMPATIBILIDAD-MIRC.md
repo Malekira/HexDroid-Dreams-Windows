@@ -1,4 +1,4 @@
-# Compatibilidad mIRC · 0.40.0-beta.5
+# Compatibilidad mIRC · 0.40.0-beta.6
 
 HexDreams usa un intérprete mSL propio y aislado. No ejecuta ni distribuye mIRC.
 Esta es una ampliación del subconjunto soportado, **no compatibilidad universal**.
@@ -80,3 +80,5 @@ No se implementan DLL/COM, ejecución de programas externos ni acceso general al
 Los INI existentes permanecen en `mirc-data/<id>/ini.json`; no se reconstruyen bases.
 
 Ver [Paneles de addons](PANELES-MIRC.md) para controles, uso y límites de los paneles implementados en beta 5.
+
+Beta 6: respuestas automáticas silenciosas conservan esa condición tras el eco del servidor; los paneles pueden moverse y mantener su posición.

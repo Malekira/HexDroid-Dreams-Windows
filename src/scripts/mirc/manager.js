@@ -145,7 +145,7 @@ class MircManager {
    for(const owner of owners){
     await this.initialize(owner.id,fields);for(const name of open?[fields.action?'ACTION':'TEXT']:['OPEN',fields.action?'ACTION':'TEXT']){
      const result=await this.request({type:'event',script:owner.id,name,fields:snapshot,args});
-     if(result.handled)await this.deliver(owner.id,result,fields,()=>!this.closed&&epoch===this.epoch&&this.session(fields)===session);
+     if(result.handled)await this.deliver(owner.id,result,{...fields,suppressPrivateEcho:!!result.halted},()=>!this.closed&&epoch===this.epoch&&this.session(fields)===session);
      if(result.halted)return {halted:true};
     }
    }

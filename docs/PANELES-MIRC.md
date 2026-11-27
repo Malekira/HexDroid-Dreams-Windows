@@ -1,4 +1,4 @@
-# Paneles de addons · HexDreams IRC 0.40.0-beta.5
+# Paneles de addons · HexDreams IRC 0.40.0-beta.6
 
 Los paneles se dibujan y ejecutan con el motor propio de HexDreams. No necesitan
 mIRC. Su tamaño y controles proceden de la tabla `dialog` del archivo original.
@@ -64,3 +64,5 @@ IRC local para altas/bajas, filtrado, aceptación y rechazo. Regresión de v87 y
 salas con 50 líneas recuperadas más 800 nuevas, sin recorte.
 La publicación exige también la ejecución de estas pruebas sobre el portable
 empaquetado en Windows.
+
+Los paneles se pueden arrastrar desde el encabezado, que permanece accesible por encima de la barra principal. La posición se conserva mientras el panel siga abierto.

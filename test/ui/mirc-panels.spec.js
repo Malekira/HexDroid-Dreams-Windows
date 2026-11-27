@@ -30,8 +30,9 @@ on *:DIALOG:controls:sclick:9:{ echo -s cancelled }
  await page.goto('http://127.0.0.1:4173');await page.waitForFunction(()=>window.dreamsUIReady===true);
  const result=vm.invoke('open',fields);await page.evaluate(r=>window.__panelEmit({type:'mirc-dialogs',script:'test',...r}),result);
  const panel=page.locator('.mirc-dialog'),combo=panel.locator('[data-mirc-id="3"] input');
- await expect(combo).toBeFocused();await expect(panel.locator('[data-mirc-id="3"] select option')).toHaveCount(2);
- await panel.locator('[data-mirc-id="7"] input').check();await expect(panel.locator('[data-mirc-id="4"]')).toHaveValue('1');
+ const before=await panel.boundingBox(),head=await panel.locator('header').boundingBox();await page.mouse.move(head.x+80,head.y+12);await page.mouse.down();await page.mouse.move(head.x+130,head.y+82,{steps:6});await page.mouse.up();const after=await panel.boundingBox();expect(after.y).toBeGreaterThan(before.y+40);
+ await combo.focus();await expect(combo).toBeFocused();await expect(panel.locator('[data-mirc-id="3"] select option')).toHaveCount(2);
+ await panel.locator('[data-mirc-id="7"] input').check();await expect(panel.locator('[data-mirc-id="4"]')).toHaveValue('1');expect((await panel.boundingBox()).y).toBeCloseTo(after.y,0);
  await panel.getByRole('tab',{name:'Lista',exact:true}).focus();await page.keyboard.press('ArrowRight');await expect(combo).toBeHidden();await expect(panel.locator('[data-mirc-id="5"]')).toBeVisible();await expect(panel.locator('[data-mirc-id="5"]')).toHaveAttribute('readonly','');
  await panel.getByRole('tab',{name:'Lista',exact:true}).click();await expect(combo).toBeVisible();
  await panel.locator('[data-mirc-id="4"]').fill('Texto final');await panel.locator('[data-mirc-id="4"]').press('Enter');

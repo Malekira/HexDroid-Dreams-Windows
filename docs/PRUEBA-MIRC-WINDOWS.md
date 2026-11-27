@@ -1,4 +1,4 @@
-# HexDreams IRC 0.40.0-beta.5 · portable Windows x64
+# HexDreams IRC 0.40.0-beta.6 · portable Windows x64
 
 Extraé todo el ZIP y ejecutá `HexDreamsIRC.exe`. No requiere instalación.
 `Probar-compatibilidad.cmd` permite usar una configuración separada, guardada en
@@ -37,3 +37,5 @@ Esta beta no ofrece compatibilidad universal con addons mIRC: siguen pendientes
 controles adicionales, eventos de moderación, DLL y otras APIs. RAW numéricos, timers y menús básicos sí están implementados. Ver `Extras/mIRC/ALCANCE.md` para el estado por addon.
 
 Paneles adicionales: ver `Extras/mIRC/PANELES.md`. Se incluyen los originales `ignorakuerys.xcr` y `PVGuard.mrc`.
+
+Beta 6 comprueba también el filtro con eco de servidor activado, sin mostrar respuestas de espera/rechazo en PV retenidos. Guardar aplica el modo seleccionado; las aceptaciones previas y la lista autoaceptada del addon conservan sus reglas.

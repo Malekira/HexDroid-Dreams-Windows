@@ -1,17 +1,35 @@
 'use strict';
 (()=>{
- const windows=new Map();let foreground=1500,sequence=0;
+ const windows=new Map();let foreground=2147483100;
  const call=async data=>{const r=await api.advanced('script.mirc.dialog',data);if(r?.error)throw Error(r.error);};
  const opts=c=>c.options.split(/[\s,]+/).filter(Boolean);
+ function raise(root){
+  if(foreground>=2147483600){foreground=2147483100;for(const item of [...windows.values()].sort((a,b)=>Number(a.root.style.zIndex)-Number(b.root.style.zIndex)))item.root.style.zIndex=String(++foreground);}
+  root.style.zIndex=String(++foreground);
+ }
  function remove(key){const item=windows.get(key);if(!item)return;clearTimeout(item.editTimer);item.remote=true;item.root.close();item.root.remove();windows.delete(key);}
  function focus(item,id){const node=item.controls.get(String(id)),input=node?.querySelector('input,select,textarea,button')||node;if(input&&!input.disabled&&!node.hidden)input.focus();}
+ function position(item,left,top){
+  const rect=item.root.getBoundingClientRect();
+  left=Math.max(0,Math.min(left,Math.max(0,innerWidth-rect.width)));top=Math.max(0,Math.min(top,Math.max(0,innerHeight-rect.height)));
+  item.position={left,top};Object.assign(item.root.style,{inset:'auto',margin:'0',transform:'none',left:left+'px',top:top+'px'});
+ }
+ window.addEventListener('resize',()=>{for(const item of windows.values())if(item.position)position(item,item.position.left,item.position.top);});
  function show(script,definition){
   const key=script+'\0'+definition.name;let item=windows.get(key);const opening=!item;
   if(!item){
    const root=el('dialog','script-view mirc-dialog'),header=el('header','dialog-header'),title=el('h2'),close=el('button','secondary','×'),content=el('div','mirc-controls');
    root.tabIndex=-1;close.setAttribute('aria-label','Cerrar ventana');header.append(title,close);root.append(header,content);document.body.append(root);
    item={root,title,content,controls:new Map(),script,definition};windows.set(key,item);
-   root.addEventListener('pointerdown',()=>{root.style.zIndex=String(++foreground);});close.onclick=()=>root.close();
+   let drag=null;
+   header.style.cursor='move';header.style.touchAction='none';
+   header.addEventListener('pointerdown',e=>{
+    if(e.button!==0||e.target.closest('button'))return;
+    const rect=root.getBoundingClientRect();drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};header.setPointerCapture(e.pointerId);raise(root);e.preventDefault();
+   });
+   header.addEventListener('pointermove',e=>{if(drag&&e.pointerId===drag.id)position(item,drag.left+e.clientX-drag.x,drag.top+e.clientY-drag.y);});
+   for(const event of ['pointerup','pointercancel','lostpointercapture'])header.addEventListener(event,()=>{drag=null;});
+   root.addEventListener('pointerdown',()=>{raise(root);});close.onclick=()=>root.close();
    root.addEventListener('close',()=>{if(!item.remote&&item.editTimer)send(item,'edit',item.lastEditId);clearTimeout(item.editTimer);if(!item.remote)send(item,'close','0').catch(e=>notify(e.message,true));windows.delete(key);root.remove();});
    root.addEventListener('keydown',e=>{
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();const cancel=item.definition.controls.find(c=>opts(c).includes('cancel')&&!c.disabled&&!c.hidden);if(cancel)send(item,'sclick',cancel.id);else root.close();}
@@ -60,8 +78,8 @@
    input.setAttribute('aria-label',(c.label||c.text||'Control '+c.id).replace(/&/g,''));if(flags.includes('notab'))input.tabIndex=-1;
   }
   for(const node of old.values())node.remove();
-  if(!item.root.open)item.root.show();
-  if(opening||definition.focus){item.root.style.zIndex=String(++foreground);if(typeof definition.focus==='string')focus(item,definition.focus);else if(opening){const c=definition.controls.find(c=>['edit','combo','list','button','check'].includes(c.type)&&!c.disabled&&!c.hidden);if(c)focus(item,c.id);else item.root.focus();}}
+  if(!item.root.open)item.root.show();if(item.position)position(item,item.position.left,item.position.top);
+  if(opening||definition.focus){raise(item.root);if(typeof definition.focus==='string')focus(item,definition.focus);else if(opening){const c=definition.controls.find(c=>['edit','combo','list','button','check'].includes(c.type)&&!c.disabled&&!c.hidden);if(c)focus(item,c.id);else item.root.focus();}}
  }
  function radioGroup(d,c){let group='';for(const r of d.controls){if(r.type==='radio'&&opts(r).includes('group'))group=r.id;if(r.id===c.id)return group;}return group;}
  function edit(item,node,id){node.dataset.dirty='true';item.lastEditId=id;clearTimeout(item.editTimer);item.editTimer=setTimeout(()=>send(item,'edit',id),120);}

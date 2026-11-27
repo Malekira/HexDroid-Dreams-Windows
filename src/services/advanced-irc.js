@@ -1098,6 +1098,9 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
               failed: false,
               messageId: data.messageId,
             });
+            // A waiting/rejection reply deliberately hidden by the addon must also
+            // stay hidden when echo-message returns it from the server.
+            if(item.noEcho)return true;
           }
         }
       }
@@ -1211,7 +1214,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
         pending,
       };
       if (pending && frames.length)
-        this.trackEcho(clientId, { target, wire: frames[0], action, message });
+        this.trackEcho(clientId, { target, wire: frames[0], action, message, noEcho:!!options.noEcho });
       if (!options.noEcho) this.emit("message", message);
     }
     sendMultiline(target, lines) {
