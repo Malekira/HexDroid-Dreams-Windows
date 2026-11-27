@@ -19,9 +19,9 @@
   const help = el("dialog", "feature-dialog script-help-dialog");
   help.id = "script-help-dialog";
   document.body.append(help);
-  window.openDreamsScriptHelp = async (id) => {
+  window.openDreamsScriptHelp = async (id,kind="hex") => {
     try {
-      const data = await call("script.help", { id });
+      const data = await call(kind==='mirc'?"script.mirc.help":"script.help", { id });
       help.replaceChildren();
       const header = el("header", "dialog-header"),
         close = el("button", "secondary", "Cerrar");
@@ -33,6 +33,7 @@
       search.placeholder = "Buscar comando…";
       search.setAttribute("aria-label", "Buscar comando del script");
       body.append(search, list);
+      if(data.details?.length){const detail=el("details"),heading=el("summary","","Eventos y paneles");detail.append(heading,el("p","muted",data.details.join(" · ")));body.append(detail);}
       function draw() {
         list.replaceChildren();
         for (const c of (data.commands || []).filter(c=>!c.internal)) {
@@ -52,7 +53,7 @@
       search.oninput = draw;
       help.append(header, body);
       draw();
-      help.showModal();
+      if(!help.open)help.showModal();
     } catch (e) {
       notify(e.message, true);
     }

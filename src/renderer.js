@@ -647,7 +647,7 @@ function conversationMenu(event,id,c) {
     ...(c.kind==='channel'?[{label:'Mover pestaña a la izquierda',disabled:index<=0,action:()=>move(-1)},{label:'Mover pestaña a la derecha',disabled:index>=sameKind.length-1,action:()=>move(1)}]:[]),
     ...(c.kind === 'channel' ? [
       { label:'Entrar de nuevo en el canal',disabled:c.joined || network(id).state !== 'connected',action:() => sendCommand(id,'*','/join ' + c.name) },
-      { label:'Editar topic',disabled:!c.joined,action:() => askAction('Editar topic','Nuevo topic',c.topic,value => sendCommand(id,c.name,'/topic ' + value)) }
+      { label:'Editar topic',disabled:!c.joined,action:() => window.openDreamsRoomTopic ? window.openDreamsRoomTopic(id,c.name) : askAction('Editar topic','Nuevo topic',c.topic,value => sendCommand(id,c.name,'/topic ' + value)) }
     ] : [{ label:'WHOIS',disabled:network(id).state !== 'connected',action:async () => { await sendCommand(id,c.name,'/whois ' + c.name); } }]),
     ...(c.kind==='private'?[{label:DreamsConversationGroups.section(c)==='system'?'Mover a Privados':'Mover a Sistema',action:async()=>{c.sidebarSection=DreamsConversationGroups.section(c)==='system'?'private':'system';config.settings.conversationSections||={};config.settings.conversationSections[id]||={};config.settings.conversationSections[id][fold(c.name)]=c.sidebarSection;await persist();render();}}]:[]),
     null,{ label:c.kind === 'channel' ? 'Cerrar canal' : 'Cerrar privado',action:() => closeConversation(id,c.name) }

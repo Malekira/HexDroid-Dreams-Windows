@@ -24,7 +24,7 @@ async function run(){
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.waitForFunction(()=>window.dreamsUIReady===true);
   await app.evaluate(({Notification,shell})=>{Notification.isSupported=()=>false;shell.beep=()=>{};});
-  await page.getByRole('button',{name:'Añadir red',exact:true}).click();
+  await page.keyboard.press('Control+n');
   await page.locator('#profile-name').fill('Prueba mSL');await page.locator('#profile-host').fill('127.0.0.1');
   await page.locator('#profile-port').fill(String(server.address().port));await page.locator('#profile-tls').uncheck();
   await page.locator('#profile-nick').fill('Tester');await page.locator('#profile-channels').fill('#prueba');

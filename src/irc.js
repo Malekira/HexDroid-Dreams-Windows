@@ -156,8 +156,8 @@ class IrcClient extends EventEmitter {
       this.sendRaw(`MODE ${p[0]}`);
     } else if (c === '324') {
       this.emit('modes', { target:p[1], text:p.slice(2).join(' ') });
-    } else if (c === 'TOPIC' || c === '332') {
-      this.emit('topic', { target: c === '332' ? p[1] : p[0], text: p.at(-1) || '' });
+    } else if (c === 'TOPIC' || c === '332' || c === '331') {
+      this.emit('topic', { target: c !== 'TOPIC' ? p[1] : p[0], text: c === '331' ? '' : p.at(-1) || '' });
     } else if (c === 'ERROR') {
       this.fail(p.at(-1) || 'El servidor cerró la conexión.');
     } else if (/^4\d\d$|^5\d\d$/.test(c)) {

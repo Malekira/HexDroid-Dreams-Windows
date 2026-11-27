@@ -156,3 +156,11 @@ test('automatic JOIN addons do not run ahead of the connection startup commands'
  await Runtime.prototype.receive.call(r,'net','channel',{action:'join',target:'#room',nick:'Alice'});assert.equal(calls,0);
  client.startupPending=false;await Runtime.prototype.receive.call(r,'net','channel',{action:'join',target:'#room',nick:'Alice'});assert.equal(calls,1);
 });
+test('editing a compatible addon preserves ID, activation and INI, refreshes worker and detects stale source',async t=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mirc-edit-')),batches=[];const m=new MircManager(directory,{snapshot:()=>context,host:async actions=>batches.push(actions)});t.after(()=>{m.close();fs.rmSync(directory,{recursive:true,force:true});});
+ const {id}=await m.install('sample.mrc',Buffer.from('alias sample { echo -s viejo }'));
+ await m.alias('sample',context);const original=m.read(id),data=m.dataFile(id);fs.mkdirSync(path.dirname(data),{recursive:true});fs.writeFileSync(data,JSON.stringify({prefs:{mode:'ask'}}));
+ await assert.rejects(m.update(id,{...original,source:'alias bad { run bad.exe }'}),/soportado/);assert.equal(m.read(id).revision,original.revision);
+ const updated=await m.update(id,{...original,source:'alias sample { echo -s nuevo }'});assert.equal(updated.id,id);assert.deepEqual(m.readIni(id),{prefs:{mode:'ask'}});assert.equal(m.list()[0].enabled,true);await m.alias('sample',context);assert.equal(batches.at(-1)[0].text,'-s nuevo');await assert.rejects(m.update(id,{...original,source:'alias sample { echo stale }'}),/cambió/);
+ assert.equal(m.help(id).commands[0].usage,'/sample');await m.configure(id,false);await m.update(id,{...m.read(id),name:'renamed.xcr'});assert.equal(m.list()[0].enabled,false);
+});

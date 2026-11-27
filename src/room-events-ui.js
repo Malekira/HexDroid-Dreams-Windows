@@ -30,7 +30,7 @@
     option.value = value;
     mode.append(option);
   }
-  document.querySelector(".message-toolbar").append(mode);
+  // View selection remains in Chat settings; it is no longer a window toolbar control.
   const settingsPanel = document.querySelector("[data-panel=chat]");
   const row = el("label", "setting-row", "Vista de eventos de sala"),
     setting = mode.cloneNode(true);

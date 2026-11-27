@@ -32,9 +32,11 @@ async function run() {
         if(line.startsWith('METADATA * SET avatar')){avatar=line.includes(' :')?line.split(' :')[1]:'';socket.write(':local METADATA Dreamer avatar * :'+avatar+'\r\n');}
         if(line==='METADATA * GET avatar')socket.write(':local 761 Dreamer Dreamer avatar * :'+avatar+'\r\n');
         if(line.startsWith('MONITOR + '))socket.write(':local 730 Dreamer :'+line.slice(10).split(',').map(nick=>nick+'!ident@host').join(',')+'\r\n');
-        if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\n:local 005 Dreamer MONITOR=100 :supported\r\nPING :desktop-test\r\n');
+        if (line.startsWith('USER ')) socket.write(':local 001 Dreamer :Welcome\r\n:local 005 Dreamer MONITOR=100 TOPICLEN=300 :supported\r\nPING :desktop-test\r\n');
         if (line === 'JOIN #dreams') socket.write(':Dreamer!u@local JOIN :#dreams\r\n:local 332 Dreamer #dreams :Topic de prueba\r\n:local 353 Dreamer = #dreams :Dreamer!u@local @Alice!ident@host\r\n:Alice!u@local PRIVMSG #dreams :Desktop IPC works\r\n');
         if (line === 'LIST') socket.write(':local 321 Dreamer Channel :Users Name\r\n:local 322 Dreamer #zeta 100 :\x0304Popular\x0f\r\n:local 322 Dreamer #alpha 3 :Small room\r\n:local 323 Dreamer :End of LIST\r\n');
+        if(line==='TOPIC #dreams')socket.write(':local 332 Dreamer #dreams :Topic de prueba\r\n');
+        if(line.startsWith('TOPIC #dreams :'))socket.write(':Dreamer!u@local '+line+'\r\n');
         if (line === 'MODE #dreams') socket.write(':local 324 Dreamer #dreams +nt\r\n');
         if(line==='MODE #dreams +b')socket.write((roomBan?':local 367 Dreamer #dreams *!*@bad.host Oper!ident@staff.host 1700000000\r\n':'')+':local 368 Dreamer #dreams :End of ban list\r\n');
         if(line==='MODE #dreams -b *!*@bad.host'){roomBan=false;socket.write(':Dreamer!u@local MODE #dreams -b *!*@bad.host\r\n');}
@@ -65,7 +67,7 @@ async function run() {
     const rendererErrors = []; page.on('pageerror', e => rendererErrors.push(e.message));
     await page.waitForLoadState('load');await page.waitForFunction(()=>window.dreamsUIReady===true);await page.bringToFront();
     await expect(page.locator('#conversation-title')).toHaveText('Bienvenido a HexDreams IRC');
-    await page.getByRole('button', { name: 'Añadir red', exact: true }).click();
+    await page.keyboard.press('Control+n');
     await page.locator('#profile-name').fill('Servidor de prueba'); await page.locator('#profile-host').fill('127.0.0.1');await expect(page.locator('#profile-host')).toHaveValue('127.0.0.1');
     await page.locator('#profile-port').fill(String(server.address().port)); await page.locator('#profile-tls').uncheck();
     await page.locator('#profile-nick').fill('Dreamer'); await page.locator('#profile-channels').fill('#dreams');
@@ -168,12 +170,12 @@ async function run() {
     await expect(page.getByRole('button',{name:'@Alice',exact:true})).toBeVisible();
     for(const socket of sockets)socket.write(':CloneNick!other@host JOIN :#dreams\r\n');
     await expect(page.locator('#messages .event-clones')).toContainText('Alice, CloneNick');
-    await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('split');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Paneles',exact:true}).click();await page.getByRole('combobox',{name:'Vista de eventos de sala',exact:true}).selectOption('split');await page.getByRole('button',{name:'Listo',exact:true}).click();
     await expect(page.locator('#channel-events .event-clones')).toContainText('Alice, CloneNick');
     await expect(page.locator('#messages .event-clones')).toHaveCount(0);
     const split=page.getByRole('separator',{name:'Altura de eventos de sala',exact:true});await split.focus();await page.keyboard.press('Home');
     await expect.poll(()=>page.evaluate(async()=>(await window.dreams.load()).settings.eventsPanePercent)).toBe(12);
-    await page.getByRole('combobox',{name:'Vista de sala',exact:true}).selectOption('unified');
+    await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();await page.getByRole('button',{name:'Paneles',exact:true}).click();await page.getByRole('combobox',{name:'Vista de eventos de sala',exact:true}).selectOption('unified');await page.getByRole('button',{name:'Listo',exact:true}).click();
     for(const socket of sockets)socket.write(':CloneNick!other@host PART #dreams :bye\r\n');
     await page.locator('#message-input').fill('first line\nsecond line'); await page.locator('#message-input').press('Enter');
     await expect.poll(() => received.includes('PRIVMSG #dreams :first line') && received.includes('PRIVMSG #dreams :second line')).toBe(true);
@@ -406,7 +408,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.locator('#message-input').press('Enter');
     await expect.poll(async()=>await page.evaluate(async()=>{const rows=await window.dreams.advanced('history.search',{text:'persisted SQLite desktop message'});return Array.isArray(rows)&&rows.some(m=>m.text==='persisted SQLite desktop message');})).toBe(true);
     await page.getByRole('button',{name:'Abrir configuración',exact:true}).click();
-    await page.getByRole('button',{name:'Scripts .hex',exact:true}).click();
+    await page.getByRole('button',{name:'Scripts',exact:true}).click();
     await expect(page.locator('.advanced-content')).toContainText('Los scripts se activan automáticamente');
     const scriptCard=page.locator('.script-card').filter({hasText:'desktop.hex'});await expect(scriptCard.getByLabel('Activar desktop.hex',{exact:true})).toBeChecked();await expect(scriptCard.locator('input')).toHaveCount(1);
     await scriptCard.getByRole('button',{name:'Ayuda',exact:true}).click();await expect(page.locator('#script-help-dialog')).toContainText('/desktophello');await expect(page.locator('#script-help-dialog')).toContainText('Envía un mensaje');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
@@ -550,6 +552,14 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     console.log('Prueba Electron: bans completos, retirada autorizada y menú de script con alias interno');
     await page.evaluate(()=>choose(config.profiles[0].id,'#dreams'));
     for(const socket of sockets)socket.write(':local 353 Dreamer = #dreams :@Dreamer!u@local @Alice!ident@host\r\n');
+    await page.getByRole('button',{name:'Configuración de sala',exact:true}).click();
+    const roomPanel=page.locator('#room-settings-dialog');await expect(roomPanel).toContainText('Modos confirmados: +nt');
+    await roomPanel.getByRole('textbox',{name:'Topic de la sala',exact:true}).evaluate(n=>{n.value='\x02\x0313,01Topic 🌸\x02\x0f';n.dispatchEvent(new Event('input'));});
+    await expect(roomPanel.locator('.room-topic-preview')).toHaveText('Topic 🌸');await roomPanel.getByRole('button',{name:'Enviar topic',exact:true}).click();
+    await expect.poll(()=>received.includes('TOPIC #dreams :\x02\x0313,01Topic 🌸\x0f')).toBe(true);await expect(page.locator('#conversation-subtitle')).toHaveText('Topic 🌸');
+    await roomPanel.getByRole('checkbox',{name:'Solicitar +o automáticamente al entrar',exact:true}).check();await roomPanel.getByRole('button',{name:'Guardar automatismos',exact:true}).click();await expect(roomPanel).toContainText('Automatismos guardados');
+    expect(await page.evaluate(async()=>{const r=await window.dreams.advanced('room.settings.get',{network:active.id,channel:'#dreams'});return r.preferences.autoOp;})).toBe(true);
+    await roomPanel.getByRole('button',{name:'Cerrar',exact:true}).click();
     await page.evaluate(()=>window.openDreamsBans(config.profiles[0].id,'#dreams'));
     await expect(page.locator('#bans-dialog .ban-row')).toContainText('Oper!ident@staff.host');
     await page.locator('#bans-dialog').getByRole('button',{name:'Quitar',exact:true}).click();
@@ -589,7 +599,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     await page.evaluate(async()=>{Object.assign(config.settings,window.__noticeCopySettings);await persist();choose(config.profiles[0].id,'#dreams');});
 
     console.log('Prueba Electron: aprobación de certificado TLS por red');
-    await page.getByRole('button',{name:'Añadir red',exact:true}).click();
+    await page.keyboard.press('Control+n');
     await page.locator('#profile-name').fill('TLS local');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(tlsServer.address().port));await page.locator('#profile-nick').fill('TLSNick');await page.locator('#profile-channels').fill('');
     await page.getByRole('button',{name:'Guardar y conectar',exact:true}).click();
     await expect(page.locator('#certificate-dialog')).toBeVisible();
@@ -618,7 +628,7 @@ on TEXT { if ($nick == BlockedFixture && $isprivate == true && $isme == false) {
     const denyServer=net.createServer(socket=>{socket.on('error',()=>{});socket.end(':denied 465 * :G-lined: motivo de prueba\r\n');});
     await new Promise(resolve=>denyServer.listen(0,'127.0.0.1',resolve));
     try{
-      await page.getByRole('button',{name:'Añadir red',exact:true}).click();await page.locator('#profile-name').fill('Red rechazada');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(denyServer.address().port));await page.locator('#profile-nick').fill('DeniedNick');await page.locator('#profile-channels').fill('');await page.locator('#profile-tls').uncheck();
+      await page.keyboard.press('Control+n');await page.locator('#profile-name').fill('Red rechazada');await page.locator('#profile-host').fill('127.0.0.1');await page.locator('#profile-port').fill(String(denyServer.address().port));await page.locator('#profile-nick').fill('DeniedNick');await page.locator('#profile-channels').fill('');await page.locator('#profile-tls').uncheck();
       await page.getByRole('button',{name:'Guardar y conectar',exact:true}).click();
       await expect(page.locator('#messages')).toContainText('G-lined: motivo de prueba');await expect(page.locator('#toast')).toContainText('G-lined: motivo de prueba');expect(await page.evaluate(()=>network(active.id).state)).toBe('disconnected');
       expect((await page.evaluate(()=>window.dreams.advanced('notifications.list'))).some(e=>e.kind==='connection'&&e.text.includes('G-lined'))).toBe(true);

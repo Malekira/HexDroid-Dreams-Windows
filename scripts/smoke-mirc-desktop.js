@@ -25,7 +25,7 @@ async function run(){
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.waitForFunction(()=>window.dreamsUIReady===true);
   await app.evaluate(({Notification})=>{Notification.isSupported=()=>false;});
-  await page.getByRole('button',{name:'Añadir red',exact:true}).click();
+  await page.keyboard.press('Control+n');
   await page.locator('#profile-name').fill('Prueba mSL');await page.locator('#profile-host').fill('127.0.0.1');
   await page.locator('#profile-port').fill(String(server.address().port));await page.locator('#profile-tls').uncheck();
   await page.locator('#profile-nick').fill('Tester');await page.locator('#profile-channels').fill('#prueba');
@@ -41,6 +41,12 @@ async function run(){
   for(const socket of sockets)socket.write(':Reincidente!guest@two.host JOIN :#prueba\r\n');
   await expect.poll(()=>received.includes('KICK #prueba Reincidente :2 prueba nativa')).toBe(true);
   await page.evaluate(id=>window.dreams.advanced('script.mirc.configure',{id,enabled:false}),imported.id);
+  await page.evaluate(id=>window.openDreamsScriptEditor(id,'mirc'),imported.id);
+  await expect(page.locator('#script-editor-dialog h2')).toHaveText('Editor de scripts compatibles');
+  const saved=await page.getByLabel('Código del script',{exact:true}).inputValue();await page.getByLabel('Código del script',{exact:true}).fill(saved+'\nalias editorproof { echo -s Editado desde el panel }');
+  await page.locator('#script-editor-dialog').getByRole('button',{name:'Guardar en la aplicación',exact:true}).click();await expect(page.locator('#script-editor-dialog')).toContainText('Addon actualizado');await page.locator('#script-editor-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+  await page.evaluate(id=>window.openDreamsScriptHelp(id,'mirc'),imported.id);await expect(page.locator('#script-help-dialog')).toContainText('/editorproof');await page.locator('#script-help-dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
+  expect((await page.evaluate(()=>window.dreams.advanced('script.mirc.list'))).find(s=>s.id===imported.id).enabled).toBe(false);
   for(const socket of sockets)socket.write(':SinAccion!guest@three.host JOIN :#prueba\r\n');
   await expect(page.getByRole('button',{name:'SinAccion',exact:true})).toBeVisible();
   expect(received.some(line=>line.startsWith('KICK #prueba SinAccion'))).toBe(false);

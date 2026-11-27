@@ -679,6 +679,8 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
           if (name === "REALNAMELEN" && /^\d+$/.test(value))
             this.realNameLimit = Number(value);
           if (name === "WHOX") this.whox = true;
+          if(name==='-TOPICLEN')delete this.topicLength;
+          if(name==='TOPICLEN'&&/^\d+$/.test(value)&&Number(value)>0&&Number(value)<=65535)this.topicLength=Number(value);
           if (["ICON", "DRAFT/ICON"].includes(name)) this.networkIcon = value;
         }
         this.emit("features", {

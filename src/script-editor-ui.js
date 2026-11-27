@@ -24,6 +24,7 @@
   body.append(tools, name, source, position, feedback);
   dialog.append(header, body);
   document.body.append(dialog);
+  let kind="hex";
   let current = {},
     baseline = "",
     last = "",
@@ -31,6 +32,7 @@
   const call = async (action, data = {}) => {
     if (!api.advanced)
       throw Error("Disponible en la aplicación de escritorio.");
+    if(kind==='mirc'&&action.startsWith('script.'))action=action.replace('script.','script.mirc.');
     const result = await api.advanced(action, data);
     if (result?.error) throw Error(result.error);
     return result;
@@ -57,14 +59,14 @@
     baseline = snapshot();
     last = select.value = data.id || "";
     feedback.textContent =
-      "Los scripts nuevos se activan al guardarlos, con todos los permisos.";
+      kind==='mirc'?'Guardar reinicia el addon y conserva sus archivos y su activación.':'Los scripts nuevos se activan al guardarlos, con todos los permisos.';
     positionText();
   }
   async function fill() {
     select.replaceChildren();
     const fresh = el("option", "", "Nuevo script");
     fresh.value = "";
-    select.append(fresh);
+    if(kind==='hex')select.append(fresh);
     for (const script of await call("script.list")) {
       const option = el("option", "", script.name);
       option.value = script.id;
@@ -107,9 +109,9 @@
   button("Abrir archivo…", async () => {
     if (!discard()) return;
     const data = await call("script.openFile");
-    if (!data.cancelled) load(data);
+    if (!data.cancelled) load(kind==='mirc'?{...data,id:current.id,revision:current.revision}:data);
   });
-  button('Ayuda de menús',()=>info('Menús y comandos internos de scripts',[
+  const menusHelp=button('Ayuda de menús',()=>info('Menús y comandos internos de scripts',[
     'Agregá una línea: ; @menu Salas | Saludar | saludar {sala}',
     'El último campo es un alias del mismo script y sus argumentos. También podés usar {nick} y {red}. La opción aparece al activar el script y se quita al desactivarlo.',
     'Menús: Archivo, Ver, Comandos, Salas, Scripts, Ayuda, Apariencia y Ventanas.',
@@ -130,7 +132,7 @@
     load(data);
     await fill();
     feedback.textContent =
-      "Guardado. Los scripts nuevos quedan activados automáticamente.";
+      kind==='mirc'?'Addon actualizado. Se conservaron su activación y sus archivos.':'Guardado. Los scripts nuevos quedan activados automáticamente.';
   });
   button("Guardar archivo…", async () => {
     const result = await call("script.exportSource", {
@@ -165,15 +167,14 @@
       positionText();
     }
   };
-  window.openDreamsScriptEditor = async (id) => {
+  window.openDreamsScriptEditor = async (id, nextKind="hex") => {
     try {
-      if (dialog.open) {
-        source.focus();
-        return;
-      }
+      if(dialog.open&&current.id===id&&kind===nextKind){source.focus();return;}
+      if(dialog.open&&!discard())return;
+      kind=nextKind;menusHelp.hidden=kind==='mirc';name.placeholder=kind==='mirc'?'Nombre.mrc':'Nombre.hex';header.querySelector("h2").textContent=kind==='mirc'?'Editor de scripts compatibles':'Editor de scripts .hex';
       load(id ? await call("script.read", { id }) : {});
       await fill();
-      dialog.showModal();
+      if(!dialog.open)dialog.showModal();
       source.focus();
     } catch (e) {
       notify(e.message, true);

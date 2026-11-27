@@ -1,14 +1,23 @@
-# HexDreams IRC 0.40.0-beta.7 · Ta-Te-Ti
+# HexDreams IRC 0.40.0-beta.8 · Scripts y configuración de sala
 
-Incluye el addon Extras/TaTeTi_HexDreams_v1.hex. Importarlo desde Scripts y abrir
-Scripts → Ta-Te-Ti o /tateti. Permite jugar sin conexión contra la computadora
-o invitar a otro usuario de HexDreams en la misma red IRC.
+Scripts tiene dos apartados: Scripts .hex y Scripts compatibles, con las mismas
+columnas Activar, Editar, Ayuda y Eliminar. Analizar no instala ni ejecuta.
+Editar un compatible conserva su identificador, activación y archivos del addon.
 
-Tablero compacto, turnos, aceptación de invitaciones, victoria/empate, revancha
-y cancelación. Las jugadas viajan como protocolo interno sin abrir PV ni mostrar
-comandos en chats; funciona con v87 activo. Ambas personas necesitan esta versión
-o posterior y el addon activo. Las partidas solo duran esta sesión.
+Se retiran Conexiones del lateral y el selector Ventana dividida de los
+encabezados. Las redes siguen en la barra superior y la vista de eventos sigue
+disponible en Configuración → Paneles. No se eliminan los perfiles ni el mosaico.
 
-Pruebas de reglas y protocolo, interfaz, y dos instancias Electron conectadas a
-IRC local. El portable se verifica también como ejecutable empaquetado en Windows.
-Se conservan las correcciones de privados y paneles de versiones anteriores.
+Las salas moderadas tienen un botón de configuración: topic visual con colores
+IRC, fondos, estilos, emojis y vista previa; modos confirmados; acceso a bans.
+El envío respeta TOPICLEN, la codificación de la red y el límite del comando IRC.
+
+Auto-OP y Auto-voz se guardan por sala y red. Solicitan OP/VOICE al servicio
+configurable tras los comandos de inicio y NAMES, una vez por entrada. Chan es
+el valor inicial para Chatzona y ChanServ para otras redes. Los permisos y los
+comandos del servicio deben permitirlo; no conceden privilegios por sí solos.
+Desactivarlos no quita modos existentes. No se probó una cuenta real de moderación.
+
+Validación: pruebas del motor/almacenamiento, Chromium y Electron con IRC local;
+la compilación Windows verifica también el ejecutable portable empaquetado.
+Se conservan Anti-PV v87, los paneles compatibles y Ta-Te-Ti.

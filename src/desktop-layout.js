@@ -20,7 +20,6 @@
   tools.append(document.querySelector(".settings-top"));
   const sidebar = $("private-panel"),
     footer = document.querySelector(".sidebar-footer"),
-    plus = document.querySelector(".sidebar-title [data-action=add-network]"),
     searchLabel = $("search").closest("label"),
     sortLabel = $("private-sort").closest("label"),
     list = $("network-list");
@@ -32,16 +31,7 @@
   addUser.setAttribute("aria-label", "Agregar usuario a Notify");
   addUser.onclick = () => window.addDreamsNotifyUser?.();
   notifyHeader.append(addUser);
-  const separator = el("hr", "sidebar-section-divider"),
-    connectionsHeader = el(
-      "div",
-      "notify-sidebar-title connections-sidebar-title",
-    );
-  plus.textContent = "🌐";
-  plus.title = "Agregar red";
-  connectionsHeader.append(el("strong", "", "Conexiones"), plus);
-  const connections = el("div", "sidebar-connections");
-  connections.id = "sidebar-connections";
+  const separator = el("hr", "sidebar-section-divider");
   const onlineList = el("div", "sidebar-notify-list");
   onlineList.id = "sidebar-notify-list";
   const tree = el("nav", "conversation-tree");
@@ -53,8 +43,6 @@
     notifyHeader,
     onlineList,
     separator,
-    connectionsHeader,
-    connections,
     searchLabel,
     sortLabel,
     tree,
@@ -180,32 +168,6 @@
   let treeNetwork;
   window.renderDreamsTree = () => {
     window.renderDreamsNotify();
-    const ids = new Set(config.profiles.map((p) => p.id));
-    for (const b of connections.children)
-      if (!ids.has(b.dataset.network)) b.remove();
-    for (const p of config.profiles) {
-      let b = [...connections.children].find((b) => b.dataset.network === p.id);
-      if (!b) {
-        b = el("button", "connection-tree-row");
-        b.dataset.network = p.id;
-        b.type = "button";
-        b.setAttribute("aria-label", "Red " + p.name);
-        b.onclick = () => {
-          const n = network(p.id);
-          choose(
-            p.id,
-            n.lastTarget && n.conversations.has(fold(n.lastTarget))
-              ? n.lastTarget
-              : "*",
-          );
-        };
-        connections.append(b);
-      }
-      b.setAttribute("aria-label", "Red " + p.name);
-      b.textContent =
-        (network(p.id).state === "connected" ? "● " : "○ ") + p.name;
-      b.classList.toggle("active", active?.id === p.id);
-    }
     if (treeNetwork !== active?.id) {
       list.replaceChildren();
       treeNetwork = active?.id;

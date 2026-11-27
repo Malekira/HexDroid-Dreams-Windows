@@ -23,10 +23,10 @@
   action(document.querySelector('[data-panel=layout]'),'Administrar listas de Notify…',()=>window.addDreamsNotifyUser?.());
   const filter=el('select');filter.id='notify-network-filter';filter.setAttribute('aria-label','Red de Notify');document.querySelector('.notify-sidebar-title').insertBefore(filter,$('notify-add-user'));
   filter.onchange=()=>{config.settings.notifyFilter=filter.value;persist().catch(e=>notify(e.message,true));window.renderDreamsNotify?.();};
-  const sidebar=$('private-panel'),connections=$('sidebar-connections'),connectionTitle=document.querySelector('.connections-sidebar-title'),notifyTitle=$('notify-add-user').parentElement;
+  const sidebar=$('private-panel'),notifyTitle=$('notify-add-user').parentElement;
   const double=()=>el('hr','sidebar-double-divider');
-  sidebar.querySelector('.sidebar-section-divider')?.remove();sidebar.prepend(connectionTitle,connections,double(),notifyTitle,$('sidebar-notify-list'),double());
-  const scriptTree=el('div','script-tree');scriptTree.setAttribute('aria-label','Entradas de scripts');connections.after(scriptTree);
+  sidebar.querySelector('.sidebar-section-divider')?.remove();sidebar.prepend(notifyTitle,$('sidebar-notify-list'),double());
+  const scriptTree=el('div','script-tree');scriptTree.setAttribute('aria-label','Entradas de scripts');sidebar.querySelector('.conversation-tree').append(scriptTree);
   let entries=[],entrySignature="";
   function drawEntries(){const system=$('tree-system');if(system&&scriptTree.parentElement!==system)system.append(scriptTree);const visible=entries.filter(e=>e.network===active?.id);const signature=JSON.stringify(visible.map(e=>[e,profile(e.network)?.name]));if(signature!==entrySignature){entrySignature=signature;scriptTree.replaceChildren();for(const entry of visible){const b=action(scriptTree,entry.label+' ('+entry.count+')',()=>api.advanced('script.tree.open',{id:entry.id}));b.dataset.network=entry.network;b.title=(profile(entry.network)?.name||entry.network)+' · '+entry.label;}}if(system)system.querySelector('summary').textContent='Sistema ('+(Number(system.dataset.conversationCount||0)+visible.length)+')';}
   api.onEvent(event=>{

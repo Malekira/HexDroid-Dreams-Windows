@@ -100,6 +100,7 @@ class Runtime {
       host:(actions,fields,valid)=>this.mircHost.deliver(actions,fields,valid),
       changed:()=>this.emit(null,'script-commands',{commands:this.scriptCommands(),menus:this.scripts.menus()}),
     });
+    this.roomSettings=new (require('./room-settings').RoomSettings)({client:id=>this.sessions.get(id),settings:()=>this.getConfig().settings,save:settings=>{const config=structuredClone(this.getConfig());config.settings=settings;this.saveConfig(config);this.emit(null,'preferences',{settings,patch:{roomModeration:settings.roomModeration}});},emit:(...args)=>this.emit(...args)});
     this.games=new (require('../games/tictactoe').TicTacToe)({
       client:id=>this.sessions.get(id),enabled:()=>this.scripts.scripts.filter(s=>s.enabled&&s.permissions.includes('ui')&&s.permissions.includes('send')&&/(?:^|\n)\s*game\.tictactoe(?:\s|$)/.test(s.source)),
       send:(id,nick,body)=>this.sessions.get(id).sendRaw('NOTICE '+nick+' :\x01'+body+'\x01'),
@@ -239,6 +240,7 @@ class Runtime {
   enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
+    this.roomSettings?.observe(id,type,data);
     if(type==='ctcp'&&this.games?.receive(id,data))return;
     if(type==='status'&&data.state==='disconnected')this.games?.disconnect(id);
     if(type==='nick')this.games?.nickChange(id,data.old,data.nick,data.own);
@@ -716,6 +718,11 @@ class Runtime {
         if(!cert||!p||cert.fingerprint!==data.fingerprint||cert.host!==p.host||cert.port!==p.port||!p.tls)throw new Error('La solicitud de certificado ya no corresponde a esta red.');
         this.trustedCertificates[id]={host:cert.host,port:cert.port,fingerprint:cert.fingerprint,pem:cert.pem};
         fs.writeFileSync(path.join(this.directory,'server-certificates.json'),JSON.stringify(this.trustedCertificates),{mode:0o600});this.pendingCertificates.delete(id);this.sessions.disconnect(id);this.connect({id});return{ok:true};}
+      case 'room.settings.get':return this.roomSettings.get(id,data.channel);
+      case 'room.settings.query':return this.roomSettings.query(id,data.channel);
+      case 'room.settings.topic':return this.roomSettings.topic(id,data.channel,data.text);
+      case 'room.settings.modes':return this.roomSettings.modes(id,data.channel,data.text);
+      case 'room.settings.preferences':return this.roomSettings.preferences(id,data.channel,data.preferences);
       case 'bans.list':require('./moderation').request(client,data.channel,data.mode||'b',data.service||'ChanServ');return{ok:true,canRemove:require('./moderation').canModerate(client,data.channel)};
       case 'bans.remove':require('./moderation').remove(client,data);return{ok:true};
       case 'user.cached':return client?.userStates.get(require('../irc').fold(data.nick))?.whoisTime||{};
@@ -997,6 +1004,16 @@ class Runtime {
       case 'script.mirc.queryClosed':this.mirc.query(id,target,false);return {ok:true};
       case 'script.mirc.menus':return this.mirc.menus({network:id,buffer:target||'*',chan:target||'',nick:data.nick||'',channel:/^[#&+!]/.test(target||'')});
       case 'script.mirc.menu':return this.mirc.menu(data.script,data.key,{network:id,buffer:target||'*',chan:target||'',nick:data.nick||'',selectedNicks:data.nicks||[data.nick].filter(Boolean),channel:/^[#&+!]/.test(target||'')});
+      case 'script.mirc.read':return this.mirc.read(data.id);
+      case 'script.mirc.help':return this.mirc.help(data.id);
+      case 'script.mirc.validate':require('../scripts/mirc/language').compile(data.source);return {ok:true};
+      case 'script.mirc.save':{
+        const names=[...require('../scripts/mirc/language').compile(data.source).values()].filter(a=>!a.local&&!a.name.includes('.')).map(a=>a.name);
+        const collisions=this.scripts.completions().filter(a=>names.includes(a.name.toLowerCase()));if(collisions.length)throw Error('Desactivá primero el script .hex que comparte comandos: '+collisions.map(a=>a.script).join(', '));
+        return this.mirc.update(data.id,data);
+      }
+      case 'script.mirc.openFile':{const file=await this.pick({filters:[{name:'Scripts compatibles',extensions:['mrc','xcr']}]});if(!file)return{cancelled:true};if(fs.statSync(file).size>262144)throw Error('El script supera 256 KB.');return{name:path.basename(file),source:require('../scripts/mirc/importer').decode(fs.readFileSync(file)).source};}
+      case 'script.mirc.exportSource':{require('../scripts/mirc/language').compile(data.source);const file=await this.destination({defaultPath:path.basename(String(data.name||'addon.mrc')),filters:[{name:'Scripts compatibles',extensions:['mrc','xcr']}]});if(file)fs.writeFileSync(file,data.source,{encoding:'utf8',mode:0o600});return{ok:!!file};}
       case 'script.mirc.list':return this.mirc.list();
       case 'script.mirc.configure':return this.mirc.configure(data.id,data.enabled);
       case 'script.mirc.remove':return this.mirc.remove(data.id);
@@ -1444,6 +1461,7 @@ class Runtime {
     if(this.closed)return;this.closed=true;
     clearInterval(this.awayTimer);clearInterval(this.trackerTimer);this.identityTracker?.close();
     this.games?.close();
+    this.roomSettings?.close();
     this.sessions.close();
     this.scripts.close();
     this.mirc?.close();

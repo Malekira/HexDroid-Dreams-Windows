@@ -14,6 +14,16 @@ class MircManager {
  }
  aliases(source){if(!this.catalog.has(source))this.catalog.set(source,compile(source));return [...this.catalog.get(source).values()].filter(a=>!a.local&&!a.name.includes('.')).map(a=>a.name);}
  list(){return this.scripts.map(s=>({id:s.id,name:s.name,enabled:s.enabled,aliases:this.aliases(s.source),events:this.catalog.get(s.source).handlers.map(h=>h.event)}));}
+ read(id){const s=this.scripts.find(s=>s.id===id);if(!s)throw Error('Addon no encontrado.');return {id:s.id,name:s.name,source:s.source,revision:crypto.createHash('sha256').update(s.name+'\0'+s.source).digest('hex')};}
+ help(id){const s=this.read(id),tree=compile(s.source);return {name:s.name,commands:[...tree.values()].filter(a=>!a.local&&!a.name.includes('.')).map(a=>({name:a.name,usage:'/'+a.name,description:'Alias del addon compatible.'})),details:[...new Set(tree.handlers.map(h=>h.event))].map(e=>'Evento: '+e).concat([...tree.dialogs.keys()].map(d=>'Panel: '+d))};}
+ update(id,{name,source,revision}){this.epoch++;return this.transaction(async()=>{
+  const old=this.read(id);if(old.revision!==revision)throw Error('El addon cambió desde que lo abriste. Volvé a cargarlo para no sobrescribir otros cambios.');
+  if(typeof name!=='string'||!name.trim()||name.length>100||! /\.(mrc|xcr)$/i.test(name))throw Error('Usá un nombre .mrc o .xcr.');
+  const tree=compile(source),names=[...tree.values()].filter(a=>!a.local).map(a=>a.name);
+  for(const s of this.scripts.filter(s=>s.id!==id))for(const n of this.aliases(s.source))if(names.includes(n))throw Error('Alias ya instalado: '+n);
+  const s=this.scripts.find(s=>s.id===id);s.name=name.trim();s.source=source;try{this.save();}catch(e){s.name=old.name;s.source=old.source;throw e;}
+  this.clearTimers(id);this.clearIgnores(id);this.initialized.delete(id);this.ui({removeScript:id});await this.sync();return this.read(id);
+ });}
  completions(){return this.list().filter(s=>s.enabled).flatMap(s=>s.aliases.filter(name=>!name.includes('.')).map(name=>({name,usage:'/'+name,description:'Alias mIRC · '+s.name,script:s.name,owner:s.id,scriptName:s.name})));}
  save(){if(this.loadError)throw Error(this.loadError);fs.mkdirSync(path.dirname(this.file),{recursive:true});fs.writeFileSync(this.file+'.tmp',JSON.stringify(this.scripts,null,2),{mode:0o600});fs.renameSync(this.file+'.tmp',this.file);this.catalog.clear();this.changed();}
  transaction(fn){const task=this.serial.then(()=>{if(this.closed)throw Error('Motor mSL cerrado.');if(this.loadError)throw Error(this.loadError);return fn();});this.serial=task.catch(()=>{});return task;}

@@ -65,7 +65,7 @@
     palette:"Colores del entorno",
     dcc: "Transferencias DCC",
     crypto: "Cifrado",
-    scripts: "Scripts .hex",
+    scripts: "Scripts",
     backup: "Respaldos",
     media: "Multimedia",
   };
@@ -553,80 +553,32 @@
       }
       button("Actualizar transferencias", () => show());
     } else if (section === "scripts") {
-      note(
-        "Los scripts se activan automáticamente al importarlos o crearlos, con todos los permisos disponibles.",
-      );
-      button("Analizar addon mIRC…", async () => {
-        const result=await call('script.mirc.inspect');
-        if(result.cancelled)return;
-        const report=el('details'),heading=el('summary','',result.name+' · '+result.encoding),text=el('pre');
-        report.open=true;
-        text.style.whiteSpace='pre-wrap';
-        text.textContent=[result.message,result.compatibility?.message||'',...result.declarations.map(d=>d.type+' '+d.name+' · línea '+d.line),...result.dependencies.map(d=>'Dependencia: '+d),...result.diagnostics.map(d=>'Línea '+d.line+': '+d.message)].join('\n');
-        report.append(heading,text);body.append(report);return {feedback:result.compatibility?.supported?'Análisis terminado: compatible con las funciones implementadas. No se instaló.':'Análisis terminado: addon todavía no compatible. No se instaló.'};
-      });
-      button("Importar archivo .hex", async () => {
-        await call("script.import");
-        await show();
-      });
-      const scroll = el("div", "scripts-table-scroll"),
-        table = el("table", "scripts-table"),
-        head = el("thead"), header = el("tr"), rows = el("tbody");
-      table.setAttribute("aria-label", "Scripts instalados");
-      for (const title of ["Script", "Activar", "Editar", "Ayuda", "Eliminar"]) {
-        const cell = el("th", "", title);
-        cell.scope = "col";
-        header.append(cell);
-      }
-      head.append(header);
-      table.append(head, rows);
-      scroll.append(table);
-      body.append(scroll);
-      for (const script of state.scripts) {
-        const row = el("tr", "script-card"), name = el("th", "script-name", script.name);
-        name.scope = "row";
-        row.append(name);
-        const activation = el("td"), enabled = el("input");
-        enabled.type = "checkbox";
-        enabled.checked = !!script.enabled;
-        enabled.setAttribute("aria-label", "Activar " + script.name);
-        enabled.onchange = async () => {
-          if (busy) { enabled.checked = !enabled.checked; return; }
-          enabled.disabled = true;
-          try { await run(() => call("script.configure", {id: script.id, enabled: enabled.checked})); }
-          finally { enabled.disabled = false; await show(); }
-        };
-        activation.append(enabled);
-        row.append(activation);
-        for (const [label, action] of [
-          ["Editar", () => window.openDreamsScriptEditor(script.id)],
-          ["Ayuda", () => window.openDreamsScriptHelp(script.id)],
-          ["Eliminar", async () => { await call("script.remove", {id: script.id}); await show(); }],
-        ]) {
-          const cell = el("td");
-          button(label, action, cell);
-          row.append(cell);
+      note("Los scripts se activan automáticamente al importarlos o crearlos.");
+      function tableSection(title,scripts,compatible){
+        const group=el('section','scripts-group'),toolbar=el('div','scripts-group-toolbar'),heading=el('h3','',title);toolbar.append(heading);group.append(toolbar);body.append(group);
+        if(compatible){
+          button('Analizar archivo…',async()=>{
+            const r=await call('script.mirc.inspect');if(r.cancelled)return;
+            const report=el('details','script-analysis'),head=el('summary','',r.name+' · '+r.encoding),text=el('pre');report.open=true;text.style.whiteSpace='pre-wrap';
+            text.textContent=[r.message,r.compatibility?.message||'',...(r.declarations||[]).map(d=>d.type+' '+d.name+' · línea '+d.line),...(r.dependencies||[]).map(d=>'Dependencia: '+d),...(r.diagnostics||[]).map(d=>'Línea '+d.line+': '+d.message)].join('\n');report.append(head,text);group.append(report);
+            return {feedback:r.compatibility?.supported?'Análisis terminado: compatible con las funciones implementadas. No se instaló.':'Análisis terminado: addon todavía no compatible. No se instaló.'};
+          },toolbar);
+          button('Importar archivo…',async()=>{const r=await call('script.mirc.import');if(!r.cancelled)await show();},toolbar);
+          group.append(el('p','muted','.mrc / .xcr · Analizar no instala ni activa el archivo.'));
+          if(state.mircError)group.append(el('p','form-error',state.mircError));
+        }else button('Importar archivo .hex…',async()=>{await call('script.import');await show();},toolbar);
+        const scroll=el('div','scripts-table-scroll'),table=el('table','scripts-table'),head=el('thead'),header=el('tr'),rows=el('tbody');table.setAttribute('aria-label',title+' instalados');
+        for(const label of ['Script','Activar','Editar','Ayuda','Eliminar']){const cell=el('th','',label);cell.scope='col';header.append(cell);}head.append(header);table.append(head,rows);scroll.append(table);group.append(scroll);
+        for(const script of scripts){
+          const row=el('tr','script-card'+(compatible?' mirc-addon-row':'')),name=el('th','script-name',script.name);name.scope='row';row.append(name);
+          const cell=el('td'),enabled=el('input');enabled.type='checkbox';enabled.checked=!!script.enabled;enabled.setAttribute('aria-label','Activar '+script.name);
+          enabled.onchange=async()=>{if(busy){enabled.checked=!enabled.checked;return;}enabled.disabled=true;try{await run(()=>call(compatible?'script.mirc.configure':'script.configure',{id:script.id,enabled:enabled.checked}));}finally{await show();}};cell.append(enabled);row.append(cell);
+          for(const [label,action]of [['Editar',()=>window.openDreamsScriptEditor(script.id,compatible?'mirc':'hex')],['Ayuda',()=>window.openDreamsScriptHelp(script.id,compatible?'mirc':'hex')],['Eliminar',async()=>{await call(compatible?'script.mirc.remove':'script.remove',{id:script.id});await show();}]]){const td=el('td');button(label,action,td);row.append(td);}rows.append(row);
         }
-        rows.append(row);
+        if(!scripts.length){const row=el('tr'),cell=el('td','scripts-empty','No hay scripts importados.');cell.colSpan=5;row.append(cell);rows.append(row);}
       }
-      if (!state.scripts.length) {
-        const row = el("tr"), cell = el("td", "scripts-empty", "No hay scripts importados.");
-        cell.colSpan = 5;
-        row.append(cell);
-        rows.append(row);
-      }
-      const mirc=el('details'),mircTitle=el('summary','','Compatibilidad mIRC · privados y diálogos');
-      mirc.open=(state.mircScripts||[]).length>0;mirc.append(mircTitle);body.append(mirc);
-      mirc.append(el('p','muted','Admite alias, privados v87, diálogos básicos, INI, hashes, timers, RAW numéricos, menús y ventanas locales. Otros addons pueden necesitar funciones o módulos aún no disponibles.'));
-      if(state.mircError)mirc.append(el('p','',state.mircError));
-      button('Importar addon .mrc/.xcr…',async()=>{const result=await call('script.mirc.import');if(!result.cancelled)await show();},mirc);
-      for(const addon of state.mircScripts||[]){
-        const row=el('div','script-card mirc-addon-row'),label=el('label','checkbox-label',addon.name+' '),toggle=el('input');
-        toggle.type='checkbox';toggle.checked=addon.enabled;toggle.setAttribute('aria-label','Activar '+addon.name);
-        toggle.onchange=async()=>{if(busy){toggle.checked=!toggle.checked;return;}toggle.disabled=true;try{await run(()=>call('script.mirc.configure',{id:addon.id,enabled:toggle.checked}));}finally{await show();}};
-        label.append(toggle);row.append(label,el('small','muted',[...addon.aliases.map(a=>'/'+a),...(addon.events||[])].join(' · ')));
-        button('Eliminar',async()=>{await call('script.mirc.remove',{id:addon.id});await show();},row);mirc.append(row);
-      }
+      tableSection('Scripts .hex',state.scripts||[],false);
+      tableSection('Scripts compatibles',state.mircScripts||[],true);
     } else if (section === "backup") {
       note('Elige qué apartados exportar o restaurar en una ventana aparte.');
       button('Exportar configuración',()=>window.openDreamsBackup('export'));

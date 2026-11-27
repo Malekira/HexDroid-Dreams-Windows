@@ -44,3 +44,6 @@ test('Existing room recovery migrates to 50 once while new explicit choices and 
  const migrated=store.load();assert.equal(migrated.settings.historyRoomRows,50);assert.equal(migrated.settings.historyPrivateRows,20);assert.equal(migrated.settings.historyEnabled,false);
  store.save({...migrated,settings:{...migrated.settings,historyRoomRows:25}});assert.equal(store.load().settings.historyRoomRows,25);
 });
+test('room moderation preferences survive restart independently of rooms, networks and themes',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'dreams-room-config-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const store=new Store(dir);store.save({profiles:[],settings:{roomModeration:{net1:{'#Room':{autoOp:true,autoVoice:false,service:'Chan'}},net2:{'#room':{autoOp:false,autoVoice:true,service:'ChanServ'}},bad:{'#room':{autoOp:true,service:'Chan\nQUIT'}}}}});const s=store.load().settings;assert.deepEqual(s.roomModeration.net1['#room'],{autoOp:true,autoVoice:false,service:'Chan'});assert.equal(s.roomModeration.net2['#room'].autoVoice,true);assert.equal(s.roomModeration.bad['#room'],undefined);
+});
