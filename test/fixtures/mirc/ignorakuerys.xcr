@@ -1,0 +1,136 @@
+;IRcap8 2520863f8ee30d06c3395aade74f52b8
+; ----------------------------
+: Ignora Querys 1.2
+: By TeMpEsT
+; ----------------------------
+
+
+on 1:load:{
+  echo -s 12_______________________
+  echo -s  
+  echo -s 0,4 Ignora Querys 1,15 v1.2 0,4 
+  echo -s       4,4 1,15 By TeMpEsT 4,4 
+  echo -s 12_______________________
+  echo -s -
+
+}
+
+dialog ignoqu {
+  title "Ignora querys"
+  size -1 -1 320 260
+
+  combo 1,10 50 210 100
+
+  button "Añadir",2,230 50 80 25
+  button "Borrar",3,230 100 80 25
+
+  check "Ignorar todos los querys menos los de esta lista",4,10 10 310 20
+
+  text "Mensaje:",5,10 160 60 20
+  edit %ignoqu.msg,6,10 180 300 25,autohs
+
+  button "Cerrar",20,110 225 100 25,ok
+}
+
+on 1:dialog:ignoqu:init:0:{
+  if (%ignoqu.msg == $null) {
+    %ignoqu.msg = 4En estos momentos no acepto querys. Por favor, espera unos minutos. 
+  }
+
+  if ($group(#ignoqu) == on) did -c ignoqu 4
+  if (%ignoqu != $null) {
+    pon.nicks.from.variable
+  }
+}
+
+on 1:dialog:ignoqu:sclick:*:{
+  if ($did == 2) {
+    %ignoqu = $addtok(%ignoqu,$did(1).text,44)
+    pon.nicks.from.variable
+  }
+  elseif ($did == 3) { 
+    %ignoqu = $remtok(%ignoqu,$did(1).text,1,44)
+    pon.nicks.from.variable
+  }
+  elseif ($did == 4) { 
+    ignoqu.toggle
+  }
+}
+
+on 1:dialog:ignoqu:edit:*:{
+  if (($did == 6) && ($did(6).text != $null)) {
+    %ignoqu.msg = $did($did).text
+  }
+}
+
+alias ventana.ignoqu { if ($dialog(ignoqu) == $null) /dialog -m ignoqu ignoqu | else did -f ignoqu 20 }
+alias pon.nicks.from.variable {
+  did -r ignoqu 1
+  ; loop añadir nicks from variable
+  var %i = 0
+  :1
+  inc %i 1
+  if (%i > $numtok(%ignoqu,44)) goto 2
+  else {
+    did -a ignoqu 1 $gettok(%ignoqu,%i,44)
+    goto 1
+  }
+  :2
+}
+
+alias ignoqu.toggle {
+  if ($group(#ignoqu) == on) {
+    .disable #ignoqu
+    echo -es 4,4 1,15 Desactivando "Ignorar Querys" ... 4,4 
+  }
+  else {
+    .enable #ignoqu
+    echo -es 4,4 1,15 Ignorando todos los querys $iif(%ignoqu != $null,menos los de) 12 $+ %ignoqu 4,4 
+  }
+}
+alias ignoqu.off {
+  if ($group(#ignoqu) == on) {
+    ignoqu.toggle
+  }
+  else {
+    echo -es 4,4 1,15 "Ignorar Querys" ya estaba desactivado ... 4,4 
+  }
+}
+menu menubar {
+  -
+  Ignorar Querys ( $group(#ignoqu) )
+  .Configuración:  ventana.ignoqu
+  .-
+  . $iif($group(#ignoqu) == on,Desactivar,Activar) ahora: ignoqu.toggle
+  .-
+  .Desinstalar ADD-ON
+  ..Estás segur@???
+  ...Pulsa aquí para desinstalarlo: unload -rs system\ignorakuerys.xcr
+  -
+}
+menu Nicklist {
+  -
+  Ignorar Querys ( $group(#ignoqu) )
+  .NO ignorar al seleccionado: %ignoqu = $addtok(%ignoqu,$snicks,44)
+  .-
+  .Ignorar al selccionado: %ignoqu = $remtok(%ignoqu,$snicks,1,44)
+  -
+}
+#ignoqu off
+on ^1:open:?:{
+  if ($istok(%ignoqu,$nick,44) == $false) {
+    ;close -m $nick
+    echo -es 2*** Se ignora el query de3 $nick  ( < $+ $nick $+ > $left($1-,999) ... )
+    if ($nick != %ignoratemp) {
+    .msg $nick %ignoqu.msg
+    }
+    .set %ignoratemp $nick
+    write addons/ignorakuerys.txt $date - $time - $nick $+ : $1-
+    halt
+  }
+}
+#ignoqu end
+
+;on 1:disconnect:{
+;  .disable #ignoqu
+;}

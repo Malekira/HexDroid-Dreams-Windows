@@ -19,7 +19,7 @@ function prepare(actions,fields,client){
    let text=action.text,color=null,target=fields.buffer||'*';
    const peek=()=>take(text,1).values[0],pop=()=>{const v=take(text,1);text=v.rest;return v.values[0];};
    if(/^\d{1,2}$/.test(peek()||''))color=pop();
-   if(peek()==='-s'){target='*';pop();}else if(peek()==='-a')pop();
+   if(/^-[aest]+$/.test(peek()||'')){const flags=pop();if(flags.includes('s'))target='*';}
    else if(peek()?.startsWith('-'))throw Error('Opción echo todavía no soportada.');
    else if(/^[#&+!@]/.test(peek()||'')||(fields.queries||[]).some(q=>q.toLowerCase()===String(peek()).toLowerCase()))target=pop();
    out.push({type:'echo',target,text:(color!==null?'\x03'+color.padStart(2,'0'):'')+text});continue;

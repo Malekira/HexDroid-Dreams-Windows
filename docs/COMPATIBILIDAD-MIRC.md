@@ -1,4 +1,4 @@
-# Compatibilidad mIRC · 0.40.0-beta.4
+# Compatibilidad mIRC · 0.40.0-beta.5
 
 HexDreams usa un intérprete mSL propio y aislado. No ejecuta ni distribuye mIRC.
 Esta es una ampliación del subconjunto soportado, **no compatibilidad universal**.
@@ -54,11 +54,12 @@ reiniciar la lógica que el addon haya definido para una reconexión.
 | myClonDetector.mrc | Comparación de host y salida local probadas en motor; mismo host no demuestra identidad. |
 | spy.mrc | START, WHO/RAW 352, temporizador, menú y ventana local probados; integración en Electron. |
 | antiFloodPers.mrc y su copia | Pendiente la semántica de `/flood`; las llamadas dinámicas fallan explícitamente. |
-| controla.mrc, PVGuard.mrc, tobogan.mrc, saluda.mrc | Compilan; falta validar todas sus rutas. No certificados como totalmente compatibles. |
+| controla.mrc, tobogan.mrc, saluda.mrc | Compilan; falta validar todas sus rutas. No certificados como totalmente compatibles. |
 | remoteControl.mrc | Pendientes INVITE y auxiliares de otros módulos. |
 | who.mrc | Pendientes `$colour` y restantes rutas. |
 | notify.mrc, trojAdd.mrc | Pendientes comando/eventos notify y otras rutas. |
-| ignorakuerys.xcr | Pendientes combo editable y controles adicionales. |
+| ignorakuerys.xcr | Panel original probado en motor y Electron: combo, alta/baja, mensaje, casilla y filtrado. |
+| PVGuard.mrc | Panel original probado en motor y Electron: aceptar, rechazar, Escape, permisos de máscara e ignore temporal. |
 | AntiPv.mrc | Pendiente el análisis de su sintaxis completa y ocultación de ventanas privadas. |
 | addonPack.mrc | Pendientes APIs como `$file`, enlaces entre módulos y archivos ausentes, incluido modera.mrc. |
 | TotalProtection.mrc | Pendientes eventos de moderación y APIs de sus paneles/listas. |
@@ -77,3 +78,5 @@ Worker dedicado, watchdog de un segundo por petición, presupuesto de instruccio
 Rutas absolutas, unidades Windows y `..` quedan fuera del espacio de archivos.
 No se implementan DLL/COM, ejecución de programas externos ni acceso general al disco.
 Los INI existentes permanecen en `mirc-data/<id>/ini.json`; no se reconstruyen bases.
+
+Ver [Paneles de addons](PANELES-MIRC.md) para controles, uso y límites de los paneles implementados en beta 5.

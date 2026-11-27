@@ -28,6 +28,9 @@ jobs:
       - name: Test private control v87 and room session
         run: node scripts/smoke-pv87-desktop.js
         timeout-minutes: 2
+      - name: Test original mIRC panels
+        run: node scripts/smoke-panels-desktop.js
+        timeout-minutes: 2
       - name: Test desktop interface
         shell: pwsh
         run: |
@@ -73,6 +76,13 @@ jobs:
         run: |
           $env:DREAMS_BINARY = (Resolve-Path "dist/HexDreamsIRC-win32-x64/HexDreamsIRC.exe").Path
           node scripts/smoke-pv87-desktop.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test packaged mIRC panels
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $env:DREAMS_BINARY = (Resolve-Path "dist/HexDreamsIRC-win32-x64/HexDreamsIRC.exe").Path
+          node scripts/smoke-panels-desktop.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: node scripts/package-artifacts.js
       - uses: actions/upload-artifact@v4

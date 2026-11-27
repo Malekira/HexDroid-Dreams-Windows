@@ -82,7 +82,7 @@ function compile(source){
    }
    if(type==='INPUT'){pattern=parts[0];if(!['*','#','?'].includes(pattern))throw Error('INPUT no soportado.');}
    if(type==='NOTICE'){pattern=parts[1]||'*';}
-   if(type==='DIALOG'){[dialog,interaction,control]=parts;if(!['init','sclick','dclick','close','edit'].includes(interaction)||! /^(?:\d+|\*)$/.test(control))throw Error('Evento de diálogo no soportado.');}
+   if(type==='DIALOG'){[dialog,interaction,control]=parts;if(!['init','sclick','dclick','close','edit'].includes(interaction)||! /^(?:\*|\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)$/.test(control))throw Error('Evento de diálogo no soportado.');}
    const start=d.body.indexOf('{'),end=d.body.lastIndexOf('}');
    aliases.handlers.push({event:type,pattern,textPattern:['TEXT','ACTION','NOTICE'].includes(type)?parts[0]:'*',group,dialog,interaction,control,pre:!!event[1],body:instructions(d.body.slice(start+1,end))});continue;
   }
@@ -135,7 +135,7 @@ class MslVM {
    (name==='RAW'?(h.pattern==='*'||h.pattern===String(fields.code))&&extended.glob(h.textPattern||'*',args.join(' ')):
     ['TEXT','ACTION','NOTICE','INPUT'].includes(name)?(h.pattern==='*'||h.pattern==='?'&&!fields.channel||h.pattern==='#'&&fields.channel)&&extended.glob(h.textPattern||'*',fields.text||args.join(' ')):
     ['JOIN','PART'].includes(name)?(['#','*'].includes(h.pattern)?/^[#&+!]/.test(fields.chan||''):fold(h.pattern)===fold(fields.chan||'')):
-    name==='DIALOG'?h.dialog.toLowerCase()===String(fields.dname||'').toLowerCase()&&h.interaction===fields.interaction&&(h.control==='*'||h.control===String(fields.control)):true));
+    name==='DIALOG'?h.dialog.toLowerCase()===String(fields.dname||'').toLowerCase()&&h.interaction===fields.interaction&&require('./dialogs').matches(h.control,fields.control):true));
   if(!handlers.length)return {handled:false,actions:[]};
   return this.execute(fields,()=>{for(const handler of handlers)this.run(handler.body,{args,locals:new Map(),depth:0});return '';});
  }
@@ -171,7 +171,7 @@ class MslVM {
      if(n)throw Error('Identificador sin cerrar.');
      params=splitTop(text.slice(i+1,end-1),',').map(p=>this.value(p.trim(),ctx,depth+1));i=end;
     }
-    let property='';const prop=/^\.([a-z][\w]*)/i.exec(text.slice(i));if(prop){property=prop[1].toLowerCase();i+=prop[0].length;if(!['pnick','item','text','seltext','lines','state'].includes(property))throw Error('Propiedad todavía no soportada: '+property);}
+    let property='';const prop=/^\.([a-z][\w]*)/i.exec(text.slice(i));if(prop){property=prop[1].toLowerCase();i+=prop[0].length;if(!['pnick','item','text','seltext','lines','state','sel','checked','enabled','visible'].includes(property))throw Error('Propiedad todavía no soportada: '+property);}
     out+=this.identifier(key,params,property,ctx,depth+1);
    }else {out+=text[i++];}
    if(out.length>16384)throw Error('Texto mSL demasiado largo.');

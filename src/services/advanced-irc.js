@@ -595,6 +595,12 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
       if(c==="NOTICE"&&!(m.prefix||"").includes("!")&&/\b(?:[zgk]-?line[ds]?|bann?ed|closing link|connection (?:denied|refused))\b/i.test(p.at(-1)||""))this.reportConnectionError(p.at(-1),{code:c,fatal:false});
       if(!this.ready&&/^[45]\d\d$/.test(c)&&c!=="422")this.reportConnectionError(p.slice(1).join(" "),{code:c,fatal:false});
       const identityObservation=require('./identity-observation').decode(m);if(identityObservation){const observation={...identityObservation,own:fold(identityObservation.nick)===fold(this.nick)};this.identityCache.observe(observation);this.emit('identity-observation',observation);}
+      // Dialog addons need $address for a new private sender even without shared rooms.
+      // Reuse the actual IRC prefix in the session cache; do not issue WHO/WHOIS.
+      if(c==='PRIVMSG'||c==='NOTICE'){
+        const mask=/^[^!]+!([^@]+)@(.+)$/.exec(m.prefix||'');
+        if(mask)this.identityCache.observe({kind:'seen',nick:m.nick,ident:mask[1],host:mask[2],channel:/^[#&+!]/.test(p[0]||'')?p[0]:''});
+      }
       this.clones.observe(m);
       if (c === "CHGHOST") this.clones.schedule();
       if (c === "305" || c === "306")
