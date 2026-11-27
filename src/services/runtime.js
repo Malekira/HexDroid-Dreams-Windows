@@ -100,6 +100,12 @@ class Runtime {
       host:(actions,fields,valid)=>this.mircHost.deliver(actions,fields,valid),
       changed:()=>this.emit(null,'script-commands',{commands:this.scriptCommands(),menus:this.scripts.menus()}),
     });
+    this.games=new (require('../games/tictactoe').TicTacToe)({
+      client:id=>this.sessions.get(id),enabled:()=>this.scripts.scripts.filter(s=>s.enabled&&s.permissions.includes('ui')&&s.permissions.includes('send')&&/(?:^|\n)\s*game\.tictactoe(?:\s|$)/.test(s.source)),
+      send:(id,nick,body)=>this.sessions.get(id).sendRaw('NOTICE '+nick+' :\x01'+body+'\x01'),
+      protectedTarget:(id,nick)=>!!this.crypto.descriptor(id,nick),emit:data=>this.emit(null,'tictactoe',data)
+    });
+    this.scripts.on('changed',()=>this.games?.prune());
     this.scriptConversations = new (require('./script-conversations').ScriptConversations)({emit:(...args)=>this.emit(...args),client:id=>this.sessions.get(id),enabled:id=>this.scripts.scripts.some(s=>s.id===id&&s.enabled),replay:(id,data)=>{if(this.getConfig().settings.historyEnabled)guardHistoryWrite(this,id,()=>{this.history.append(id,data);this.history.prune(this.getConfig().settings.historyDays);});this.writeTextLog(id,data);this.emit(id,"message",data);}});
     this.scripts.on("changed",()=>this.scriptConversations.clean());
     this.scripts.on("ready",()=>{this.emit(null,"script-commands",{commands:this.scriptCommands(),menus:this.scripts.menus()});for(const [network,session]of this.sessions.sessions)if(session.client?.ready)this.scripts.event("SIGNAL:NETWORK_READY",{network}).catch(e=>this.scripts.report("",e.message));});
@@ -233,7 +239,12 @@ class Runtime {
   enqueue(id,type,data){if(this.closed)return;if(type==='delivery'){this.emit(id,type,data);return;}const previous=this.queues.get(id)||Promise.resolve(),next=previous.then(()=>this.receive(id,type,data)).catch(e=>this.emit(id,'problem',{text:e.message}));this.queues.set(id,next);}
   async receive(id, type, data) {
     if(this.closed)return;
+    if(type==='ctcp'&&this.games?.receive(id,data))return;
+    if(type==='status'&&data.state==='disconnected')this.games?.disconnect(id);
+    if(type==='nick')this.games?.nickChange(id,data.old,data.nick,data.own);
+    if(type==='channel'&&data.action==='quit')this.games?.disconnect(id,data.nick);
     if(type==='script-raw'){
+      if(data.command==='401')this.games?.disconnect(id,data.params[1],'unavailable');
       if(!this.sessions.get(id)?.startupPending)this.mirc?.event('RAW',{network:id,buffer:'*',code:data.command,nick:data.nick,text:data.params.join(' ')},data.params).catch(e=>this.emit(id,'problem',{text:'RAW mIRC: '+e.message}));return;
     }
     if(type==='startup-ready'){this.mirc?.event('CONNECT',{network:id,buffer:'*'}).catch(e=>this.emit(id,'problem',{text:e.message}));return;}
@@ -564,6 +575,7 @@ class Runtime {
     return material;
   }
   async scriptAction(action, fields) {
+    if(action.type==='game.tictactoe')return this.games.open(fields.script,fields.network,action.args?.[0]||'');
     const id = fields.network,
       target = fields.buffer;
     if (["send.direct","conversation.open","conversation.close","tree.add","tree.remove"].includes(action.type)) return this.scriptConversations.action(action,fields);
@@ -670,6 +682,14 @@ class Runtime {
       client = this.sessions.get(id),
       target = data.target;
     switch (name) {
+      case 'game.tictactoe.solo':return this.games.solo(data.owner,id);
+      case 'game.tictactoe.invite':return this.games.invite(data.owner,id,data.nick);
+      case 'game.tictactoe.accept':return this.games.accept(data.owner,data.game);
+      case 'game.tictactoe.move':return this.games.move(data.owner,data.game,data.cell);
+      case 'game.tictactoe.end':return this.games.end(data.owner,data.game);
+      case 'game.tictactoe.rematch':return this.games.rematch(data.owner,data.game);
+      case 'game.tictactoe.list':return this.games.list(data.owner);
+
       case "theme.import": {const file=await this.pick({filters:[{name:'Tema HexDreams',extensions:['json']}]});if(!file)return {cancelled:true};if(fs.statSync(file).size>262144)throw Error('El tema supera 256 KB.');return {theme:require('../theme-files').parseTheme(fs.readFileSync(file,'utf8'))};}
       case "theme.export": {const text=require('../theme-files').serializeTheme(data.name||'Mi tema',data.settings||this.getConfig().settings);const file=await this.destination({defaultPath:'HexDreams-tema.json',filters:[{name:'Tema HexDreams',extensions:['json']}]});if(file)fs.writeFileSync(file,text,'utf8');return {ok:!!file};}
 
@@ -1423,6 +1443,7 @@ class Runtime {
   close() {
     if(this.closed)return;this.closed=true;
     clearInterval(this.awayTimer);clearInterval(this.trackerTimer);this.identityTracker?.close();
+    this.games?.close();
     this.sessions.close();
     this.scripts.close();
     this.mirc?.close();

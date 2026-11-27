@@ -450,7 +450,10 @@ class ScriptManager extends EventEmitter {
           this.report(owner, action.text);
           continue;
         }
-        if (action.type === "media.pick")
+        if (action.type === "game.tictactoe") {
+          this.allowed(owner, "ui", action.callers);
+          this.allowed(owner, "send", action.callers);
+        } else if (action.type === "media.pick")
           this.allowed(owner, "ui", action.callers);
         else if (action.type === "media.upload")
           this.allowed(owner, "http", action.callers);

@@ -32,6 +32,7 @@ const mircExamples=path.join(appDir,'Extras','mIRC');
 fs.mkdirSync(mircExamples,{recursive:true});
 for(const file of ['moderacion-basica.mrc','avisos-join.mrc'])fs.copyFileSync(path.join(root,'docs','examples',file),path.join(mircExamples,file));
 fs.copyFileSync(path.join(root,'docs','PRUEBA-MIRC-WINDOWS.md'),path.join(appDir,'PRUEBA-COMPATIBILIDAD.md'));
+fs.copyFileSync(path.join(root,'docs','TATETI.md'),path.join(appDir,'Extras','TATETI-LEEME.md'));
 fs.copyFileSync(path.join(root,'docs','PRIVADOS-V87.md'),path.join(appDir,'CONTROL-PRIVADOS-V87.md'));
 fs.copyFileSync(path.join(root,'test','fixtures','mirc','Control_Privados_mIRC_v87.mrc'),path.join(mircExamples,'Control_Privados_mIRC_v87.mrc'));
 for(const file of ['ignorakuerys.xcr','PVGuard.mrc'])fs.copyFileSync(path.join(root,'test','fixtures','mirc',file),path.join(mircExamples,file));

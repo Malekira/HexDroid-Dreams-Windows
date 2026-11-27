@@ -1,0 +1,6 @@
+; Ta-Te-Ti para HexDreams IRC 0.40.0-beta.7 o posterior.
+; /tateti [nick]  Abre el tablero. Sin nick: computadora o invitacion desde el panel.
+; @menu Scripts | Ta-Te-Ti | tateti
+alias tateti {
+ game.tictactoe $1
+}

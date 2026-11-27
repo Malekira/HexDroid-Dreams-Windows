@@ -932,6 +932,7 @@ module.exports = (Base, { parseLine, fold, token, cleanText }) =>
             command: (split < 0 ? body : body.slice(0, split)).toUpperCase(),
             args: split < 0 ? "" : body.slice(split + 1),
             notice: c === "NOTICE",
+            historical:!!(m.tags?.batch&&/chathistory/.test(this.batches.get(m.tags.batch)?.type||'')),
           });
         }
         return;

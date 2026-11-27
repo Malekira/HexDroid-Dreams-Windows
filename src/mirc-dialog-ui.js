@@ -4,9 +4,10 @@
  const call=async data=>{const r=await api.advanced('script.mirc.dialog',data);if(r?.error)throw Error(r.error);};
  const opts=c=>c.options.split(/[\s,]+/).filter(Boolean);
  function raise(root){
-  if(foreground>=2147483600){foreground=2147483100;for(const item of [...windows.values()].sort((a,b)=>Number(a.root.style.zIndex)-Number(b.root.style.zIndex)))item.root.style.zIndex=String(++foreground);}
+  if(foreground>=2147483600){foreground=2147483100;for(const item of [...document.querySelectorAll('dialog.mirc-dialog,dialog.tictactoe-dialog')].sort((a,b)=>Number(a.style.zIndex)-Number(b.style.zIndex)))item.style.zIndex=String(++foreground);}
   root.style.zIndex=String(++foreground);
  }
+ window.raiseDreamsAddonWindow=raise;
  function remove(key){const item=windows.get(key);if(!item)return;clearTimeout(item.editTimer);item.remote=true;item.root.close();item.root.remove();windows.delete(key);}
  function focus(item,id){const node=item.controls.get(String(id)),input=node?.querySelector('input,select,textarea,button')||node;if(input&&!input.disabled&&!node.hidden)input.focus();}
  function position(item,left,top){
